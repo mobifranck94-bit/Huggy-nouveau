@@ -39,16 +39,34 @@ import {
   LogOut,
   ExternalLink,
   Coins,
-  Sparkles
+  Sparkles,
+  Mail,
+  Lock,
+  UserPlus,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, useRef } from 'react';
+import { startBuildPipeline, checkServerHealth } from './lib/api';
+import { useAuth } from './lib/useAuth';
+import { useProjects } from './lib/useProjects';
 
 export default function App() {
+  // ─── Supabase Auth & Data ─────────────────────────────────────────────────
+  const auth = useAuth();
+  const { projects, currentProject, createProject, saveBuild } = useProjects(auth.user?.id);
+
+  // ─── Auth Form State ─────────────────────────────────────────────────────
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
   const [isDeviceMenuOpen, setIsDeviceMenuOpen] = useState(false);
   const [isFileExplorerOpen, setIsFileExplorerOpen] = useState(false);
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
-  const [isSignedIn, setIsSignedIn] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<'desktop' | 'mobile' | 'tablet'>('desktop');
@@ -64,6 +82,8 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
   const [isRecording, setIsRecording] = useState(false);
+  const [isServerOnline, setIsServerOnline] = useState(false);
+  const [generatedFiles, setGeneratedFiles] = useState<Array<{path: string, content: string}>>([]);
 
   // Auto-save chat input
   useEffect(() => {
@@ -84,6 +104,15 @@ export default function App() {
     }
   }, [chatInput]);
 
+  // Check server health on mount
+  useEffect(() => {
+    checkServerHealth().then(setIsServerOnline);
+    const interval = setInterval(() => {
+      checkServerHealth().then(setIsServerOnline);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Build Pipeline State
   const [isBuilding, setIsBuilding] = useState(false);
   const [currentAgentIndex, setCurrentAgentIndex] = useState(-1);
@@ -100,45 +129,115 @@ export default function App() {
     { id: 'i18n', name: 'i18n Agent', icon: Globe2, description: 'Handling translations & RTL support...' },
   ];
 
-  const startBuild = () => {
+  const startBuild = async () => {
     if (!chatInput.trim() || isBuilding) return;
+
+    // Check credits
+    if (auth.profile && auth.profile.credits <= 0) {
+      setChatHistory(prev => [...prev, {
+        role: 'assistant',
+        content: '⚠️ Crédits insuffisants. Upgrade ton plan pour continuer à build.',
+        timestamp: Date.now()
+      }]);
+      return;
+    }
+
+    const prompt = chatInput;
     
     // Add to history
     setChatHistory(prev => [...prev, { 
       role: 'user', 
-      content: chatInput, 
+      content: prompt, 
       timestamp: Date.now() 
     }]);
 
     setIsBuilding(true);
     setCurrentAgentIndex(0);
     setBuildLogs(agents.map(a => ({ agent: a.name, status: 'pending' })));
-  };
+    setChatInput('');
 
-  useEffect(() => {
-    if (isBuilding && currentAgentIndex < agents.length) {
-      // Simulate each agent logic
-      const timer = setTimeout(() => {
-        setBuildLogs(prev => prev.map((log, i) => {
-          if (i === currentAgentIndex) return { ...log, status: 'completed' };
-          if (i === currentAgentIndex + 1) return { ...log, status: 'active' };
-          return log;
-        }));
-        
-        if (currentAgentIndex === agents.length - 1) {
-          setTimeout(() => {
-            setIsBuilding(false);
-            setCurrentAgentIndex(-1);
-            setChatInput('');
-          }, 1000);
-        } else {
-          setCurrentAgentIndex(prev => prev + 1);
-        }
-      }, 1500 + Math.random() * 2000); // Randomized realistic duration
-
-      return () => clearTimeout(timer);
+    // Auto-create project if none exists
+    let projectId = currentProject?.id;
+    if (!projectId) {
+      try {
+        const proj = await createProject(prompt.slice(0, 50), prompt);
+        projectId = proj.id;
+      } catch { /* continue without project */ }
     }
-  }, [isBuilding, currentAgentIndex]);
+
+    try {
+      await startBuildPipeline(prompt, async (event) => {
+        if (event.type === 'complete') {
+          // Pipeline finished successfully
+          setIsBuilding(false);
+          setCurrentAgentIndex(-1);
+
+          // Add assistant response to chat
+          const replyParts = [];
+          if (event.reply) replyParts.push(event.reply);
+          if (event.meta) {
+            replyParts.push(`\n\n📊 **Résultats:** ${event.files?.length ?? 0} fichiers • Security: ${event.meta.securityScore ?? '—'}/100 • QA: ${event.meta.qaScore ?? '—'}/100`);
+          }
+          if (replyParts.length > 0) {
+            setChatHistory(prev => [...prev, {
+              role: 'assistant',
+              content: replyParts.join(''),
+              timestamp: Date.now()
+            }]);
+          }
+
+          // Store generated files for preview & file explorer
+          if (event.files?.length) {
+            setGeneratedFiles(event.files);
+          }
+
+          // Save build to Supabase & deduct credits
+          if (projectId) {
+            try {
+              await saveBuild(projectId, prompt, {
+                files: event.files,
+                reply: event.reply,
+                meta: event.meta,
+              });
+              await auth.refreshProfile();
+            } catch (e) {
+              console.warn('Failed to save build:', e);
+            }
+          }
+
+        } else if (event.type === 'error') {
+          setIsBuilding(false);
+          setCurrentAgentIndex(-1);
+          setChatHistory(prev => [...prev, {
+            role: 'assistant',
+            content: `❌ Pipeline error: ${event.message}`,
+            timestamp: Date.now()
+          }]);
+
+        } else if (event.type === 'agent' && event.status === 'active') {
+          setCurrentAgentIndex(event.index ?? 0);
+          setBuildLogs(prev => prev.map((log, i) => {
+            if (i === event.index) return { ...log, status: 'active' };
+            return log;
+          }));
+
+        } else if (event.type === 'agent' && event.status === 'completed') {
+          setBuildLogs(prev => prev.map((log, i) => {
+            if (i === event.index) return { ...log, status: 'completed' };
+            return log;
+          }));
+        }
+      });
+    } catch (error) {
+      setIsBuilding(false);
+      setCurrentAgentIndex(-1);
+      setChatHistory(prev => [...prev, {
+        role: 'assistant',
+        content: `❌ Connection failed: ${(error as Error).message}. Make sure the pipeline server is running (npm run dev:server).`,
+        timestamp: Date.now()
+      }]);
+    }
+  };
 
   const toggleRecording = () => {
     if (!isRecording) {
@@ -152,17 +251,33 @@ export default function App() {
     }
   };
 
-  const files = [
-    { name: 'src', type: 'folder', open: true, children: [
-      { name: 'components', type: 'folder', open: false, children: [] },
-      { name: 'App.tsx', type: 'file', icon: FileCode, color: 'text-blue-400' },
-      { name: 'main.tsx', type: 'file', icon: FileCode, color: 'text-blue-400' },
-      { name: 'index.css', type: 'file', icon: Hash, color: 'text-indigo-400' },
-    ]},
-    { name: 'package.json', type: 'file', icon: FileJson, color: 'text-yellow-500' },
-    { name: 'tsconfig.json', type: 'file', icon: FileJson, color: 'text-blue-500' },
-    { name: 'vite.config.ts', type: 'file', icon: FileCode, color: 'text-blue-400' },
-  ];
+  // Build file tree from generated files, or use default structure
+  const files = (() => {
+    if (generatedFiles.length > 0) {
+      const getIcon = (name: string) => {
+        if (name.endsWith('.tsx') || name.endsWith('.ts')) return { icon: FileCode, color: 'text-blue-400' };
+        if (name.endsWith('.css')) return { icon: Hash, color: 'text-indigo-400' };
+        if (name.endsWith('.json')) return { icon: FileJson, color: 'text-yellow-500' };
+        return { icon: FileText, color: 'text-zinc-400' };
+      };
+      return generatedFiles.map(f => {
+        const name = f.path.split('/').pop() || f.path;
+        const { icon, color } = getIcon(name);
+        return { name, type: 'file' as const, icon, color, children: undefined, open: false };
+      });
+    }
+    return [
+      { name: 'src', type: 'folder' as const, open: true, children: [
+        { name: 'components', type: 'folder' as const, open: false, children: [] as any[] },
+        { name: 'App.tsx', type: 'file' as const, icon: FileCode, color: 'text-blue-400' },
+        { name: 'main.tsx', type: 'file' as const, icon: FileCode, color: 'text-blue-400' },
+        { name: 'index.css', type: 'file' as const, icon: Hash, color: 'text-indigo-400' },
+      ]},
+      { name: 'package.json', type: 'file' as const, icon: FileJson, color: 'text-yellow-500' },
+      { name: 'tsconfig.json', type: 'file' as const, icon: FileJson, color: 'text-blue-500' },
+      { name: 'vite.config.ts', type: 'file' as const, icon: FileCode, color: 'text-blue-400' },
+    ];
+  })();
 
   const devices = [
     { id: 'desktop', label: "Taille actuelle de l'écran", icon: MonitorSmartphone },
@@ -174,18 +289,130 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-[#0a0a0b] text-zinc-400 overflow-hidden select-none">
-      {!isSignedIn ? (
+      {auth.loading ? (
+        <div className="flex-1 flex items-center justify-center bg-[#0a0a0b]">
+          <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+        </div>
+      ) : !auth.isAuthenticated ? (
         <div className="flex-1 flex flex-col items-center justify-center bg-[#0a0a0b] p-8 text-center">
           <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-6 shadow-2xl">
             <Sparkles className="w-8 h-8 text-blue-500" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Welcome Back</h1>
-          <p className="text-zinc-500 mb-8 max-w-sm">Sign in to your account to continue building your project.</p>
-          <button 
-            onClick={() => setIsSignedIn(true)}
-            className="px-8 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20"
+          <h1 className="text-2xl font-bold text-white mb-2">
+            {authMode === 'login' ? 'Welcome Back' : 'Create Account'}
+          </h1>
+          <p className="text-zinc-500 mb-6 max-w-sm">
+            {authMode === 'login'
+              ? 'Sign in to your account to continue building.'
+              : 'Join Huggy and start building AI-powered apps.'}
+          </p>
+
+          {/* Auth Form */}
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setAuthError('');
+              setAuthLoading(true);
+              try {
+                if (authMode === 'signup') {
+                  await auth.signUpWithEmail(authEmail, authPassword, authName);
+                } else {
+                  await auth.signInWithEmail(authEmail, authPassword);
+                }
+              } catch (err: any) {
+                setAuthError(err.message || 'Authentication failed');
+              } finally {
+                setAuthLoading(false);
+              }
+            }}
+            className="w-full max-w-sm flex flex-col gap-3"
           >
-            Sign In
+            {authMode === 'signup' && (
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <input
+                  type="text"
+                  placeholder="Full name"
+                  value={authName}
+                  onChange={(e) => setAuthName(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/50 transition-colors"
+                />
+              </div>
+            )}
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <input
+                type="email"
+                placeholder="Email"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                required
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/50 transition-colors"
+              />
+            </div>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <input
+                type="password"
+                placeholder="Password"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                required
+                minLength={6}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/50 transition-colors"
+              />
+            </div>
+
+            {authError && (
+              <div className="flex items-center gap-2 text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                {authError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={authLoading}
+              className="px-8 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {authLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {authMode === 'login' ? 'Sign In' : 'Create Account'}
+            </button>
+          </form>
+
+          {/* OAuth Divider */}
+          <div className="flex items-center gap-3 w-full max-w-sm my-4">
+            <div className="flex-1 h-px bg-zinc-800" />
+            <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">or</span>
+            <div className="flex-1 h-px bg-zinc-800" />
+          </div>
+
+          {/* OAuth Buttons */}
+          <div className="flex gap-3 w-full max-w-sm">
+            <button
+              onClick={() => auth.signInWithGoogle()}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-medium text-zinc-300 hover:bg-zinc-800 hover:border-zinc-700 transition-all"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+              Google
+            </button>
+            <button
+              onClick={() => auth.signInWithGitHub()}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-medium text-zinc-300 hover:bg-zinc-800 hover:border-zinc-700 transition-all"
+            >
+              <Github className="w-4 h-4" />
+              GitHub
+            </button>
+          </div>
+
+          {/* Toggle Mode */}
+          <button
+            onClick={() => { setAuthMode(m => m === 'login' ? 'signup' : 'login'); setAuthError(''); }}
+            className="mt-4 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            {authMode === 'login'
+              ? "Don't have an account? Sign up"
+              : 'Already have an account? Sign in'}
           </button>
         </div>
       ) : (
@@ -233,24 +460,24 @@ export default function App() {
                     >
                       {/* User Info Section */}
                       <div className="px-4 py-3 border-b border-zinc-800/50">
-                        <div className="text-xs font-bold text-zinc-100">Franck Mobi</div>
-                        <div className="text-[10px] text-zinc-500 truncate">mobifranck94@gmail.com</div>
+                        <div className="text-xs font-bold text-zinc-100">{auth.profile?.full_name || auth.user?.email?.split('@')[0] || 'User'}</div>
+                        <div className="text-[10px] text-zinc-500 truncate">{auth.user?.email || ''}</div>
                       </div>
 
                       {/* Credits Section */}
                       <div className="px-4 py-3 border-b border-zinc-800/50 bg-blue-500/5">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Credits Huggy</span>
-                          <span className="text-[10px] text-blue-400 font-mono">PRO PLAN</span>
+                          <span className="text-[10px] text-blue-400 font-mono">{(auth.profile?.plan || 'free').toUpperCase()}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="p-1.5 bg-blue-500/20 rounded-md">
                             <Coins className="w-4 h-4 text-blue-400" />
                           </div>
                           <div>
-                            <div className="text-sm font-bold text-zinc-100">1,240 <span className="text-zinc-500 font-normal">/ 5,000</span></div>
+                            <div className="text-sm font-bold text-zinc-100">{auth.profile?.credits ?? 0} <span className="text-zinc-500 font-normal">/ {auth.profile?.max_credits ?? 500}</span></div>
                             <div className="w-32 h-1 bg-zinc-800 rounded-full mt-1 overflow-hidden">
-                              <div className="h-full bg-blue-500 w-[25%]" />
+                              <div className="h-full bg-blue-500 transition-all" style={{ width: `${Math.round(((auth.profile?.credits ?? 0) / (auth.profile?.max_credits ?? 500)) * 100)}%` }} />
                             </div>
                           </div>
                         </div>
@@ -279,8 +506,8 @@ export default function App() {
 
                       <div className="p-1.5">
                         <button 
-                          onClick={() => {
-                            setIsSignedIn(false);
+                          onClick={async () => {
+                            await auth.signOut();
                             setIsHeaderMenuOpen(false);
                           }}
                           className="w-full flex items-center gap-2 px-3 py-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all text-xs font-medium"
@@ -299,11 +526,16 @@ export default function App() {
               <div 
                 className="bg-zinc-900/60 border border-zinc-800/80 rounded-[14px] px-4 py-2 flex items-center gap-3 shadow-sm"
               >
-                <span className="font-display font-medium text-zinc-100 text-[13px] tracking-tight leading-none">Off-White Website....</span>
+                <span className="font-display font-medium text-zinc-100 text-[13px] tracking-tight leading-none">{currentProject?.name || 'New Project'}</span>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-1 ml-auto">
+            {/* Server status indicator */}
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${isServerOnline ? 'text-green-400 bg-green-500/10' : 'text-red-400 bg-red-500/10'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${isServerOnline ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`} />
+              {isServerOnline ? 'API Online' : 'API Offline'}
+            </div>
             <button className="p-1.5 hover:bg-zinc-800 rounded-md transition-colors">
               <Clock className="w-4 h-4 text-zinc-400" />
             </button>
@@ -457,7 +689,7 @@ export default function App() {
                       startBuild();
                     }
                   }}
-                  placeholder="Ask Lovable..."
+                  placeholder={isServerOnline ? 'Décris ton application...' : '⚠️ Server offline — run: npm run dev:server'}
                   rows={1}
                   className="w-full bg-transparent border-none text-zinc-200 text-sm font-medium resize-none focus:outline-none placeholder:text-zinc-500 mb-2 max-h-[160px] scrollbar-hide overflow-y-auto"
                 />
@@ -606,6 +838,26 @@ export default function App() {
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
                  style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
             />
+
+            {/* Generated App Preview */}
+            {generatedFiles.length > 0 && !isBuilding && !isEditMode && (
+              <div className="absolute inset-0 z-10 bg-white">
+                <iframe
+                  title="Preview"
+                  srcDoc={(() => {
+                    const appFile = generatedFiles.find(f => f.path.endsWith('App.tsx') || f.path.endsWith('App.jsx'));
+                    const cssFile = generatedFiles.find(f => f.path.endsWith('.css'));
+                    if (!appFile) return '<html><body style="background:#111;color:#888;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif"><p>No preview available</p></body></html>';
+                    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${cssFile?.content ?? ''}</style></head><body style="margin:0">
+                      <div id="root" style="padding:20px;font-family:Inter,sans-serif;background:#0a0a0a;color:#e4e4e7;min-height:100vh">
+                        <pre style="white-space:pre-wrap;font-size:12px;line-height:1.6;color:#a1a1aa">${appFile.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                      </div></body></html>`;
+                  })()}
+                  className="w-full h-full border-0"
+                  sandbox="allow-scripts"
+                />
+              </div>
+            )}
 
             {/* Edit Mode Selection Overlay */}
             <AnimatePresence>
