@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+    <script>
+      // Defensive fix for libraries trying to overwrite window.fetch
+      (function() {
+        try {
+          const originalFetch = window.fetch;
+          const originalDefineProperty = Object.defineProperty;
+
+          // Attempt to make window.fetch non-throwing on assignment
+          Object.defineProperty(window, 'fetch', {
+            get: function() { return originalFetch; },
+            set: function() { console.warn('Attempt to overwrite window.fetch ignored to prevent crash.'); },
+            configurable: true,
+            enumerable: true
+          });
+
+          // Also protect globalThis just in case
+          if (typeof globalThis !== 'undefined' && globalThis !== window) {
+            Object.defineProperty(globalThis, 'fetch', {
+              get: function() { return originalFetch; },
+              set: function() { console.warn('Attempt to overwrite globalThis.fetch ignored to prevent crash.'); },
+              configurable: true,
+              enumerable: true
+            });
+          }
+        } catch (e) {
+          // If we can't redefine it, we might already be in the state that causes the error
+          // or the environment is very restricted.
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
