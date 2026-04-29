@@ -1,5 +1,6 @@
 import { 
   Heart, 
+  Home,
   ChevronDown, 
   Clock, 
   PanelLeft, 
@@ -31,7 +32,13 @@ import {
   Globe2,
   CheckCircle2,
   Loader2,
-  Activity
+  Activity,
+  CreditCard,
+  User,
+  Settings,
+  LogOut,
+  ExternalLink,
+  Coins
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -39,6 +46,7 @@ import { useState, useEffect } from 'react';
 export default function App() {
   const [isDeviceMenuOpen, setIsDeviceMenuOpen] = useState(false);
   const [isFileExplorerOpen, setIsFileExplorerOpen] = useState(false);
+  const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<'desktop' | 'mobile' | 'tablet'>('desktop');
@@ -133,17 +141,93 @@ export default function App() {
     <div className="flex flex-col h-screen bg-[#0a0a0b] text-zinc-400 overflow-hidden select-none">
       {/* Top Header */}
       <header className="flex items-center px-4 py-2 border-b border-zinc-800/50 h-14 shrink-0">
-        <div className="flex items-center gap-4 w-[380px] shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 via-orange-500 to-indigo-500 flex items-center justify-center">
-              <Heart className="w-5 h-5 text-white fill-white" />
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1 cursor-pointer">
-                <span className="font-display font-semibold text-zinc-100 text-sm tracking-tight">My Web Application</span>
-                <ChevronDown className="w-3 h-3 text-zinc-500" />
+        <div className="flex items-center gap-2 w-auto shrink-0">
+          <div className="flex items-center gap-2 pl-1">
+            {/* Logo Icon */}
+            <div className="w-10 h-10 rounded-xl bg-[#1c1c1e] border border-zinc-800/80 flex items-center justify-center shadow-lg group cursor-pointer hover:border-zinc-700 transition-all duration-300">
+              <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+                <Zap className="w-3.5 h-3.5 text-white fill-white" />
               </div>
-              <span className="text-[10px] text-zinc-500 font-medium leading-none">Previewing last saved version</span>
+            </div>
+            
+            {/* Home Link Section */}
+            <div className="flex items-center gap-2.5 ml-1">
+              <div className="w-8 h-8 rounded-lg border border-zinc-800/80 flex items-center justify-center hover:bg-zinc-800/50 transition-colors cursor-pointer group">
+                <Home className="w-4 h-4 text-zinc-400 group-hover:text-zinc-200" />
+              </div>
+              <span className="text-zinc-700 text-sm">/</span>
+            </div>
+
+            <div className="flex flex-col relative ml-1">
+              <div 
+                onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
+                className="bg-zinc-900/60 border border-zinc-800/80 rounded-[14px] px-4 py-2 flex items-center gap-3 hover:bg-zinc-800 group transition-all cursor-pointer shadow-sm"
+              >
+                <span className="font-display font-medium text-zinc-100 text-[13px] tracking-tight leading-none">Off-White Website....</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-zinc-500 transition-transform duration-300 group-hover:text-blue-400 ${isHeaderMenuOpen ? 'rotate-180 text-blue-400' : ''}`} />
+              </div>
+
+              <AnimatePresence>
+                {isHeaderMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsHeaderMenuOpen(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute top-full left-0 mt-2 w-64 bg-[#1c1c1d] border border-zinc-800 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-50 py-2 overflow-hidden backdrop-blur-xl"
+                    >
+                      {/* Credits Section */}
+                      <div className="px-4 py-3 border-b border-zinc-800/50 bg-blue-500/5">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Credits Huggy</span>
+                          <span className="text-[10px] text-blue-400 font-mono">PRO PLAN</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 bg-blue-500/20 rounded-md">
+                            <Coins className="w-4 h-4 text-blue-400" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold text-zinc-100">1,240 <span className="text-zinc-500 font-normal">/ 5,000</span></div>
+                            <div className="w-32 h-1 bg-zinc-800 rounded-full mt-1 overflow-hidden">
+                              <div className="h-full bg-blue-500 w-[25%]" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Menu Links */}
+                      <div className="p-1.5">
+                        <button className="w-full flex items-center justify-between px-3 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-lg transition-all text-xs font-medium group">
+                          <div className="flex items-center gap-2">
+                            <Layout className="w-4 h-4 text-zinc-500 group-hover:text-blue-400" />
+                            User Dashboard
+                          </div>
+                          <ExternalLink className="w-3 h-3 text-zinc-600" />
+                        </button>
+                        <button className="w-full flex items-center gap-2 px-3 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-lg transition-all text-xs font-medium group">
+                          <Settings className="w-4 h-4 text-zinc-500 group-hover:text-blue-400" />
+                          Project Settings
+                        </button>
+                        <button className="w-full flex items-center gap-2 px-3 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-lg transition-all text-xs font-medium group text-zinc-100">
+                          <CreditCard className="w-4 h-4 text-zinc-500 group-hover:text-blue-400" />
+                          Upgrade Plan
+                        </button>
+                      </div>
+
+                      <div className="h-px bg-zinc-800/50 mx-2 my-1" />
+
+                      <div className="p-1.5">
+                        <button className="w-full flex items-center gap-2 px-3 py-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all text-xs font-medium">
+                          <LogOut className="w-4 h-4" />
+                          Sign Out
+                        </button>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+              
             </div>
           </div>
           <div className="flex items-center gap-1 ml-auto">
@@ -159,7 +243,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 bg-zinc-900/40 p-1 rounded-lg border border-zinc-800/50 ml-2">
+        <div className="flex items-center gap-1 bg-zinc-900/40 p-1 rounded-lg border border-zinc-800/50 ml-8">
           <button 
             onClick={() => setIsFileExplorerOpen(false)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all text-xs font-medium ${!isFileExplorerOpen ? 'bg-zinc-800/80 text-blue-400 shadow-sm border border-zinc-700/30' : 'text-zinc-400 hover:bg-zinc-800/80'}`}
@@ -378,12 +462,19 @@ export default function App() {
                       </div>
                       {file.type === 'folder' && file.open && file.children && (
                         <div className="ml-4">
-                          {file.children.map((child, cIdx) => (
-                            <div key={cIdx} className="flex items-center gap-2 px-3 py-1 hover:bg-zinc-800/50 cursor-pointer text-zinc-400 group-hover:block transition-colors">
-                              <child.icon className={`w-4 h-4 ml-5 ${child.color}`} />
-                              <span className="text-sm">{child.name}</span>
-                            </div>
-                          ))}
+                      {file.children.map((child, cIdx) => (
+                        <div key={cIdx} className="flex items-center gap-2 px-3 py-1 hover:bg-zinc-800/50 cursor-pointer text-zinc-400 transition-colors">
+                          {child.type === 'folder' ? (
+                            <>
+                              <ChevronRight className="w-3 h-3 text-zinc-500 ml-5" />
+                              <FolderOpen className="w-4 h-4 text-zinc-400" />
+                            </>
+                          ) : (
+                            <child.icon className={`w-4 h-4 ml-5 ${child.color}`} />
+                          )}
+                          <span className="text-sm">{child.name}</span>
+                        </div>
+                      ))}
                         </div>
                       )}
                     </div>
