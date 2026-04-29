@@ -160,17 +160,20 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-1 bg-zinc-900/40 p-1 rounded-lg border border-zinc-800/50 ml-2">
-          <button className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800/80 text-blue-400 text-xs font-medium rounded-md shadow-sm border border-zinc-700/30">
+          <button 
+            onClick={() => setIsFileExplorerOpen(false)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all text-xs font-medium ${!isFileExplorerOpen ? 'bg-zinc-800/80 text-blue-400 shadow-sm border border-zinc-700/30' : 'text-zinc-400 hover:bg-zinc-800/80'}`}
+          >
             <Globe className="w-3.5 h-3.5" />
             Preview
           </button>
           <button 
-            onClick={() => setIsFileExplorerOpen(!isFileExplorerOpen)}
-            className={`p-1.5 rounded-md transition-colors ${isFileExplorerOpen ? 'bg-zinc-800/80 text-blue-400 border border-zinc-700/30' : 'hover:bg-zinc-800/80 text-zinc-400'}`}
+            onClick={() => setIsFileExplorerOpen(true)}
+            className={`p-1.5 rounded-md transition-all ${isFileExplorerOpen ? 'bg-zinc-800/80 text-blue-400 border border-zinc-700/30' : 'text-zinc-400 hover:bg-zinc-800/80'}`}
           >
-            <FileText className="w-3.5 h-3.5" />
+            <Code2 className="w-3.5 h-3.5" />
           </button>
-          <button className="p-1.5 hover:bg-zinc-800/80 rounded-md transition-colors">
+          <button className="p-1.5 hover:bg-zinc-800/80 rounded-md transition-colors text-zinc-400">
             <Cloud className="w-3.5 h-3.5" />
           </button>
         </div>
