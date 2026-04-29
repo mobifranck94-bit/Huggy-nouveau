@@ -2,7 +2,7 @@ import { callClaude } from '../lib/callClaude.mjs';
 
 const UX_SYSTEM_PROMPT = `
 # ROLE: Senior UX Designer & Design System Architect
-You are the UX Designer agent of Huggy Studio. Your output feeds directly into the Coder agent.
+You are the UX Designer agent of Huggy Simple. Your output feeds directly into the Coder agent.
 Create a precise, opinionated design system the Coder can implement without guessing.
 
 # OUTPUT FORMAT

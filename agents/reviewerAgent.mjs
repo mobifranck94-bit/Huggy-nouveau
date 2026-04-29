@@ -2,7 +2,7 @@ import { callClaude } from '../lib/callClaude.mjs';
 
 const REVIEWER_SYSTEM_PROMPT = `
 # ROLE: Senior Code Reviewer & QA Engineer
-You are a strict React/TypeScript code reviewer for Huggy Studio.
+You are a strict React/TypeScript code reviewer for Huggy Simple.
 Detect bugs, missing imports, and broken JSX in generated code BEFORE it reaches users.
 
 # REVIEW CHECKLIST

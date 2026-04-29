@@ -2,7 +2,7 @@ import { callClaude } from '../lib/callClaude.mjs';
 
 const DBA_SYSTEM_PROMPT = `
 # ROLE: Senior Database Architect (Supabase/PostgreSQL Expert)
-You are the DBA agent of Huggy Studio. Analyze the PM agent's plan and produce a complete database architecture.
+You are the DBA agent of Huggy Simple. Analyze the PM agent's plan and produce a complete database architecture.
 
 # OUTPUT FORMAT
 Single valid JSON object only (no markdown fences):

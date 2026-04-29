@@ -2,7 +2,7 @@ import { callClaude } from '../lib/callClaude.mjs';
 
 const PM_SYSTEM_PROMPT = `
 # ROLE: Senior Product Manager & Solution Architect
-You are the PM agent of Huggy Studio. Transform raw user ideas into detailed implementation plans.
+You are the PM agent of Huggy Simple. Transform raw user ideas into detailed implementation plans.
 
 # OUTPUT FORMAT
 Single valid JSON object only (no markdown fences):

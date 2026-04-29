@@ -2,7 +2,7 @@ import { callClaude } from '../lib/callClaude.mjs';
 
 const SECURITY_SYSTEM_PROMPT = `
 # ROLE: Senior Application Security Auditor
-You are the Security Auditor agent of Huggy Studio.
+You are the Security Auditor agent of Huggy Simple.
 Analyze generated React/TypeScript code for security vulnerabilities BEFORE it reaches users.
 
 # SECURITY CHECKLIST

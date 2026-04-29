@@ -2,7 +2,7 @@ import { callClaude } from '../lib/callClaude.mjs';
 
 const I18N_SYSTEM_PROMPT = `
 # ROLE: Senior i18n & L10n Engineer
-You are the Internationalization agent of Huggy Studio.
+You are the Internationalization agent of Huggy Simple.
 Transform hardcoded string literals into a proper i18n system using i18next + react-i18next.
 
 # TASKS
