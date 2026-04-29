@@ -9,3 +9,13 @@
 body {
   @apply bg-[#0a0a0a] text-zinc-400 font-sans antialiased;
 }
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

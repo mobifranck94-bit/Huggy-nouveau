@@ -38,23 +38,51 @@ import {
   Settings,
   LogOut,
   ExternalLink,
-  Coins
+  Coins,
+  Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function App() {
   const [isDeviceMenuOpen, setIsDeviceMenuOpen] = useState(false);
   const [isFileExplorerOpen, setIsFileExplorerOpen] = useState(false);
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
+  const [isSignedIn, setIsSignedIn] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<'desktop' | 'mobile' | 'tablet'>('desktop');
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
   
   const [appMode, setAppMode] = useState<'build' | 'plan'>('build');
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
-  const [chatInput, setChatInput] = useState('');
+  const [chatInput, setChatInput] = useState(() => {
+    return localStorage.getItem('huggy_chat_input') || '';
+  });
+  const [chatHistory, setChatHistory] = useState<{role: 'user' | 'assistant', content: string, timestamp: number}[]>(() => {
+    const saved = localStorage.getItem('huggy_chat_history');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [isRecording, setIsRecording] = useState(false);
+
+  // Auto-save chat input
+  useEffect(() => {
+    localStorage.setItem('huggy_chat_input', chatInput);
+  }, [chatInput]);
+
+  // Auto-save chat history
+  useEffect(() => {
+    localStorage.setItem('huggy_chat_history', JSON.stringify(chatHistory));
+  }, [chatHistory]);
+
+  // Handle textarea auto-resize
+  useEffect(() => {
+    if (chatInputRef.current) {
+      chatInputRef.current.style.height = 'auto';
+      const newHeight = Math.min(chatInputRef.current.scrollHeight, 160);
+      chatInputRef.current.style.height = `${newHeight}px`;
+    }
+  }, [chatInput]);
 
   // Build Pipeline State
   const [isBuilding, setIsBuilding] = useState(false);
@@ -75,6 +103,13 @@ export default function App() {
   const startBuild = () => {
     if (!chatInput.trim() || isBuilding) return;
     
+    // Add to history
+    setChatHistory(prev => [...prev, { 
+      role: 'user', 
+      content: chatInput, 
+      timestamp: Date.now() 
+    }]);
+
     setIsBuilding(true);
     setCurrentAgentIndex(0);
     setBuildLogs(agents.map(a => ({ agent: a.name, status: 'pending' })));
@@ -139,33 +174,52 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-[#0a0a0b] text-zinc-400 overflow-hidden select-none">
-      {/* Top Header */}
+      {!isSignedIn ? (
+        <div className="flex-1 flex flex-col items-center justify-center bg-[#0a0a0b] p-8 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-6 shadow-2xl">
+            <Sparkles className="w-8 h-8 text-blue-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-2">Welcome Back</h1>
+          <p className="text-zinc-500 mb-8 max-w-sm">Sign in to your account to continue building your project.</p>
+          <button 
+            onClick={() => setIsSignedIn(true)}
+            className="px-8 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20"
+          >
+            Sign In
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Top Header */}
       <header className="flex items-center px-4 py-2 border-b border-zinc-800/50 h-14 shrink-0">
         <div className="flex items-center gap-2 w-auto shrink-0">
           <div className="flex items-center gap-2 pl-1">
             {/* Logo Icon */}
-            <div className="w-10 h-10 rounded-xl bg-[#1c1c1e] border border-zinc-800/80 flex items-center justify-center shadow-lg group cursor-pointer hover:border-zinc-700 transition-all duration-300">
-              <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.3)]">
-                <Zap className="w-3.5 h-3.5 text-white fill-white" />
+            <div className="w-10 h-10 rounded-xl bg-[#1c1c1e] border border-zinc-800/80 flex items-center justify-center shadow-lg group cursor-pointer hover:border-zinc-700 transition-all duration-300 overflow-hidden">
+              <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center relative overflow-hidden group-hover:bg-indigo-500 transition-colors">
+                {/* Simplified monster-like shape */}
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-400 to-indigo-700 opacity-50" />
+                <div className="relative w-5 h-5 flex flex-col items-center justify-center">
+                  <div className="w-4 h-4 bg-white rounded-t-full relative">
+                    <div className="absolute top-1 left-1 w-1 h-1 bg-zinc-900 rounded-full" />
+                    <div className="absolute top-1 right-1 w-1 h-1 bg-zinc-900 rounded-full" />
+                    <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-0.5 bg-pink-500 rounded-full" />
+                  </div>
+                  <div className="w-5 h-2 bg-indigo-600 -mt-1 rounded-full border-t border-indigo-400/30" />
+                </div>
               </div>
             </div>
             
             {/* Home Link Section */}
-            <div className="flex items-center gap-2.5 ml-1">
-              <div className="w-8 h-8 rounded-lg border border-zinc-800/80 flex items-center justify-center hover:bg-zinc-800/50 transition-colors cursor-pointer group">
-                <Home className="w-4 h-4 text-zinc-400 group-hover:text-zinc-200" />
-              </div>
-              <span className="text-zinc-700 text-sm">/</span>
-            </div>
-
-            <div className="flex flex-col relative ml-1">
+            <div className="flex items-center gap-2.5 ml-1 relative">
               <div 
                 onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
-                className="bg-zinc-900/60 border border-zinc-800/80 rounded-[14px] px-4 py-2 flex items-center gap-3 hover:bg-zinc-800 group transition-all cursor-pointer shadow-sm"
+                className="w-8 h-8 rounded-lg border border-zinc-800/80 flex items-center justify-center hover:bg-zinc-800/50 transition-all cursor-pointer group"
               >
-                <span className="font-display font-medium text-zinc-100 text-[13px] tracking-tight leading-none">Off-White Website....</span>
-                <ChevronDown className={`w-3.5 h-3.5 text-zinc-500 transition-transform duration-300 group-hover:text-blue-400 ${isHeaderMenuOpen ? 'rotate-180 text-blue-400' : ''}`} />
+                <Home className={`w-4 h-4 transition-colors ${isHeaderMenuOpen ? 'text-blue-400' : 'text-zinc-400 group-hover:text-zinc-200'}`} />
               </div>
+              <span className="text-[13px] font-medium text-zinc-400">Home</span>
+              <span className="text-zinc-700 text-sm">/</span>
 
               <AnimatePresence>
                 {isHeaderMenuOpen && (
@@ -177,6 +231,12 @@ export default function App() {
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       className="absolute top-full left-0 mt-2 w-64 bg-[#1c1c1d] border border-zinc-800 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-50 py-2 overflow-hidden backdrop-blur-xl"
                     >
+                      {/* User Info Section */}
+                      <div className="px-4 py-3 border-b border-zinc-800/50">
+                        <div className="text-xs font-bold text-zinc-100">Franck Mobi</div>
+                        <div className="text-[10px] text-zinc-500 truncate">mobifranck94@gmail.com</div>
+                      </div>
+
                       {/* Credits Section */}
                       <div className="px-4 py-3 border-b border-zinc-800/50 bg-blue-500/5">
                         <div className="flex items-center justify-between mb-2">
@@ -218,7 +278,13 @@ export default function App() {
                       <div className="h-px bg-zinc-800/50 mx-2 my-1" />
 
                       <div className="p-1.5">
-                        <button className="w-full flex items-center gap-2 px-3 py-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all text-xs font-medium">
+                        <button 
+                          onClick={() => {
+                            setIsSignedIn(false);
+                            setIsHeaderMenuOpen(false);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all text-xs font-medium"
+                        >
                           <LogOut className="w-4 h-4" />
                           Sign Out
                         </button>
@@ -227,7 +293,14 @@ export default function App() {
                   </>
                 )}
               </AnimatePresence>
-              
+            </div>
+
+            <div className="flex flex-col relative ml-1">
+              <div 
+                className="bg-zinc-900/60 border border-zinc-800/80 rounded-[14px] px-4 py-2 flex items-center gap-3 shadow-sm"
+              >
+                <span className="font-display font-medium text-zinc-100 text-[13px] tracking-tight leading-none">Off-White Website....</span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1 ml-auto">
@@ -246,7 +319,7 @@ export default function App() {
         <div className="flex items-center gap-1 bg-zinc-900/40 p-1 rounded-lg border border-zinc-800/50 ml-8">
           <button 
             onClick={() => setIsFileExplorerOpen(false)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all text-xs font-medium ${!isFileExplorerOpen ? 'bg-zinc-800/80 text-blue-400 shadow-sm border border-zinc-700/30' : 'text-zinc-400 hover:bg-zinc-800/80'}`}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${!isFileExplorerOpen ? 'bg-zinc-800/80 text-blue-400 shadow-sm border border-zinc-700/30' : 'text-zinc-400 hover:bg-zinc-800/80'}`}
           >
             <Globe className="w-3.5 h-3.5" />
             Preview
@@ -307,13 +380,13 @@ export default function App() {
           </AnimatePresence>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Github className="w-5 h-5 text-zinc-400 hover:text-zinc-200 cursor-pointer transition-colors" />
-          <button className="flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity">
-            <Zap className="w-4 h-4 fill-white" />
+        <div className="flex items-center gap-2">
+          <Github className="w-4 h-4 text-zinc-400 hover:text-zinc-200 cursor-pointer transition-colors" />
+          <button className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-bold rounded-lg hover:opacity-90 transition-opacity">
+            <Zap className="w-3.5 h-3.5 fill-white" />
             Upgrade
           </button>
-          <button className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-500 transition-colors">
+          <button className="px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors">
             Publish
           </button>
         </div>
@@ -332,17 +405,61 @@ export default function App() {
               className="flex flex-col gap-2 shrink-0 h-full overflow-hidden"
             >
               {/* Conversation/History Area */}
-              <div className="flex-1 bg-[#161617] rounded-2xl border border-zinc-800/50 overflow-hidden shadow-inner flex flex-col">
-                <div className="flex-1" />
+              <div className="flex-1 bg-[#161617] rounded-2xl border border-zinc-800/50 overflow-hidden shadow-inner flex flex-col p-4 overflow-y-auto scrollbar-hide">
+                {chatHistory.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-6 opacity-30">
+                    <Clock className="w-8 h-8 mb-3" />
+                    <p className="text-xs font-medium">No history yet</p>
+                    <p className="text-[10px] mt-1">Your conversations will appear here</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {chatHistory.map((msg, idx) => (
+                      <div key={idx} className="flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                            {msg.role === 'user' ? 'Request' : 'Huggy'}
+                          </span>
+                          <span className="text-[9px] text-zinc-600">
+                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <div className={`text-xs p-3 rounded-xl border ${
+                          msg.role === 'user' 
+                            ? 'bg-zinc-800/30 border-zinc-700/30 text-zinc-300' 
+                            : 'bg-blue-500/5 border-blue-500/20 text-blue-100'
+                        }`}>
+                          {msg.content}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="pt-4 flex justify-center">
+                      <button 
+                        onClick={() => setChatHistory([])}
+                        className="text-[9px] text-zinc-600 hover:text-zinc-400 uppercase tracking-tighter font-bold transition-colors"
+                      >
+                        Clear History
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Chat Input Area */}
-              <div className="bg-[#161617] rounded-2xl border border-zinc-800/50 p-4 shadow-lg min-h-[160px] flex flex-col relative">
+              <div className="bg-[#161617] rounded-2xl border border-zinc-800/50 p-4 shadow-lg flex flex-col relative transition-all duration-200 shrink-0">
                 <textarea 
+                  ref={chatInputRef}
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      startBuild();
+                    }
+                  }}
                   placeholder="Ask Lovable..."
-                  className="flex-1 bg-transparent border-none text-zinc-200 text-sm font-medium resize-none focus:outline-none placeholder:text-zinc-500 mb-2"
+                  rows={1}
+                  className="w-full bg-transparent border-none text-zinc-200 text-sm font-medium resize-none focus:outline-none placeholder:text-zinc-500 mb-2 max-h-[160px] scrollbar-hide overflow-y-auto"
                 />
                 
                 <div className="flex items-center justify-between mt-auto">
@@ -612,6 +729,8 @@ export default function App() {
           </div>
         </motion.div>
       </main>
+        </>
+      )}
     </div>
   );
 }
