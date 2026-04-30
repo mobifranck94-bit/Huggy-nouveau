@@ -32,7 +32,6 @@ import {
   Globe2,
   CheckCircle2,
   Loader2,
-  Activity,
   CreditCard,
   User,
   Settings,
@@ -159,21 +158,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Build Pipeline State
-  const [isBuilding, setIsBuilding] = useState(false);
-  const [currentAgentIndex, setCurrentAgentIndex] = useState(-1);
-  const [buildLogs, setBuildLogs] = useState<{agent: string, status: 'pending' | 'active' | 'completed'}[]>([]);
 
-  const agents = [
-    { id: 'research', name: 'Web Research', icon: Search, description: 'Analyzing references and context...' },
-    { id: 'pm', name: 'Product Manager', icon: ClipboardList, description: 'Drafting implementation plan...' },
-    { id: 'dba', name: 'DBA Architect', icon: Database, description: 'Structuring database & RLS policies...' },
-    { id: 'ux', name: 'UX Designer', icon: Layout, description: 'Designing design system & components...' },
-    { id: 'coder', name: 'Coder Agent', icon: Code2, description: 'Generating React & TypeScript code...' },
-    { id: 'security', name: 'Security Auditor', icon: ShieldCheck, description: 'Auditing for vulnerabilities...' },
-    { id: 'reviewer', name: 'QA Reviewer', icon: Eye, description: 'Checking for bugs & UX consistency...' },
-    { id: 'i18n', name: 'i18n Agent', icon: Globe2, description: 'Handling translations & RTL support...' },
-  ];
 
   const startBuild = async () => {
     if (!chatInput.trim() || isBuilding) return;
@@ -198,8 +183,6 @@ export default function App() {
     }]);
 
     setIsBuilding(true);
-    setCurrentAgentIndex(0);
-    setBuildLogs(agents.map(a => ({ agent: a.name, status: 'pending' })));
     setChatInput('');
 
     // Auto-create project if none exists
@@ -216,7 +199,6 @@ export default function App() {
         if (event.type === 'complete') {
           // Pipeline finished successfully
           setIsBuilding(false);
-          setCurrentAgentIndex(-1);
 
           // Add assistant response to chat
           const replyParts = [];
@@ -253,25 +235,12 @@ export default function App() {
 
         } else if (event.type === 'error') {
           setIsBuilding(false);
-          setCurrentAgentIndex(-1);
           setChatHistory(prev => [...prev, {
             role: 'assistant',
             content: `❌ Pipeline error: ${event.message}`,
             timestamp: Date.now()
           }]);
 
-        } else if (event.type === 'agent' && event.status === 'active') {
-          setCurrentAgentIndex(event.index ?? 0);
-          setBuildLogs(prev => prev.map((log, i) => {
-            if (i === event.index) return { ...log, status: 'active' };
-            return log;
-          }));
-
-        } else if (event.type === 'agent' && event.status === 'completed') {
-          setBuildLogs(prev => prev.map((log, i) => {
-            if (i === event.index) return { ...log, status: 'completed' };
-            return log;
-          }));
         }
       }, generatedFiles);
     } catch (error) {
@@ -790,99 +759,7 @@ export default function App() {
               )}
             </AnimatePresence>
 
-            {/* Huggy Multi-Agent Pipeline Visualization */}
-            <AnimatePresence>
-              {isBuilding && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute inset-0 z-40 bg-[#0d0d0e]/95 backdrop-blur-xl flex flex-col items-center justify-center p-8"
-                >
-                  <div className="max-w-2xl w-full">
-                    <div className="flex items-center justify-between mb-8">
-                      <div>
-                        <h2 className="text-2xl font-display font-bold text-zinc-100 flex items-center gap-3">
-                          <Activity className="w-6 h-6 text-blue-500" />
-                          Huggy Orchestrator
-                        </h2>
-                        <p className="text-zinc-500 text-sm mt-1">Executing multi-agent pipeline for your request</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-3xl font-mono font-bold text-blue-500/50">
-                          {Math.round(((currentAgentIndex + 1) / agents.length) * 100)}%
-                        </span>
-                      </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
-                      {agents.map((agent, index) => {
-                        const isCompleted = index < currentAgentIndex;
-                        const isActive = index === currentAgentIndex;
-                        const isPending = index > currentAgentIndex;
-
-                        return (
-                          <motion.div
-                            key={agent.id}
-                            initial={{ x: -20, opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            transition={{ delay: index * 0.1 }}
-                            className={`p-4 rounded-xl border transition-all duration-300 ${
-                              isActive 
-                                ? 'bg-blue-600/10 border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.1)]' 
-                                : isCompleted 
-                                  ? 'bg-zinc-800/20 border-zinc-800/50 opacity-60' 
-                                  : 'bg-zinc-900/20 border-zinc-800/30 opacity-40'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={`p-2 rounded-lg ${isActive ? 'bg-blue-500 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
-                                <agent.icon className="w-5 h-5" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h3 className={`text-sm font-bold truncate ${isActive ? 'text-zinc-100' : 'text-zinc-400'}`}>
-                                  {agent.name}
-                                </h3>
-                                <p className="text-[11px] text-zinc-500 truncate">
-                                  {isActive ? agent.description : isCompleted ? 'Verification successful' : 'Waiting...'}
-                                </p>
-                              </div>
-                              {isCompleted && <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />}
-                              {isActive && <Loader2 className="w-4 h-4 text-blue-500 animate-spin shrink-0" />}
-                            </div>
-                            
-                            {isActive && (
-                              <motion.div 
-                                layoutId="progress-bar"
-                                className="h-0.5 bg-blue-500 mt-3 rounded-full overflow-hidden"
-                              >
-                                <motion.div 
-                                  initial={{ width: 0 }}
-                                  animate={{ width: "100%" }}
-                                  transition={{ duration: 2, ease: "linear" }}
-                                  className="h-full bg-blue-400"
-                                />
-                              </motion.div>
-                            )}
-                          </motion.div>
-                        );
-                      })}
-                    </div>
-                    
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 font-mono text-[10px] text-zinc-500 h-24 overflow-y-auto">
-                      <div className="text-blue-500 mb-1">Starting pipeline...</div>
-                      {buildLogs.filter(l => l.status !== 'pending').map((log, i) => (
-                        <div key={i} className="mb-0.5">
-                          [Agent: {log.agent}] <span className={log.status === 'completed' ? 'text-green-500' : 'text-yellow-500 animate-pulse'}>
-                            {log.status === 'completed' ? '✓ DONE' : '• EXECUTING...'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
         </motion.div>
       </main>
