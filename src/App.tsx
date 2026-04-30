@@ -1,5 +1,6 @@
-import { 
-  Heart, 
+import { useState, useRef, useEffect } from 'react';
+import {
+  Heart,
   Home,
   ChevronDown, 
   Clock, 
@@ -43,7 +44,8 @@ import {
   Activity,
   BarChart3,
   Users,
-  ArrowRight
+  ArrowRight,
+  History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Editor from '@monaco-editor/react';
@@ -52,9 +54,10 @@ import { startBuildPipeline, checkServerHealth } from './lib/api';
 import { useAuth } from './lib/useAuth';
 import { useProjects } from './lib/useProjects';
 import { supabase, type Build } from './lib/supabase';
+import LandingPage from './pages/LandingPage';
 
 // ─── Streaming Chat Types ─────────────────────────────────────────────────────
-type AgentStatus = 'idle' | 'active' | 'done' | 'skipped';
+type AgentStatus = 'idle' | 'active' | 'completed' | 'skipped';
 
 interface AgentInfo {
   name: string;
@@ -142,7 +145,7 @@ export default function App() {
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   
   const [appMode, setAppMode] = useState<'build' | 'plan'>('build');
-  const [selectedModel, setSelectedModel] = useState('claude-3-5-sonnet-20241022');
+  const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-6');
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'preview' | 'code' | 'analytics'>('preview');
@@ -153,31 +156,40 @@ export default function App() {
   const [buildHistory, setBuildHistory] = useState<Build[]>([]);
   const [isPreviewOnly, setIsPreviewOnly] = useState(false);
 
-  // Handle shareable preview route
+  // Handle shareable preview route /preview/:buildId
   useEffect(() => {
-    const path = window.location.pathname;
-    if (path.startsWith('/preview/')) {
-      const buildId = path.split('/')[2];
-      setIsPreviewOnly(true);
-      // Fetch public build
-      supabase.from('builds').select('*').eq('id', buildId).single().then(({ data }) => {
-        if (data && data.files) setGeneratedFiles(data.files as any);
-      });
-    }
+    const routePath = window.location.pathname;
+    if (!routePath.startsWith('/preview/')) return;
+    const buildId = routePath.split('/')[2];
+    setIsPreviewOnly(true);
+    (async () => {
+      try {
+        const { data } = await supabase.from('builds').select('*').eq('id', buildId).single();
+        if (data?.files?.length) {
+          setGeneratedFiles(data.files as Array<{ path: string; content: string }>);
+        }
+      } catch (err: any) {
+        console.warn('[Preview] Failed to load build:', err?.message);
+      }
+    })();
   }, []);
 
   // Load latest build files and history when project changes
   useEffect(() => {
-    if (currentProject) {
-      getBuilds(currentProject.id).then(builds => {
+    if (!currentProject) return;
+    (async () => {
+      try {
+        const builds = await getBuilds(currentProject.id);
         setBuildHistory(builds);
-        if (builds && builds.length > 0) {
+        if (builds.length > 0) {
           const latest = builds[0];
-          if (latest.files) setGeneratedFiles(latest.files as any);
+          if (latest.files) setGeneratedFiles(latest.files as Array<{ path: string; content: string }>);
         }
-      });
-    }
-  }, [currentProject]);
+      } catch (err: any) {
+        console.warn('[Projects] Failed to load builds:', err?.message);
+      }
+    })();
+  }, [currentProject, getBuilds]);
 
   const [chatInput, setChatInput] = useState(() => {
     return localStorage.getItem('huggy_chat_input') || '';
@@ -194,129 +206,32 @@ export default function App() {
   const [generatedFiles, setGeneratedFiles] = useState<Array<{path: string, content: string}>>([]);
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isPreviewBuilding, setIsPreviewBuilding] = useState(false);
 
-  // Generate Preview Blob URL when files change
+  // Build preview server-side (esbuild) whenever generated files change
   useEffect(() => {
-    if (generatedFiles.length === 0) {
-      setPreviewUrl(null);
-      return;
-    }
+    if (generatedFiles.length === 0) { setPreviewUrl(null); return; }
 
-    const appFile = generatedFiles.find(f => f.path.endsWith('App.tsx') || f.path.endsWith('App.js'));
-    const stylesFile = generatedFiles.find(f => f.path.endsWith('.css'));
+    let cancelled = false;
+    setIsPreviewBuilding(true);
 
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <script src="https://cdn.tailwindcss.com"></script>
-          <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-          <script src="https://unpkg.com/lucide@latest"></script>
-          <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-          <style>${stylesFile?.content || ''}</style>
-          <style>
-            body{margin:0;font-family:'Inter',system-ui,sans-serif;background:#0a0a0b;color:white}
-            .huggy-hover { outline: 2px solid #3b82f6 !important; cursor: pointer !important; }
-            #root { min-height: 100vh; }
-          </style>
-        </head>
-        <body>
-          <div id="root"></div>
-          <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-          <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-          <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-          <script type="text/babel">
-            // Global polyfills for common AI-generated code imports
-            window.React = React;
-            window.ReactDOM = ReactDOM;
-            window.motion = window.framerMotion?.motion || {};
-            window.AnimatePresence = window.framerMotion?.AnimatePresence || (({children}) => children);
+    fetch('/api/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: generatedFiles, isEditMode }),
+    })
+      .then(r => r.json())
+      .then(({ id, error }) => {
+        if (cancelled) return;
+        if (error) throw new Error(error);
+        setPreviewUrl(`/api/preview/${id}`);
+      })
+      .catch(err => {
+        if (!cancelled) console.warn('[Preview] build failed:', err.message);
+      })
+      .finally(() => { if (!cancelled) setIsPreviewBuilding(false); });
 
-            // Mock Lucide components if needed
-            const LucideProxy = new Proxy({}, {
-              get: (target, name) => (props) => {
-                const Icon = lucide[name] || lucide.HelpCircle;
-                return <i data-lucide={name.toLowerCase()} {...props} />;
-              }
-            });
-            window.Lucide = LucideProxy;
-
-            // Track Visit
-            try {
-              axios.post('/api/track', {
-                projectId: '${currentProject?.id || 'preview'}',
-                type: 'view'
-              });
-            } catch(e) {}
-
-            // Concatenate all files, stripping imports/exports
-            const allCode = ${JSON.stringify(
-              generatedFiles
-                .filter(f => f.path.endsWith('.tsx') || f.path.endsWith('.ts') || f.path.endsWith('.js'))
-                .map(f => {
-                  let content = f.content;
-                  // Remove imports and exports for simple browser execution
-                  content = content.replace(/import\s+.*?\s+from\s+['"].*?['"];?/g, '');
-                  content = content.replace(/export\s+default\s+/, '');
-                  content = content.replace(/export\s+/, '');
-                  return `// FILE: ${f.path}\n${content}`;
-                })
-                .join('\n\n')
-            )};
-
-            try {
-              // Execute all code
-              eval(Babel.transform(allCode, { presets: ['react', 'typescript'] }).code);
-              
-              // Render App
-              const root = ReactDOM.createRoot(document.getElementById('root'));
-              if (typeof App !== 'undefined') {
-                root.render(<App />);
-              } else {
-                // Fallback: look for the last defined functional component if App is missing
-                document.getElementById('root').innerHTML = '<div style="padding:20px;color:#fbbf24">Warning: Component "App" not found in generated code.</div>';
-              }
-              
-              // Initialize Lucide icons
-              if (window.lucide) lucide.createIcons();
-            } catch(e) {
-              console.error("Preview Error:", e);
-              document.getElementById('root').innerHTML = '<pre style="color:#f87171;padding:20px;white-space:pre-wrap;font-size:12px">' + e.stack + '</pre>';
-            }
-
-            // Visual Edit Script
-            if (${isEditMode}) {
-              document.addEventListener('mouseover', (e) => {
-                const target = e.target.closest('*');
-                if (target) target.classList.add('huggy-hover');
-              });
-              document.addEventListener('mouseout', (e) => {
-                const target = e.target.closest('*');
-                if (target) target.classList.remove('huggy-hover');
-              });
-              document.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const target = e.target.closest('*');
-                window.parent.postMessage({
-                  type: 'visual-edit-select',
-                  selector: target.tagName.toLowerCase(),
-                  text: target.innerText?.slice(0, 50) || ''
-                }, '*');
-              }, true);
-            }
-          </script>
-        </body>
-      </html>
-    `;
-
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    setPreviewUrl(url);
-
-    return () => URL.revokeObjectURL(url);
+    return () => { cancelled = true; };
   }, [generatedFiles]);
 
   // Auto-save chat input
@@ -390,18 +305,32 @@ export default function App() {
   const handleDeploy = async () => {
     if (generatedFiles.length === 0) return;
     setIsDeploying(true);
+    const deployMsgId = `deploy-${Date.now()}`;
+    setMessages(prev => [...prev, {
+      id: deployMsgId, type: 'build', timestamp: Date.now(),
+      userPrompt: 'Déploiement',
+      agents: [], thinkingLines: ['🚀 Build en cours...', '📦 Upload vers Vercel...'],
+      reply: '', replyVisible: '', files: [], filesVisible: 0, isComplete: false, isStreaming: true,
+    }]);
     try {
-      // In a real SaaS, this would push to a specialized hosting service or Railway API
-      // Here we simulate the real push with a 3s delay and a real backend call
       const response = await axios.post('/api/deploy', {
         projectId: currentProject?.id,
-        files: generatedFiles
+        projectName: currentProject?.name || 'huggy-app',
+        files: generatedFiles,
       });
-      setDeployUrl(response.data.url);
-      alert('Application déployée avec succès sur Railway !');
-    } catch (e) {
-      console.error(e);
-      alert('Erreur lors du déploiement.');
+      const url = response.data.url as string;
+      setDeployUrl(url);
+      const msg = `✅ Application déployée !\n\n🔗 **URL:** [${url}](${url})`;
+      setMessages(prev => prev.map(m => {
+        if (m.id !== deployMsgId || m.type !== 'build') return m;
+        return { ...(m as BuildMessage), reply: msg, replyVisible: msg, isComplete: true, isStreaming: false };
+      }));
+    } catch (e: any) {
+      const errMsg = `❌ Déploiement échoué : ${e?.response?.data?.error || e.message}`;
+      setMessages(prev => prev.map(m => {
+        if (m.id !== deployMsgId || m.type !== 'build') return m;
+        return { ...(m as BuildMessage), reply: errMsg, replyVisible: errMsg, isComplete: true, isStreaming: false };
+      }));
     } finally {
       setIsDeploying(false);
     }
@@ -458,6 +387,7 @@ export default function App() {
 
     try {
       await startBuildPipeline(prompt, async (event) => {
+
 
         // ── Agent progress ──────────────────────────────────────────────────
         if (event.type === 'agent') {
@@ -557,7 +487,7 @@ export default function App() {
           }));
         }
 
-      }, generatedFiles, appMode, selectedModel);
+      }, generatedFiles, appMode, selectedModel, projectId);
     } catch (error) {
       setIsBuilding(false);
       setMessages(prev => prev.map(m => {
@@ -616,6 +546,30 @@ export default function App() {
   ];
 
   const CurrentIcon = devices.find(d => d.id === selectedDevice)?.icon || MonitorSmartphone;
+
+  if (auth.loading) {
+    return (
+      <div className="min-h-screen bg-[#f2f2f2] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center animate-pulse">
+            <Heart className="w-6 h-6 text-white fill-white" />
+          </div>
+          <p className="text-sm text-zinc-500 font-medium">Loading Huggy…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!auth.isAuthenticated) {
+    return (
+      <LandingPage
+        onSignIn={realAuth.signInWithEmail}
+        onSignUp={realAuth.signUpWithEmail}
+        onGoogleSignIn={realAuth.signInWithGoogle}
+        onGithubSignIn={realAuth.signInWithGitHub}
+      />
+    );
+  }
 
   if (isPreviewOnly) {
     return (
@@ -854,8 +808,12 @@ export default function App() {
             <Zap className="w-3.5 h-3.5 fill-white" />
             Upgrade
           </button>
+<<<<<<< HEAD
           <button 
 
+=======
+          <button
+>>>>>>> 30864024c0e3a61308730081e216462d07303452
             onClick={handleDeploy}
             disabled={isDeploying || generatedFiles.length === 0}
             className={`px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2 ${isDeploying ? 'opacity-70 cursor-not-allowed' : ''}`}
@@ -918,41 +876,93 @@ export default function App() {
                       return (
                         <div key={bm.id} className="flex flex-col gap-2.5">
 
+                          {/* Pipeline progress header — global bar + ETA */}
+                          {(() => {
+                            const finished = bm.agents.filter(a => a.status === 'completed' || a.status === 'skipped').length;
+                            const activeIdx = bm.agents.findIndex(a => a.status === 'active');
+                            const activeAgent = activeIdx >= 0 ? AGENTS_DEF[activeIdx] : null;
+                            const pct = Math.round((finished / 8) * 100);
+                            return (
+                              <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-xl p-2.5 mb-1">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <div className="flex items-center gap-1.5">
+                                    {bm.isComplete ? (
+                                      <CheckCircle2 className="w-3 h-3 text-green-400" />
+                                    ) : (
+                                      <motion.div
+                                        className="w-2 h-2 rounded-full bg-violet-400"
+                                        animate={{ opacity: [1, 0.3, 1] }}
+                                        transition={{ duration: 0.9, repeat: Infinity }}
+                                      />
+                                    )}
+                                    <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">
+                                      {bm.isComplete ? 'Pipeline complete' : (activeAgent ? activeAgent.name : 'Starting...')}
+                                    </span>
+                                  </div>
+                                  <span className="text-[9px] font-mono text-zinc-500">{finished}/8 · {pct}%</span>
+                                </div>
+                                <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                  <motion.div
+                                    className="h-full bg-gradient-to-r from-violet-500 via-blue-500 to-cyan-400"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${pct}%` }}
+                                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })()}
+
                           {/* Agent track */}
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1">
                             {AGENTS_DEF.map((def, idx) => {
                               const agent = bm.agents[idx];
                               const status = agent?.status || 'idle';
                               const isActive = status === 'active';
-                              const isDone = status === 'done';
+                              const isDone = status === 'completed';
+                              const isSkipped = status === 'skipped';
                               const DefIcon = def.Icon;
                               return (
-                                <motion.div
-                                  key={def.name}
-                                  initial={{ opacity: 0, scale: 0.8 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  transition={{ delay: idx * 0.04 }}
-                                  className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-[10px] font-medium transition-all duration-300 ${
-                                    isDone
-                                      ? `${def.bg} ${def.border} ${def.color}`
-                                      : isActive
-                                      ? `${def.bg} ${def.border} ${def.color} ring-1 ring-offset-0 ring-current/30`
-                                      : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600'
-                                  }`}
-                                >
-                                  {isDone ? (
-                                    <CheckCircle2 className="w-2.5 h-2.5" />
-                                  ) : isActive ? (
+                                <div key={def.name} className="flex items-center">
+                                  <motion.div
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: isActive ? 1.05 : 1 }}
+                                    transition={{ delay: idx * 0.04 }}
+                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-[10px] font-medium transition-all duration-300 ${
+                                      isDone
+                                        ? `${def.bg} ${def.border} ${def.color}`
+                                        : isActive
+                                        ? `${def.bg} ${def.border} ${def.color} ring-2 ring-current/30 shadow-[0_0_12px_currentColor]`
+                                        : isSkipped
+                                        ? 'bg-zinc-900/30 border-zinc-800/30 text-zinc-700 line-through opacity-60'
+                                        : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600'
+                                    }`}
+                                  >
+                                    {isDone ? (
+                                      <CheckCircle2 className="w-2.5 h-2.5" />
+                                    ) : isActive ? (
+                                      <motion.div
+                                        className="w-1.5 h-1.5 rounded-full bg-current"
+                                        animate={{ opacity: [1, 0.3, 1], scale: [1, 1.3, 1] }}
+                                        transition={{ duration: 0.9, repeat: Infinity }}
+                                      />
+                                    ) : isSkipped ? (
+                                      <span className="w-2.5 h-2.5 inline-flex items-center justify-center text-[10px]">—</span>
+                                    ) : (
+                                      <DefIcon className="w-2.5 h-2.5 opacity-30" />
+                                    )}
+                                    <span className="hidden sm:inline">{def.name}</span>
+                                  </motion.div>
+                                  {idx < AGENTS_DEF.length - 1 && (
                                     <motion.div
-                                      className="w-1.5 h-1.5 rounded-full bg-current"
-                                      animate={{ opacity: [1, 0.3, 1] }}
-                                      transition={{ duration: 0.9, repeat: Infinity }}
+                                      className={`h-px w-1.5 mx-0.5 transition-colors ${
+                                        isDone || isSkipped ? 'bg-zinc-600' : 'bg-zinc-800'
+                                      }`}
+                                      animate={isActive ? { opacity: [0.3, 1, 0.3] } : { opacity: 1 }}
+                                      transition={isActive ? { duration: 1, repeat: Infinity } : {}}
                                     />
-                                  ) : (
-                                    <DefIcon className="w-2.5 h-2.5 opacity-30" />
                                   )}
-                                  <span className="hidden sm:inline">{def.name}</span>
-                                </motion.div>
+                                </div>
                               );
                             })}
                           </div>
@@ -1294,13 +1304,26 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
+<<<<<<< HEAD
 
+=======
+>>>>>>> 30864024c0e3a61308730081e216462d07303452
 
           <div className="flex-1 relative">
             {/* Subtle grid pattern background */}
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
                  style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
             />
+
+            {/* Preview loading spinner */}
+            {isPreviewBuilding && !isBuilding && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0a0a0b]">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
+                  <span className="text-xs text-zinc-500">Compilation en cours…</span>
+                </div>
+              </div>
+            )}
 
             {/* Generated App Live Preview / Code Editor / Analytics */}
             {previewUrl && !isBuilding && !isEditMode && (
@@ -1310,7 +1333,7 @@ export default function App() {
                     title="Live Preview"
                     src={previewUrl}
                     className="w-full h-full border-0"
-                    sandbox="allow-scripts allow-same-origin"
+                    sandbox="allow-scripts allow-same-origin allow-forms"
                   />
                 ) : viewMode === 'analytics' ? (
                   <div className="w-full h-full p-8 overflow-y-auto bg-[#0a0a0b] text-zinc-400">

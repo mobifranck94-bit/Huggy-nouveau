@@ -1,63 +1,38 @@
 import { callClaude } from '../lib/callClaude.mjs';
 
-const DBA_SYSTEM_PROMPT = `
-# ROLE: Senior Database Architect (Supabase/PostgreSQL Expert)
-You are the DBA agent of Huggy Simple. Analyze the PM agent's plan and produce a complete database architecture.
-
-# OUTPUT FORMAT
-Single valid JSON object only (no markdown fences):
+const DBA_SYSTEM_PROMPT = `# Senior DBA (Supabase/Postgres). Output ONE JSON only:
 {
   "needsDatabase": true,
-  "explanation": "Brief explanation of the chosen architecture.",
-  "tables": [
-    {
-      "name": "posts",
-      "description": "User-created blog posts",
-      "columns": [
-        { "name": "id",         "type": "uuid",        "primary": true,  "default": "gen_random_uuid()" },
-        { "name": "title",      "type": "text",        "required": true                                  },
-        { "name": "content",    "type": "text",        "required": true                                  },
-        { "name": "author_id",  "type": "uuid",        "references": "auth.users(id)", "onDelete": "CASCADE" },
-        { "name": "published",  "type": "boolean",     "default": "false"                                },
-        { "name": "created_at", "type": "timestamptz", "default": "now()"                                }
-      ],
-      "indexes": [
-        "CREATE INDEX idx_posts_author ON posts(author_id);",
-        "CREATE INDEX idx_posts_published ON posts(published);"
-      ],
-      "rls_policies": [
-        "ALTER TABLE posts ENABLE ROW LEVEL SECURITY;",
-        "CREATE POLICY \\"Users can read published posts\\" ON posts FOR SELECT USING (published = true);",
-        "CREATE POLICY \\"Authors can manage own posts\\" ON posts FOR ALL USING (auth.uid() = author_id);"
-      ]
-    }
-  ],
-  "relationships": [
-    { "from": "posts.author_id", "to": "auth.users.id", "type": "many-to-one" }
-  ],
-  "seedData": [
-    {
-      "table": "posts",
-      "rows": [{ "title": "Hello World", "content": "First post", "published": true }]
-    }
-  ],
-  "supabaseClientCode": "import { createClient } from '@supabase/supabase-js';\n\nconst supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;\nconst supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;\n\nexport const supabase = createClient(supabaseUrl, supabaseAnonKey);"
+  "tables": [{
+    "name":"posts",
+    "columns":[
+      {"name":"id","type":"uuid","primary":true,"default":"gen_random_uuid()"},
+      {"name":"title","type":"text","required":true},
+      {"name":"author_id","type":"uuid","references":"auth.users(id)","onDelete":"CASCADE"},
+      {"name":"created_at","type":"timestamptz","default":"now()"}
+    ],
+    "indexes":["CREATE INDEX idx_posts_author ON posts(author_id);"],
+    "rls_policies":[
+      "ALTER TABLE posts ENABLE ROW LEVEL SECURITY;",
+      "CREATE POLICY \\"own\\" ON posts FOR ALL USING (auth.uid() = author_id);"
+    ]
+  }],
+  "supabaseClientCode": "import { createClient } from '@supabase/supabase-js';\\nexport const supabase = createClient(import.meta.env.VITE_SUPABASE_URL!, import.meta.env.VITE_SUPABASE_ANON_KEY!);"
 }
-
-# RULES
-- If app is static (landing page, portfolio) → needsDatabase: false, tables: [], supabaseClientCode: ""
-- Always use auth.users for user references, NEVER create a custom users table
-- Enable RLS on ALL tables — no exceptions
-- supabaseClientCode uses VITE_ env vars only (prefix: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) — never SERVICE_ROLE_KEY client-side
-- Include sensible indexes for foreign keys and frequently queried columns
-- Be practical: only create tables the app actually needs
-- Respond ONLY with JSON
-`.trim();
+Rules: static app → needsDatabase:false, tables:[], supabaseClientCode:"". Always reference auth.users (no custom users table). RLS on every table. VITE_ prefix only.`;
 
 export async function runDBAAgent(pmPlan, originalPrompt) {
+  // Slim payload — only what the DBA actually needs.
+  const slim = {
+    dataModel:     pmPlan.dataModel,
+    authStrategy:  pmPlan.authStrategy,
+    securityLevel: pmPlan.securityLevel,
+    summary:       pmPlan.summary,
+  };
   return callClaude({
     systemPrompt: DBA_SYSTEM_PROMPT,
-    userMessage: JSON.stringify({ pmPlan, originalPrompt }),
-    model: 'claude-haiku-4-5',
+    userMessage:  JSON.stringify({ pm: slim, prompt: originalPrompt.slice(0, 300) }),
+    model:        'claude-haiku-4-5-20251001',
+    maxTokens:    3000,
   });
 }

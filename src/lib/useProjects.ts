@@ -19,12 +19,10 @@ export function useProjects(userId: string | undefined) {
     if (data) {
       setProjects(data);
       // Auto-select first project if none selected
-      if (!currentProject && data.length > 0) {
-        setCurrentProject(data[0]);
-      }
+      setCurrentProject(prev => (prev === null && data.length > 0) ? data[0] : prev);
     }
     setLoading(false);
-  }, [userId, currentProject]);
+  }, [userId]);
 
   useEffect(() => {
     fetchProjects();

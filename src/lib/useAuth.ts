@@ -32,8 +32,12 @@ export function useAuth() {
     // Get initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        const profile = await fetchProfile(session.user.id);
-        setState({ user: session.user, profile, session, loading: false });
+        try {
+          const profile = await fetchProfile(session.user.id);
+          setState({ user: session.user, profile, session, loading: false });
+        } catch {
+          setState({ user: session.user, profile: null, session, loading: false });
+        }
       } else {
         setState({ user: null, profile: null, session: null, loading: false });
       }
@@ -43,8 +47,12 @@ export function useAuth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) {
-          const profile = await fetchProfile(session.user.id);
-          setState({ user: session.user, profile, session, loading: false });
+          try {
+            const profile = await fetchProfile(session.user.id);
+            setState({ user: session.user, profile, session, loading: false });
+          } catch {
+            setState({ user: session.user, profile: null, session, loading: false });
+          }
         } else {
           setState({ user: null, profile: null, session: null, loading: false });
         }

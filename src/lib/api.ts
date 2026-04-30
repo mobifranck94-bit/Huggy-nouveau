@@ -31,12 +31,13 @@ export async function startBuildPipeline(
   onEvent: (event: PipelineEvent) => void,
   existingFiles?: Array<{ path: string; content: string }>,
   mode: 'build' | 'plan' = 'build',
-  model: string = 'claude-3-5-sonnet-20241022'
+  model: string = 'claude-sonnet-4-6',
+  projectId?: string | null,
 ): Promise<void> {
   const response = await fetch('/api/build', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, files: existingFiles, mode, model }),
+    body: JSON.stringify({ prompt, files: existingFiles, mode, model, projectId }),
   });
 
   let errorData;

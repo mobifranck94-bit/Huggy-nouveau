@@ -1,0 +1,16 @@
+[build]
+builder      = "nixpacks"
+# Tailwind v4 ships platform-specific native bindings (@tailwindcss/oxide-*).
+# A lock file generated on Windows does NOT pin the Linux binary, and `npm ci`
+# refuses to install optional deps not in the lock file (npm bug #4828).
+# Fix: drop the Windows-platform lock file (we cannot rm node_modules because
+# Railway mounts node_modules/.cache as a volume) and run `npm install` which
+# resolves the Linux binary fresh, then build with extra heap.
+buildCommand = "rm -f package-lock.json && npm install --include=optional && NODE_OPTIONS=--max-old-space-size=4096 npm run build"
+
+[deploy]
+startCommand            = "node server.mjs"
+healthcheckPath         = "/api/health"
+healthcheckTimeout      = 30
+restartPolicyType       = "on_failure"
+restartPolicyMaxRetries = 3
