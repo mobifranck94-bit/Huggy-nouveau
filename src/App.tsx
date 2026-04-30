@@ -371,7 +371,7 @@ export default function App() {
           }));
         }
 
-      }, generatedFiles);
+      }, generatedFiles, appMode);
     } catch (error) {
       setIsBuilding(false);
       setMessages(prev => prev.map(m => {

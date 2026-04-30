@@ -20,7 +20,7 @@ app.get('/api/health', (_req, res) => {
 
 // ─── Build Pipeline (SSE Stream) ─────────────────────────────────────────────
 app.post('/api/build', async (req, res) => {
-  const { prompt, files } = req.body;
+  const { prompt, files, mode = 'build' } = req.body;
 
   if (!prompt?.trim()) {
     return res.status(400).json({ error: 'Prompt is required' });
@@ -70,6 +70,7 @@ app.post('/api/build', async (req, res) => {
     } else {
       result = await runFullPipeline(prompt, {
         existingFiles: files,
+        mode,
         onProgress: (event) => {
           sendEvent(event);
         },
