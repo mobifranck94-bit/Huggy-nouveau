@@ -142,7 +142,7 @@ export default function App() {
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   
   const [appMode, setAppMode] = useState<'build' | 'plan'>('build');
-  const [selectedModel, setSelectedModel] = useState('claude-3-5-sonnet-20241022');
+  const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-6');
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'preview' | 'code' | 'analytics'>('preview');
@@ -806,31 +806,7 @@ export default function App() {
             <Zap className="w-3.5 h-3.5 fill-white" />
             Upgrade
           </button>
-          <button 
-            onClick={async () => {
-              if (generatedFiles.length === 0) return;
-              const deployMsgId = `deploy-${Date.now()}`;
-              setMessages(prev => [...prev, {
-                id: deployMsgId, type: 'build', timestamp: Date.now(), userPrompt: 'Déploiement en cours...',
-                agents: [], thinkingLines: ['🚀 Préparation du déploiement sur Railway...', '📦 Compression des fichiers...', '☁️ Envoi vers Railway...'],
-                reply: '', replyVisible: '', files: [], filesVisible: 0, isComplete: false, isStreaming: true
-              }]);
-              
-              // Simulate API call
-              await new Promise(r => setTimeout(r, 3000));
-              
-              const deployedUrl = `https://${currentProject?.name?.toLowerCase().replace(/\s+/g, '-') || 'app'}-${Math.random().toString(36).slice(2, 7)}.railway.app`;
-              
-              setMessages(prev => prev.map(m => {
-                if (m.id !== deployMsgId || m.type !== 'build') return m;
-                return {
-                  ...(m as BuildMessage),
-                  reply: `✅ Votre application est en ligne ! \n\n🔗 **URL:** [${deployedUrl}](${deployedUrl})`,
-                  replyVisible: `✅ Votre application est en ligne ! \n\n🔗 **URL:** [${deployedUrl}](${deployedUrl})`,
-                  isComplete: true, isStreaming: false
-                };
-              }));
-            }}
+          <button
             onClick={handleDeploy}
             disabled={isDeploying || generatedFiles.length === 0}
             className={`px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2 ${isDeploying ? 'opacity-70 cursor-not-allowed' : ''}`}
@@ -1269,11 +1245,6 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
           <div className="flex-1 relative">
             {/* Subtle grid pattern background */}

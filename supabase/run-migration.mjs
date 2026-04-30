@@ -9,8 +9,13 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationPath = path.join(__dirname, 'migration.sql');
 
-const SUPABASE_URL = 'https://ihwvjwojowxxctwngtra.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlod3Zqd29qb3d4eGN0d25ndHJhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzQ5Njc0OSwiZXhwIjoyMDkzMDcyNzQ5fQ.NwsI4FQgOMBTwkO1Qnsf7fslDJf4i2cxGVDkzCjIjmU';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error('❌ Missing environment variables: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.');
+  process.exit(1);
+}
 
 // Split SQL into individual executable statements
 function splitStatements(sql) {

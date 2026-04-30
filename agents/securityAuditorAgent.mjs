@@ -77,6 +77,6 @@ export async function runSecurityAuditor(files, dbaPlan) {
   return callClaude({
     systemPrompt: SECURITY_SYSTEM_PROMPT,
     userMessage: JSON.stringify({ files, dbaPlan }),
-    model: 'claude-haiku-4-5',
+    model: 'claude-haiku-4-5-20251001',
   });
 }

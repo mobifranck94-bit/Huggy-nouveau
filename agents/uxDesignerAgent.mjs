@@ -118,6 +118,6 @@ export async function runUXDesignerAgent(pmPlan, dbaPlan) {
   return callClaude({
     systemPrompt: UX_SYSTEM_PROMPT,
     userMessage: JSON.stringify({ pmPlan, dbaPlan }),
-    model: 'claude-haiku-4-5',
+    model: 'claude-haiku-4-5-20251001',
   });
 }

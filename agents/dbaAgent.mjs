@@ -58,6 +58,6 @@ export async function runDBAAgent(pmPlan, originalPrompt) {
   return callClaude({
     systemPrompt: DBA_SYSTEM_PROMPT,
     userMessage: JSON.stringify({ pmPlan, originalPrompt }),
-    model: 'claude-haiku-4-5',
+    model: 'claude-haiku-4-5-20251001',
   });
 }

@@ -81,6 +81,6 @@ export async function runReviewerAgent(files, refinedPrompt) {
   return callClaude({
     systemPrompt: REVIEWER_SYSTEM_PROMPT,
     userMessage: JSON.stringify({ files, refinedPrompt }),
-    model: 'claude-haiku-4-5',
+    model: 'claude-haiku-4-5-20251001',
   });
 }
