@@ -127,7 +127,10 @@ export default function App() {
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   
   const [appMode, setAppMode] = useState<'build' | 'plan'>('build');
+  const [selectedModel, setSelectedModel] = useState('claude-3-5-sonnet-20241022');
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
+  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview');
   const [selectedElement, setSelectedElement] = useState<{ selector: string, text: string } | null>(null);
   const [buildHistory, setBuildHistory] = useState<Build[]>([]);
   const [isPreviewOnly, setIsPreviewOnly] = useState(false);
@@ -437,7 +440,7 @@ export default function App() {
           }));
         }
 
-      }, generatedFiles, appMode);
+      }, generatedFiles, appMode, selectedModel);
     } catch (error) {
       setIsBuilding(false);
       setMessages(prev => prev.map(m => {
@@ -642,17 +645,18 @@ export default function App() {
 
         <div className="flex items-center gap-1 bg-zinc-900/40 p-1 rounded-lg border border-zinc-800/50 ml-8">
           <button 
-            onClick={() => setIsFileExplorerOpen(false)}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${!isFileExplorerOpen ? 'bg-zinc-800/80 text-blue-400 shadow-sm border border-zinc-700/30' : 'text-zinc-400 hover:bg-zinc-800/80'}`}
+            onClick={() => setViewMode('preview')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'preview' ? 'bg-zinc-800/80 text-blue-400 shadow-sm border border-zinc-700/30' : 'text-zinc-400 hover:bg-zinc-800/80'}`}
           >
             <Globe className="w-3.5 h-3.5" />
             Preview
           </button>
           <button 
-            onClick={() => setIsFileExplorerOpen(true)}
-            className={`p-1.5 rounded-md transition-all ${isFileExplorerOpen ? 'bg-zinc-800/80 text-blue-400 border border-zinc-700/30' : 'text-zinc-400 hover:bg-zinc-800/80'}`}
+            onClick={() => setViewMode('code')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'code' ? 'bg-zinc-800/80 text-blue-400 shadow-sm border border-zinc-700/30' : 'text-zinc-400 hover:bg-zinc-800/80'}`}
           >
             <Code2 className="w-3.5 h-3.5" />
+            Code
           </button>
           <button className="p-1.5 hover:bg-zinc-800/80 rounded-md transition-colors text-zinc-400">
             <Cloud className="w-3.5 h-3.5" />
@@ -1016,6 +1020,46 @@ export default function App() {
                   </div>
                   <div className="flex items-center gap-2 relative">
                     <div className="flex items-center bg-zinc-800/50 rounded-lg overflow-hidden border border-zinc-700/30">
+                      <button 
+                        onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
+                        className="px-3 py-1.5 hover:bg-zinc-700/50 transition-colors text-zinc-400 text-[10px] font-bold flex items-center gap-1.5"
+                      >
+                        <Brain className="w-3 h-3 text-violet-400" />
+                        {selectedModel.includes('sonnet') ? 'ELITE' : 'FAST'}
+                        <ChevronDown className={`w-3 h-3 transition-transform ${isModelMenuOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
+
+                    <AnimatePresence>
+                      {isModelMenuOpen && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setIsModelMenuOpen(false)} />
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="absolute bottom-full right-32 mb-2 w-48 bg-[#1c1c1d] border border-zinc-800 rounded-xl shadow-2xl z-20 py-1 overflow-hidden"
+                          >
+                            <button 
+                              onClick={() => { setSelectedModel('claude-3-5-sonnet-20241022'); setIsModelMenuOpen(false); }}
+                              className={`w-full px-3 py-2 text-left text-[11px] font-medium flex items-center gap-2 transition-colors ${selectedModel.includes('sonnet') ? 'bg-zinc-800 text-blue-400' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+                            >
+                              <Zap className="w-3.5 h-3.5 text-violet-400" />
+                              Claude 3.5 Sonnet (Elite)
+                            </button>
+                            <button 
+                              onClick={() => { setSelectedModel('claude-3-haiku-20240307'); setIsModelMenuOpen(false); }}
+                              className={`w-full px-3 py-2 text-left text-[11px] font-medium flex items-center gap-2 transition-colors ${selectedModel.includes('haiku') ? 'bg-zinc-800 text-blue-400' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+                            >
+                              <Activity className="w-3.5 h-3.5 text-green-400" />
+                              Claude 3 Haiku (Fast)
+                            </button>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+
+                    <div className="flex items-center bg-zinc-800/50 rounded-lg overflow-hidden border border-zinc-700/30">
                       <button className="px-3 py-1.5 hover:bg-zinc-700/50 transition-colors text-zinc-400 text-xs font-medium capitalize">
                         {appMode}
                       </button>
@@ -1160,15 +1204,37 @@ export default function App() {
                  style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
             />
 
-            {/* Generated App Live Preview */}
+            {/* Generated App Live Preview / Code Editor */}
             {previewUrl && !isBuilding && !isEditMode && (
               <div className="absolute inset-0 z-10 bg-[#0a0a0b]">
-                <iframe
-                  title="Live Preview"
-                  src={previewUrl}
-                  className="w-full h-full border-0"
-                  sandbox="allow-scripts allow-same-origin"
-                />
+                {viewMode === 'preview' ? (
+                  <iframe
+                    title="Live Preview"
+                    src={previewUrl}
+                    className="w-full h-full border-0"
+                    sandbox="allow-scripts allow-same-origin"
+                  />
+                ) : (
+                  <div className="w-full h-full p-6 overflow-y-auto font-mono text-sm bg-[#0d0d0e]">
+                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-zinc-800">
+                      <span className="text-zinc-500 text-xs uppercase tracking-widest font-bold">Project Source Code</span>
+                      <div className="flex items-center gap-2">
+                        <button className="px-2 py-1 bg-blue-600/10 text-blue-400 rounded text-[10px] font-bold">Read Only</button>
+                      </div>
+                    </div>
+                    {generatedFiles.map((file, fIdx) => (
+                      <div key={fIdx} className="mb-8">
+                        <div className="flex items-center gap-2 mb-2 text-zinc-300 font-bold text-xs">
+                          <FileCode className="w-3.5 h-3.5 text-blue-400" />
+                          {file.path}
+                        </div>
+                        <pre className="p-4 bg-black/50 rounded-xl border border-zinc-800/50 text-zinc-400 leading-relaxed whitespace-pre-wrap">
+                          {file.content}
+                        </pre>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
