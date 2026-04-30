@@ -886,8 +886,6 @@ export default function App() {
           </div>
         </motion.div>
       </main>
-        </>
-      )}
     </div>
   );
 }
