@@ -41,7 +41,7 @@ Single valid JSON object only (no markdown fences):
       "rows": [{ "title": "Hello World", "content": "First post", "published": true }]
     }
   ],
-  "supabaseClientCode": "import { createClient } from '@supabase/supabase-js';\\n\\nconst supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;\\nconst supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;\\n\\nexport const supabase = createClient(supabaseUrl, supabaseAnonKey);\\n\\nexport type Database = {\\n  // types générés ici\\n};"
+  "supabaseClientCode": "import { createClient } from '@supabase/supabase-js';\n\nconst supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;\nconst supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;\n\nexport const supabase = createClient(supabaseUrl, supabaseAnonKey);"
 }
 
 # RULES
