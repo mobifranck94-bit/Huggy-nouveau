@@ -2,7 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import crypto from 'crypto';
 import { runFullPipeline } from './lib/pipeline.mjs';
+import { buildPreviewHTML } from './lib/buildPreview.mjs';
 
 // Load environment variables (.env.local has priority, then .env)
 dotenv.config({ path: '.env.local' });
@@ -10,8 +12,15 @@ dotenv.config();
 
 const app = express();
 app.use(cors({ origin: true }));
-app.use(express.json({ limit: '50mb' })); // Increased limit for larger projects
+app.use(express.json({ limit: '50mb' }));
 app.use(express.static('dist'));
+
+// ─── In-memory preview store (TTL: 30 min) ───────────────────────────────────
+const previewStore = new Map(); // id → { html, expires }
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of previewStore) if (v.expires < now) previewStore.delete(k);
+}, 5 * 60 * 1000);
 
 // ─── Health Check ────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
@@ -20,7 +29,7 @@ app.get('/api/health', (_req, res) => {
 
 // ─── Build Pipeline (SSE Stream) ─────────────────────────────────────────────
 app.post('/api/build', async (req, res) => {
-  const { prompt, files, mode = 'build', model = 'claude-3-5-sonnet-20241022' } = req.body;
+  const { prompt, files, mode = 'build', model = 'claude-sonnet-4-6', projectId } = req.body;
 
   if (!prompt?.trim()) {
     return res.status(400).json({ error: 'Prompt is required' });
@@ -72,9 +81,8 @@ app.post('/api/build', async (req, res) => {
         existingFiles: files,
         mode,
         model,
-        onProgress: (event) => {
-          sendEvent(event);
-        },
+        projectId,
+        onProgress: sendEvent,
       });
     }
 
@@ -105,31 +113,97 @@ app.post('/api/build', async (req, res) => {
   }
 });
 
-// ─── Real Deployment (Host on Huggy) ──────────────────────────────────────────
+// ─── Preview: bundle files server-side with esbuild ──────────────────────────
+app.post('/api/preview', async (req, res) => {
+  const { files } = req.body;
+  if (!files?.length) return res.status(400).json({ error: 'No files provided' });
+
+  try {
+    const html = await buildPreviewHTML(files);
+    const id   = crypto.randomUUID();
+    previewStore.set(id, { html, expires: Date.now() + 30 * 60 * 1000 });
+    res.json({ id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/preview/:id', (req, res) => {
+  const entry = previewStore.get(req.params.id);
+  if (!entry) return res.status(404).send('Preview expired or not found');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(entry.html);
+});
+
+// ─── Deploy: build with esbuild then push to Vercel ──────────────────────────
 app.post('/api/deploy', async (req, res) => {
-  const { projectId, files } = req.body;
-  
-  if (!files || files.length === 0) {
-    return res.status(400).json({ error: 'No files to deploy' });
+  const { files, projectName = 'huggy-app' } = req.body;
+  if (!files?.length) return res.status(400).json({ error: 'No files to deploy' });
+
+  const token = process.env.VERCEL_TOKEN;
+  if (!token) {
+    return res.status(503).json({ error: 'VERCEL_TOKEN not configured. Add it to your .env file.' });
   }
 
   try {
-    // In a real prod environment, we would trigger a Railway build or 
-    // upload to a S3 bucket / Vercel. 
-    // Here we return the project's public preview URL.
-    const baseUrl = process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3000}`;
-    const deployUrl = `${baseUrl}/preview/${projectId || 'latest'}`;
-    
-    // Simulate real work
-    await new Promise(r => setTimeout(r, 2000));
-    
-    res.json({ 
-      success: true, 
-      url: deployUrl,
-      timestamp: Date.now()
+    // 1. Build the app with esbuild
+    const html    = await buildPreviewHTML(files);
+    const content = Buffer.from(html, 'utf-8');
+    const sha1    = crypto.createHash('sha1').update(content).digest('hex');
+
+    // 2. Upload file to Vercel blob store
+    const uploadRes = await fetch('https://api.vercel.com/v2/files', {
+      method: 'POST',
+      headers: {
+        Authorization:      `Bearer ${token}`,
+        'Content-Length':   String(content.length),
+        'x-vercel-digest':  sha1,
+        'Content-Type':     'text/html',
+      },
+      body: content,
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    if (!uploadRes.ok && uploadRes.status !== 409) {
+      const txt = await uploadRes.text();
+      throw new Error(`Vercel file upload failed (${uploadRes.status}): ${txt.slice(0, 200)}`);
+    }
+
+    // 3. Create deployment
+    const slug       = projectName.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 48);
+    const deployBody = {
+      name:            slug,
+      files:           [{ file: 'index.html', sha: sha1, size: content.length }],
+      target:          'production',
+      projectSettings: { framework: null, outputDirectory: '.' },
+    };
+
+    const deployRes = await fetch('https://api.vercel.com/v13/deployments', {
+      method:  'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify(deployBody),
+    });
+    const deploy = await deployRes.json();
+    if (!deployRes.ok) throw new Error(deploy.error?.message || `Deploy failed (${deployRes.status})`);
+
+    // 4. Poll until ready (max 90 s)
+    const deployId = deploy.id;
+    for (let i = 0; i < 45; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      const statusRes = await fetch(`https://api.vercel.com/v13/deployments/${deployId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const status = await statusRes.json();
+      if (status.readyState === 'READY') {
+        const url = `https://${status.url}`;
+        console.log(`[Deploy] ✅ ${url}`);
+        return res.json({ success: true, url });
+      }
+      if (status.readyState === 'ERROR') throw new Error('Vercel build errored out');
+    }
+    throw new Error('Deploy timeout (90 s). Check Vercel dashboard.');
+
+  } catch (err) {
+    console.error('[Deploy] ❌', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

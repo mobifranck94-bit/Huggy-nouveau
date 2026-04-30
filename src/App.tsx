@@ -153,17 +153,16 @@ export default function App() {
   const [buildHistory, setBuildHistory] = useState<Build[]>([]);
   const [isPreviewOnly, setIsPreviewOnly] = useState(false);
 
-  // Handle shareable preview route
+  // Handle shareable preview route /preview/:buildId
   useEffect(() => {
-    const path = window.location.pathname;
-    if (path.startsWith('/preview/')) {
-      const buildId = path.split('/')[2];
-      setIsPreviewOnly(true);
-      // Fetch public build
-      supabase.from('builds').select('*').eq('id', buildId).single().then(({ data }) => {
-        if (data && data.files) setGeneratedFiles(data.files as any);
-      });
-    }
+    const routePath = window.location.pathname;
+    if (!routePath.startsWith('/preview/')) return;
+    const buildId = routePath.split('/')[2];
+    setIsPreviewOnly(true);
+    supabase.from('builds').select('*').eq('id', buildId).single().then(async ({ data }) => {
+      if (!data?.files?.length) return;
+      setGeneratedFiles(data.files as any); // triggers preview build via the effect above
+    });
   }, []);
 
   // Load latest build files and history when project changes
@@ -194,81 +193,32 @@ export default function App() {
   const [generatedFiles, setGeneratedFiles] = useState<Array<{path: string, content: string}>>([]);
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isPreviewBuilding, setIsPreviewBuilding] = useState(false);
 
-  // Generate Preview Blob URL when files change
+  // Build preview server-side (esbuild) whenever generated files change
   useEffect(() => {
-    if (generatedFiles.length === 0) {
-      setPreviewUrl(null);
-      return;
-    }
+    if (generatedFiles.length === 0) { setPreviewUrl(null); return; }
 
-    const appFile = generatedFiles.find(f => f.path.endsWith('App.tsx') || f.path.endsWith('App.js'));
-    const stylesFile = generatedFiles.find(f => f.path.endsWith('.css'));
+    let cancelled = false;
+    setIsPreviewBuilding(true);
 
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <script src="https://cdn.tailwindcss.com"><\/script>
-          <script src="https://unpkg.com/axios/dist/axios.min.js"><\/script>
-          <style>${stylesFile?.content || ''}</style>
-          <style>
-            body{margin:0;font-family:Inter,system-ui,sans-serif}
-            .huggy-hover { outline: 2px solid #3b82f6 !important; cursor: pointer !important; }
-          </style>
-        </head>
-        <body class="bg-[#0a0a0b] text-white">
-          <div id="root"></div>
-          <script src="https://unpkg.com/react@18/umd/react.development.js"><\/script>
-          <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
-          <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
-          <script type="text/babel">
-            // Track Visit
-            try {
-              axios.post('/api/track', {
-                projectId: '${currentProject?.id || 'preview'}',
-                type: 'view'
-              });
-            } catch(e) {}
+    fetch('/api/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: generatedFiles }),
+    })
+      .then(r => r.json())
+      .then(({ id, error }) => {
+        if (cancelled) return;
+        if (error) throw new Error(error);
+        setPreviewUrl(`/api/preview/${id}`);
+      })
+      .catch(err => {
+        if (!cancelled) console.warn('[Preview] build failed:', err.message);
+      })
+      .finally(() => { if (!cancelled) setIsPreviewBuilding(false); });
 
-            // Visual Edit Script
-            if (${isEditMode}) {
-              document.addEventListener('mouseover', (e) => {
-                e.target.classList.add('huggy-hover');
-              });
-              document.addEventListener('mouseout', (e) => {
-                e.target.classList.remove('huggy-hover');
-              });
-              document.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const target = e.target;
-                window.parent.postMessage({
-                  type: 'visual-edit-select',
-                  selector: target.tagName.toLowerCase(),
-                  text: target.innerText?.slice(0, 50) || ''
-                }, '*');
-              }, true);
-            }
-
-            try {
-              ${appFile?.content || 'document.getElementById("root").innerHTML = "<h1>App ready</h1>"'}
-              const root = ReactDOM.createRoot(document.getElementById('root'));
-              if (typeof App !== 'undefined') root.render(React.createElement(App));
-            } catch(e) {
-              document.getElementById('root').innerHTML = '<pre style="color:#f87171;padding:20px">' + e.message + '</pre>';
-            }
-          <\/script>
-        </body>
-      </html>
-    `;
-
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    setPreviewUrl(url);
-
-    return () => URL.revokeObjectURL(url);
+    return () => { cancelled = true; };
   }, [generatedFiles]);
 
   // Auto-save chat input
@@ -342,18 +292,32 @@ export default function App() {
   const handleDeploy = async () => {
     if (generatedFiles.length === 0) return;
     setIsDeploying(true);
+    const deployMsgId = `deploy-${Date.now()}`;
+    setMessages(prev => [...prev, {
+      id: deployMsgId, type: 'build', timestamp: Date.now(),
+      userPrompt: 'Déploiement',
+      agents: [], thinkingLines: ['🚀 Build en cours...', '📦 Upload vers Vercel...'],
+      reply: '', replyVisible: '', files: [], filesVisible: 0, isComplete: false, isStreaming: true,
+    }]);
     try {
-      // In a real SaaS, this would push to a specialized hosting service or Railway API
-      // Here we simulate the real push with a 3s delay and a real backend call
       const response = await axios.post('/api/deploy', {
         projectId: currentProject?.id,
-        files: generatedFiles
+        projectName: currentProject?.name || 'huggy-app',
+        files: generatedFiles,
       });
-      setDeployUrl(response.data.url);
-      alert('Application déployée avec succès sur Railway !');
-    } catch (e) {
-      console.error(e);
-      alert('Erreur lors du déploiement.');
+      const url = response.data.url as string;
+      setDeployUrl(url);
+      const msg = `✅ Application déployée !\n\n🔗 **URL:** [${url}](${url})`;
+      setMessages(prev => prev.map(m => {
+        if (m.id !== deployMsgId || m.type !== 'build') return m;
+        return { ...(m as BuildMessage), reply: msg, replyVisible: msg, isComplete: true, isStreaming: false };
+      }));
+    } catch (e: any) {
+      const errMsg = `❌ Déploiement échoué : ${e?.response?.data?.error || e.message}`;
+      setMessages(prev => prev.map(m => {
+        if (m.id !== deployMsgId || m.type !== 'build') return m;
+        return { ...(m as BuildMessage), reply: errMsg, replyVisible: errMsg, isComplete: true, isStreaming: false };
+      }));
     } finally {
       setIsDeploying(false);
     }
@@ -410,6 +374,7 @@ export default function App() {
 
     try {
       await startBuildPipeline(prompt, async (event) => {
+
 
         // ── Agent progress ──────────────────────────────────────────────────
         if (event.type === 'agent') {
@@ -509,7 +474,7 @@ export default function App() {
           }));
         }
 
-      }, generatedFiles, appMode, selectedModel);
+      }, generatedFiles, appMode, selectedModel, projectId);
     } catch (error) {
       setIsBuilding(false);
       setMessages(prev => prev.map(m => {
@@ -1252,6 +1217,16 @@ export default function App() {
                  style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
             />
 
+            {/* Preview loading spinner */}
+            {isPreviewBuilding && !isBuilding && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0a0a0b]">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
+                  <span className="text-xs text-zinc-500">Compilation en cours…</span>
+                </div>
+              </div>
+            )}
+
             {/* Generated App Live Preview / Code Editor / Analytics */}
             {previewUrl && !isBuilding && !isEditMode && (
               <div className="absolute inset-0 z-10 bg-[#0a0a0b]">
@@ -1260,7 +1235,7 @@ export default function App() {
                     title="Live Preview"
                     src={previewUrl}
                     className="w-full h-full border-0"
-                    sandbox="allow-scripts allow-same-origin"
+                    sandbox="allow-scripts allow-same-origin allow-forms"
                   />
                 ) : viewMode === 'analytics' ? (
                   <div className="w-full h-full p-8 overflow-y-auto bg-[#0a0a0b] text-zinc-400">
