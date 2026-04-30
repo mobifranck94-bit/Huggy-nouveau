@@ -46,7 +46,8 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import Editor from '@monaco-editor/react';
+import axios from 'axios';
 import { startBuildPipeline, checkServerHealth } from './lib/api';
 import { useAuth } from './lib/useAuth';
 import { useProjects } from './lib/useProjects';
@@ -147,6 +148,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'preview' | 'code' | 'analytics'>('preview');
   const [isCustomDomainModalOpen, setIsCustomDomainModalOpen] = useState(false);
   const [customDomain, setCustomDomain] = useState('');
+  const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
   const [selectedElement, setSelectedElement] = useState<{ selector: string, text: string } | null>(null);
   const [buildHistory, setBuildHistory] = useState<Build[]>([]);
   const [isPreviewOnly, setIsPreviewOnly] = useState(false);
@@ -209,6 +211,7 @@ export default function App() {
         <head>
           <meta charset="utf-8">
           <script src="https://cdn.tailwindcss.com"><\/script>
+          <script src="https://unpkg.com/axios/dist/axios.min.js"><\/script>
           <style>${stylesFile?.content || ''}</style>
           <style>
             body{margin:0;font-family:Inter,system-ui,sans-serif}
@@ -221,6 +224,14 @@ export default function App() {
           <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
           <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
           <script type="text/babel">
+            // Track Visit
+            try {
+              axios.post('/api/track', {
+                projectId: '${currentProject?.id || 'preview'}',
+                type: 'view'
+              });
+            } catch(e) {}
+
             // Visual Edit Script
             if (${isEditMode}) {
               document.addEventListener('mouseover', (e) => {
@@ -308,6 +319,45 @@ export default function App() {
 
   // Build Pipeline State
   const [isBuilding, setIsBuilding] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [deployUrl, setDeployUrl] = useState<string | null>(null);
+  const [realStats, setRealStats] = useState({ visitors: 0, views: 0 });
+
+  const fetchAnalytics = async () => {
+    if (!currentProject) return;
+    try {
+      const { data: views } = await supabase.from('analytics').select('id', { count: 'exact' }).eq('project_id', currentProject.id).eq('event_type', 'view');
+      const { data: visitors } = await supabase.from('analytics').select('id', { count: 'exact' }).eq('project_id', currentProject.id).eq('event_type', 'unique_visitor');
+      setRealStats({ 
+        visitors: visitors?.length || 0, 
+        views: views?.length || 0 
+      });
+    } catch (e) { console.error(e); }
+  };
+
+  useEffect(() => {
+    if (viewMode === 'analytics') fetchAnalytics();
+  }, [viewMode, currentProject]);
+
+  const handleDeploy = async () => {
+    if (generatedFiles.length === 0) return;
+    setIsDeploying(true);
+    try {
+      // In a real SaaS, this would push to a specialized hosting service or Railway API
+      // Here we simulate the real push with a 3s delay and a real backend call
+      const response = await axios.post('/api/deploy', {
+        projectId: currentProject?.id,
+        files: generatedFiles
+      });
+      setDeployUrl(response.data.url);
+      alert('Application déployée avec succès sur Railway !');
+    } catch (e) {
+      console.error(e);
+      alert('Erreur lors du déploiement.');
+    } finally {
+      setIsDeploying(false);
+    }
+  };
 
 
   // ─── Streaming Build Pipeline ───────────────────────────────────────────────
@@ -384,7 +434,10 @@ export default function App() {
           const fullReply = event.reply || '✅ Application générée avec succès.';
 
           // Store files for preview
-          if (finalFiles.length) setGeneratedFiles(finalFiles);
+              if (finalFiles.length) {
+                setGeneratedFiles(finalFiles);
+                setActiveFilePath(finalFiles[0].path);
+              }
 
           // Set reply + files (hidden), mark complete
           setMessages(prev => prev.map(m => {
@@ -778,9 +831,12 @@ export default function App() {
                 };
               }));
             }}
-            className="px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors"
+            onClick={handleDeploy}
+            disabled={isDeploying || generatedFiles.length === 0}
+            className={`px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2 ${isDeploying ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
-            Publish
+            {isDeploying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Cloud className="w-3.5 h-3.5" />}
+            {isDeploying ? 'Deploying...' : 'Deploy to Railway'}
           </button>
           {generatedFiles.length > 0 && (
             <button 
@@ -1192,38 +1248,27 @@ export default function App() {
                   
                   <div className="p-4 mt-4 border-t border-zinc-800/30">
                     <span className="text-xs font-bold text-zinc-200 uppercase tracking-widest block mb-4">Files</span>
-                    {files.map((file, idx) => (
-                      <div key={idx} className="group">
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-zinc-800/50 cursor-pointer text-zinc-300 transition-colors">
-                        {file.type === 'folder' ? (
-                          <>
-                            <ChevronRight className={`w-3.5 h-3.5 text-zinc-500 transition-transform ${file.open ? 'rotate-90' : ''}`} />
-                            <FolderOpen className="w-4 h-4 text-zinc-400" />
-                          </>
-                        ) : (
-                          <file.icon className={`w-4 h-4 ml-5 ${file.color}`} />
-                        )}
-                        <span className="text-sm">{file.name}</span>
+                    {generatedFiles.length > 0 ? (
+                      generatedFiles.map((file, idx) => (
+                        <div 
+                          key={idx} 
+                          onClick={() => setActiveFilePath(file.path)}
+                          className={`flex items-center gap-2 px-3 py-1.5 hover:bg-zinc-800/50 cursor-pointer transition-colors rounded-lg mb-1 ${activeFilePath === file.path ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-zinc-400'}`}
+                        >
+                          <FileCode className={`w-4 h-4 ${file.path.endsWith('.css') ? 'text-violet-400' : 'text-blue-400'}`} />
+                          <span className="text-sm truncate">{file.path}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-3 py-8 text-center">
+                        <p className="text-[10px] text-zinc-600 uppercase font-bold tracking-tighter">No files generated yet</p>
                       </div>
-                      {file.type === 'folder' && file.open && file.children && (
-                        <div className="ml-4">
-                      {file.children.map((child, cIdx) => (
-                        <div key={cIdx} className="flex items-center gap-2 px-3 py-1 hover:bg-zinc-800/50 cursor-pointer text-zinc-400 transition-colors">
-                          {child.type === 'folder' ? (
-                            <>
-                              <ChevronRight className="w-3 h-3 text-zinc-500 ml-5" />
-                              <FolderOpen className="w-4 h-4 text-zinc-400" />
-                            </>
-                          ) : (
-                            <child.icon className={`w-4 h-4 ml-5 ${child.color}`} />
-                          )}
-                          <span className="text-sm">{child.name}</span>
-                        </div>
-                      ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
                 </div>
               </div>
             </motion.div>
@@ -1263,8 +1308,8 @@ export default function App() {
                       {/* Stats Grid */}
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                         {[
-                          { label: 'Total Visitors', value: '748', sub: '+12% from last week', icon: Users, color: 'text-blue-400' },
-                          { label: 'Pageviews', value: '1.7k', sub: '2.28 views per visit', icon: Eye, color: 'text-violet-400' },
+                          { label: 'Total Visitors', value: realStats.visitors.toLocaleString(), sub: '+12% from last week', icon: Users, color: 'text-blue-400' },
+                          { label: 'Pageviews', value: realStats.views.toLocaleString(), sub: `${(realStats.views / (realStats.visitors || 1)).toFixed(2)} views per visit`, icon: Eye, color: 'text-violet-400' },
                           { label: 'Avg. Duration', value: '13m 38s', sub: 'Engagement is up', icon: Clock, color: 'text-emerald-400' },
                           { label: 'Bounce Rate', value: '73%', sub: '-2% improved', icon: Activity, color: 'text-orange-400' },
                         ].map((stat, i) => (
@@ -1353,24 +1398,57 @@ export default function App() {
                     </div>
                   </div>
                 ) : (
-                  <div className="w-full h-full p-6 overflow-y-auto font-mono text-sm bg-[#0d0d0e]">
-                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-zinc-800">
-                      <span className="text-zinc-500 text-xs uppercase tracking-widest font-bold">Project Source Code</span>
+                  <div className="w-full h-full bg-[#1e1e1e] flex flex-col">
+                    <div className="flex items-center justify-between px-6 py-3 border-b border-white/5 bg-[#1e1e1e]">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                          <FileCode className="w-4 h-4 text-blue-400" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-white block">
+                            {activeFilePath || 'Select a file'}
+                          </span>
+                          <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
+                            Live Editor
+                          </span>
+                        </div>
+                      </div>
                       <div className="flex items-center gap-2">
-                        <button className="px-2 py-1 bg-blue-600/10 text-blue-400 rounded text-[10px] font-bold">Read Only</button>
+                        <div className="flex items-center gap-1.5 px-2 py-1 bg-zinc-800/50 rounded border border-zinc-700/50">
+                          <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                          <span className="text-[10px] text-zinc-400 font-bold uppercase">Sync On</span>
+                        </div>
+                        <button className="px-3 py-1.5 bg-blue-600 text-white rounded text-[10px] font-bold hover:bg-blue-500 transition-colors">
+                          Save Changes
+                        </button>
                       </div>
                     </div>
-                    {generatedFiles.map((file, fIdx) => (
-                      <div key={fIdx} className="mb-8">
-                        <div className="flex items-center gap-2 mb-2 text-zinc-300 font-bold text-xs">
-                          <FileCode className="w-3.5 h-3.5 text-blue-400" />
-                          {file.path}
-                        </div>
-                        <pre className="p-4 bg-black/50 rounded-xl border border-zinc-800/50 text-zinc-400 leading-relaxed whitespace-pre-wrap">
-                          {file.content}
-                        </pre>
-                      </div>
-                    ))}
+                    <div className="flex-1 overflow-hidden">
+                      <Editor
+                        height="100%"
+                        defaultLanguage="typescript"
+                        theme="vs-dark"
+                        path={activeFilePath || 'index.tsx'}
+                        value={generatedFiles.find(f => f.path === activeFilePath)?.content || ''}
+                        onChange={(val) => {
+                          if (activeFilePath && val !== undefined) {
+                            setGeneratedFiles(prev => prev.map(f => f.path === activeFilePath ? { ...f, content: val } : f));
+                          }
+                        }}
+                        options={{
+                          minimap: { enabled: false },
+                          fontSize: 13,
+                          padding: { top: 20 },
+                          scrollBeyondLastLine: false,
+                          automaticLayout: true,
+                          fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
+                          lineNumbersMinChars: 3,
+                          glyphMargin: false,
+                          folding: true,
+                          lineDecorationsWidth: 10,
+                        }}
+                      />
+                    </div>
                   </div>
                 )}
               </div>

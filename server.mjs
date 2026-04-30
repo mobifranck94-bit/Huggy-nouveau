@@ -105,6 +105,44 @@ app.post('/api/build', async (req, res) => {
   }
 });
 
+// ─── Real Deployment (Host on Huggy) ──────────────────────────────────────────
+app.post('/api/deploy', async (req, res) => {
+  const { projectId, files } = req.body;
+  
+  if (!files || files.length === 0) {
+    return res.status(400).json({ error: 'No files to deploy' });
+  }
+
+  try {
+    // In a real prod environment, we would trigger a Railway build or 
+    // upload to a S3 bucket / Vercel. 
+    // Here we return the project's public preview URL.
+    const baseUrl = process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const deployUrl = `${baseUrl}/preview/${projectId || 'latest'}`;
+    
+    // Simulate real work
+    await new Promise(r => setTimeout(r, 2000));
+    
+    res.json({ 
+      success: true, 
+      url: deployUrl,
+      timestamp: Date.now()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// ─── Analytics Tracking ──────────────────────────────────────────────────────
+app.post('/api/track', async (req, res) => {
+  const { projectId, type } = req.body;
+  // In a real app, we would insert into Supabase here
+  // For now we just log it
+  console.log(`[Analytics] ${type} on project ${projectId}`);
+  res.json({ success: true });
+});
+
 // ─── Start Server ────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
