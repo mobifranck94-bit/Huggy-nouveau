@@ -50,14 +50,18 @@ Respond with a SINGLE valid JSON object ONLY. No markdown fences. No text outsid
 - Use the DESIGN SYSTEM tokens from context — never invent new colors or spacing
 `.trim();
 
-export async function runCoderAgent(refinedPrompt, complexity) {
+export async function runCoderAgent(refinedPrompt, complexity, existingFiles = []) {
   const model = complexity === 'complex'
-    ? 'claude-sonnet-4-5'    // Meilleure qualité pour le code complexe
-    : 'claude-haiku-4-5';    // Rapide pour les projets simples/medium
+    ? 'claude-sonnet-4-5'
+    : 'claude-haiku-4-5';
+
+  const context = existingFiles.length > 0
+    ? `\n\n# EXISTING CODEBASE\nThe following files already exist in the project. You MUST update them if necessary to fulfill the new request. If a file is not mentioned in your output, it will be kept as is.\nFILES:\n${existingFiles.map(f => `FILE: ${f.path}\nCONTENT:\n${f.content}\n---`).join('\n')}`
+    : '';
 
   return callClaude({
     systemPrompt: CODER_SYSTEM_PROMPT,
-    userMessage: refinedPrompt,
+    userMessage: refinedPrompt + context,
     model,
   });
 }

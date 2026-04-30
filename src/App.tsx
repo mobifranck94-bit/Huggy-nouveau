@@ -85,6 +85,52 @@ export default function App() {
   const [isServerOnline, setIsServerOnline] = useState(false);
   const [generatedFiles, setGeneratedFiles] = useState<Array<{path: string, content: string}>>([]);
 
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Generate Preview Blob URL when files change
+  useEffect(() => {
+    if (generatedFiles.length === 0) {
+      setPreviewUrl(null);
+      return;
+    }
+
+    const appFile = generatedFiles.find(f => f.path.endsWith('App.tsx') || f.path.endsWith('App.js'));
+    const stylesFile = generatedFiles.find(f => f.path.endsWith('.css'));
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <script src="https://cdn.tailwindcss.com"><\/script>
+          <style>${stylesFile?.content || ''}</style>
+          <style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>
+        </head>
+        <body class="bg-[#0a0a0b] text-white">
+          <div id="root"></div>
+          <script src="https://unpkg.com/react@18/umd/react.development.js"><\/script>
+          <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
+          <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
+          <script type="text/babel">
+            try {
+              ${appFile?.content || 'document.getElementById("root").innerHTML = "<h1>App ready</h1>"'}
+              const root = ReactDOM.createRoot(document.getElementById('root'));
+              if (typeof App !== 'undefined') root.render(React.createElement(App));
+            } catch(e) {
+              document.getElementById('root').innerHTML = '<pre style="color:#f87171;padding:20px">' + e.message + '</pre>';
+            }
+          <\/script>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    setPreviewUrl(url);
+
+    return () => URL.revokeObjectURL(url);
+  }, [generatedFiles]);
+
   // Auto-save chat input
   useEffect(() => {
     localStorage.setItem('huggy_chat_input', chatInput);
@@ -227,7 +273,7 @@ export default function App() {
             return log;
           }));
         }
-      });
+      }, generatedFiles);
     } catch (error) {
       setIsBuilding(false);
       setCurrentAgentIndex(-1);
@@ -839,22 +885,14 @@ export default function App() {
                  style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
             />
 
-            {/* Generated App Preview */}
-            {generatedFiles.length > 0 && !isBuilding && !isEditMode && (
-              <div className="absolute inset-0 z-10 bg-white">
+            {/* Generated App Live Preview */}
+            {previewUrl && !isBuilding && !isEditMode && (
+              <div className="absolute inset-0 z-10 bg-[#0a0a0b]">
                 <iframe
-                  title="Preview"
-                  srcDoc={(() => {
-                    const appFile = generatedFiles.find(f => f.path.endsWith('App.tsx') || f.path.endsWith('App.jsx'));
-                    const cssFile = generatedFiles.find(f => f.path.endsWith('.css'));
-                    if (!appFile) return '<html><body style="background:#111;color:#888;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif"><p>No preview available</p></body></html>';
-                    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${cssFile?.content ?? ''}</style></head><body style="margin:0">
-                      <div id="root" style="padding:20px;font-family:Inter,sans-serif;background:#0a0a0a;color:#e4e4e7;min-height:100vh">
-                        <pre style="white-space:pre-wrap;font-size:12px;line-height:1.6;color:#a1a1aa">${appFile.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-                      </div></body></html>`;
-                  })()}
+                  title="Live Preview"
+                  src={previewUrl}
                   className="w-full h-full border-0"
-                  sandbox="allow-scripts"
+                  sandbox="allow-scripts allow-same-origin"
                 />
               </div>
             )}

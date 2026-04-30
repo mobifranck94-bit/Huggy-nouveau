@@ -52,10 +52,14 @@ Single valid JSON object only (no markdown fences):
 - Respond ONLY with JSON
 `.trim();
 
-export async function runPMAgent(enrichedPrompt) {
+export async function runPMAgent(enrichedPrompt, existingFiles = []) {
+  const context = existingFiles.length > 0
+    ? `\n\n# EXISTING PROJECT CONTEXT\nThe user already has a project with the following files. Analyze them to determine if this is a modification request or a new feature addition.\nFILES:\n${existingFiles.map(f => `- ${f.path}`).join('\n')}`
+    : '';
+
   return callClaude({
     systemPrompt: PM_SYSTEM_PROMPT,
-    userMessage: enrichedPrompt,
+    userMessage: enrichedPrompt + context,
     model: 'claude-haiku-4-5',
   });
 }

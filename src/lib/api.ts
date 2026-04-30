@@ -28,12 +28,13 @@ export interface PipelineEvent {
  */
 export async function startBuildPipeline(
   prompt: string,
-  onEvent: (event: PipelineEvent) => void
+  onEvent: (event: PipelineEvent) => void,
+  existingFiles?: Array<{ path: string; content: string }>
 ): Promise<void> {
   const response = await fetch('/api/build', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, files: existingFiles }),
   });
 
   if (!response.ok) {
