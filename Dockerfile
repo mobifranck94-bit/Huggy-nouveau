@@ -1,28 +1,19 @@
-# ✅ Remplace node:18-alpine par node:20-alpine
-FROM node:20-alpine AS base
+# Étape 1 : build
+FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copie des fichiers de dépendances
 COPY package.json package-lock.json* ./
+RUN npm install --include=optional
 
-# ✅ Clean install avec --include=optional pour oxide (Tailwind v4)
-RUN rm -rf node_modules package-lock.json \
-    && npm install --include=optional
-
-# Copie de tout le code source pour le build
 COPY . .
-
-# ✅ Build du frontend avec limite de mémoire augmentée
 RUN NODE_OPTIONS=--max-old-space-size=4096 npm run build
 
+# Étape 2 : production
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Copie de l'application complète (incluant dist et node_modules)
-COPY --from=base /app ./
+ENV NODE_ENV=production
 
-# Exposition du port (Railway utilise souvent 3001 ou injecte PORT)
-EXPOSE 3001
+COPY --from=builder /app ./
 
-# Lancement du serveur
 CMD ["npm", "start"]

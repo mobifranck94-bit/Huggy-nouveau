@@ -1299,10 +1299,7 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
-<<<<<<< HEAD
 
-=======
->>>>>>> 30864024c0e3a61308730081e216462d07303452
 
           <div className="flex-1 relative">
             {/* Subtle grid pattern background */}
