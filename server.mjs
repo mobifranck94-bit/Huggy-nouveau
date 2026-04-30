@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import { runFullPipeline } from './lib/pipeline.mjs';
 
 // Load environment variables (.env.local has priority, then .env)
@@ -9,7 +10,8 @@ dotenv.config();
 
 const app = express();
 app.use(cors({ origin: true }));
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '50mb' })); // Increased limit for larger projects
+app.use(express.static('dist'));
 
 // ─── Health Check ────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
@@ -24,8 +26,9 @@ app.post('/api/build', async (req, res) => {
     return res.status(400).json({ error: 'Prompt is required' });
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return res.status(500).json({ error: 'ANTHROPIC_API_KEY is not configured on the server.' });
+  const MOCK_MODE = !process.env.ANTHROPIC_API_KEY;
+  if (MOCK_MODE) {
+    console.log('⚠️  ANTHROPIC_API_KEY missing. Entering MOCK MODE for testing.');
   }
 
   // Set SSE headers
@@ -47,12 +50,31 @@ app.post('/api/build', async (req, res) => {
     console.log(`🚀 Pipeline started for prompt: "${prompt.slice(0, 80)}..."`);
     console.log(`${'═'.repeat(60)}\n`);
 
-    const result = await runFullPipeline(prompt, {
-      existingFiles: files,
-      onProgress: (event) => {
-        sendEvent(event);
-      },
-    });
+    let result;
+    if (MOCK_MODE) {
+      // Simulate pipeline progress
+      const agents = ['Web Research', 'Product Manager', 'DBA Architect', 'UX Designer', 'Coder Agent', 'Security Auditor', 'QA Reviewer', 'i18n Agent'];
+      for (let i = 0; i < agents.length; i++) {
+        sendEvent({ type: 'agent', index: i, agent: agents[i], status: 'active', description: `Simulation: ${agents[i]} working...` });
+        await new Promise(r => setTimeout(r, 800));
+        sendEvent({ type: 'agent', index: i, agent: agents[i], status: 'completed', description: `Simulation: ${agents[i]} done` });
+      }
+      result = {
+        files: [
+          { path: 'src/App.tsx', content: 'export default function App() { return <div className="p-8"><h1>Mock Mode Active</h1><p>Set ANTHROPIC_API_KEY to use real AI.</p></div>; }' },
+          { path: 'src/index.css', content: 'body { background: #000; color: #fff; }' }
+        ],
+        reply: 'Ceci est une réponse simulée car la clé API Claude est absente. Configurez votre ANTHROPIC_API_KEY pour activer l\'intelligence réelle.',
+        meta: { secReport: { score: 100, approved: true }, review: { score: 95, approved: true }, pmPlan: { complexity: 'simple', projectName: 'Mock Project' } }
+      };
+    } else {
+      result = await runFullPipeline(prompt, {
+        existingFiles: files,
+        onProgress: (event) => {
+          sendEvent(event);
+        },
+      });
+    }
 
     // Send the final result
     sendEvent({
@@ -69,7 +91,7 @@ app.post('/api/build', async (req, res) => {
       },
     });
 
-    console.log(`\n✅ Pipeline completed successfully.`);
+    console.log(`\n✅ Pipeline completed ${MOCK_MODE ? '(MOCK)' : ''} successfully.`);
     console.log(`   Files generated: ${result.files?.length ?? 0}`);
     console.log(`   Security score: ${result.meta?.secReport?.score ?? 'N/A'}`);
     console.log(`   QA score: ${result.meta?.review?.score ?? 'N/A'}\n`);
@@ -90,4 +112,9 @@ app.listen(PORT, () => {
   console.log(`   → Endpoints:`);
   console.log(`      GET  /api/health`);
   console.log(`      POST /api/build  { prompt: "..." }\n`);
+});
+
+// Fallback for SPA routing
+app.get('*', (_req, res) => {
+  res.sendFile(path.resolve('dist', 'index.html'));
 });

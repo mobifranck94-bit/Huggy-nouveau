@@ -37,9 +37,15 @@ export async function startBuildPipeline(
     body: JSON.stringify({ prompt, files: existingFiles }),
   });
 
+  let errorData;
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `Build request failed: ${response.status}`);
+    const text = await response.text();
+    try {
+      errorData = JSON.parse(text);
+    } catch {
+      errorData = { error: `Server error (${response.status}): ${text.slice(0, 100)}` };
+    }
+    throw new Error(errorData.error || `Build request failed: ${response.status}`);
   }
 
   const reader = response.body!.getReader();
