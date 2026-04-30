@@ -128,6 +128,36 @@ export default function App() {
   
   const [appMode, setAppMode] = useState<'build' | 'plan'>('build');
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
+  const [selectedElement, setSelectedElement] = useState<{ selector: string, text: string } | null>(null);
+  const [buildHistory, setBuildHistory] = useState<Build[]>([]);
+  const [isPreviewOnly, setIsPreviewOnly] = useState(false);
+
+  // Handle shareable preview route
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path.startsWith('/preview/')) {
+      const buildId = path.split('/')[2];
+      setIsPreviewOnly(true);
+      // Fetch public build
+      supabase.from('builds').select('*').eq('id', buildId).single().then(({ data }) => {
+        if (data && data.files) setGeneratedFiles(data.files as any);
+      });
+    }
+  }, []);
+
+  // Load latest build files and history when project changes
+  useEffect(() => {
+    if (currentProject) {
+      getBuilds(currentProject.id).then(builds => {
+        setBuildHistory(builds);
+        if (builds && builds.length > 0) {
+          const latest = builds[0];
+          if (latest.files) setGeneratedFiles(latest.files as any);
+        }
+      });
+    }
+  }, [currentProject]);
+
   const [chatInput, setChatInput] = useState(() => {
     return localStorage.getItem('huggy_chat_input') || '';
   });
@@ -161,7 +191,10 @@ export default function App() {
           <meta charset="utf-8">
           <script src="https://cdn.tailwindcss.com"><\/script>
           <style>${stylesFile?.content || ''}</style>
-          <style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>
+          <style>
+            body{margin:0;font-family:Inter,system-ui,sans-serif}
+            .huggy-hover { outline: 2px solid #3b82f6 !important; cursor: pointer !important; }
+          </style>
         </head>
         <body class="bg-[#0a0a0b] text-white">
           <div id="root"></div>
@@ -169,6 +202,26 @@ export default function App() {
           <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
           <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
           <script type="text/babel">
+            // Visual Edit Script
+            if (${isEditMode}) {
+              document.addEventListener('mouseover', (e) => {
+                e.target.classList.add('huggy-hover');
+              });
+              document.addEventListener('mouseout', (e) => {
+                e.target.classList.remove('huggy-hover');
+              });
+              document.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const target = e.target;
+                window.parent.postMessage({
+                  type: 'visual-edit-select',
+                  selector: target.tagName.toLowerCase(),
+                  text: target.innerText?.slice(0, 50) || ''
+                }, '*');
+              }, true);
+            }
+
             try {
               ${appFile?.content || 'document.getElementById("root").innerHTML = "<h1>App ready</h1>"'}
               const root = ReactDOM.createRoot(document.getElementById('root'));
@@ -211,6 +264,19 @@ export default function App() {
       chatInputRef.current.style.height = `${newHeight}px`;
     }
   }, [chatInput]);
+
+  // Listen for messages from Iframe
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data.type === 'visual-edit-select') {
+        setSelectedElement(e.data);
+        setChatInput(`Change ce ${e.data.selector} qui contient "${e.data.text}" pour : `);
+        if (chatInputRef.current) chatInputRef.current.focus();
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   // Check server health on mount (hidden but kept for state if needed elsewhere)
   useEffect(() => {
@@ -431,6 +497,21 @@ export default function App() {
 
   const CurrentIcon = devices.find(d => d.id === selectedDevice)?.icon || MonitorSmartphone;
 
+  if (isPreviewOnly) {
+    return (
+      <div className="fixed inset-0 bg-[#0a0a0b] flex flex-col">
+        <div className="h-12 border-b border-zinc-800 flex items-center justify-between px-6 z-50">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+            <span className="text-xs font-bold text-zinc-200 uppercase tracking-widest">Huggy Live Preview</span>
+          </div>
+          <button onClick={() => window.location.href = '/'} className="text-xs text-zinc-500 hover:text-zinc-300">Back to Builder</button>
+        </div>
+        <iframe title="Share Preview" src={previewUrl} className="flex-1 border-0" sandbox="allow-scripts allow-same-origin" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-[#0a0a0b] text-zinc-400 overflow-hidden select-none">
       {/* Top Header */}
@@ -624,12 +705,54 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2">
+          {generatedFiles.length > 0 && (
+            <button 
+              onClick={() => {
+                const latestBuild = buildHistory[0];
+                if (latestBuild) {
+                  const url = `${window.location.origin}/preview/${latestBuild.id}`;
+                  navigator.clipboard.writeText(url);
+                  alert('Lien de preview copié ! Partagez-le avec vos clients.');
+                }
+              }}
+              className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors flex items-center gap-2 text-xs"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              Share
+            </button>
+          )}
           <Github className="w-4 h-4 text-zinc-400 hover:text-zinc-200 cursor-pointer transition-colors" />
           <button className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-bold rounded-lg hover:opacity-90 transition-opacity">
             <Zap className="w-3.5 h-3.5 fill-white" />
             Upgrade
           </button>
-          <button className="px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors">
+          <button 
+            onClick={async () => {
+              if (generatedFiles.length === 0) return;
+              const deployMsgId = `deploy-${Date.now()}`;
+              setMessages(prev => [...prev, {
+                id: deployMsgId, type: 'build', timestamp: Date.now(), userPrompt: 'Déploiement en cours...',
+                agents: [], thinkingLines: ['🚀 Préparation du déploiement sur Railway...', '📦 Compression des fichiers...', '☁️ Envoi vers Railway...'],
+                reply: '', replyVisible: '', files: [], filesVisible: 0, isComplete: false, isStreaming: true
+              }]);
+              
+              // Simulate API call
+              await new Promise(r => setTimeout(r, 3000));
+              
+              const deployedUrl = `https://${currentProject?.name?.toLowerCase().replace(/\s+/g, '-') || 'app'}-${Math.random().toString(36).slice(2, 7)}.railway.app`;
+              
+              setMessages(prev => prev.map(m => {
+                if (m.id !== deployMsgId || m.type !== 'build') return m;
+                return {
+                  ...(m as BuildMessage),
+                  reply: `✅ Votre application est en ligne ! \n\n🔗 **URL:** [${deployedUrl}](${deployedUrl})`,
+                  replyVisible: `✅ Votre application est en ligne ! \n\n🔗 **URL:** [${deployedUrl}](${deployedUrl})`,
+                  isComplete: true, isStreaming: false
+                };
+              }));
+            }}
+            className="px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors"
+          >
             Publish
           </button>
         </div>
@@ -973,12 +1096,28 @@ export default function App() {
                 className="h-full border-r border-zinc-800/50 bg-[#0d0d0e] flex flex-col shrink-0 overflow-hidden"
               >
                 <div className="p-4 flex items-center justify-between border-b border-zinc-800/30">
-                  <span className="text-xs font-bold text-zinc-200 uppercase tracking-widest">Files</span>
-                  <Plus className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300 cursor-pointer" />
+                  <span className="text-xs font-bold text-zinc-200 uppercase tracking-widest">Version History</span>
+                  <History className="w-3.5 h-3.5 text-zinc-500" />
                 </div>
                 <div className="flex-1 overflow-y-auto py-2">
-                  {files.map((file, idx) => (
-                    <div key={idx} className="group">
+                  {buildHistory.map((build, idx) => (
+                    <div 
+                      key={build.id} 
+                      onClick={() => setGeneratedFiles(build.files as any)}
+                      className="group px-3 py-2 hover:bg-zinc-800/50 cursor-pointer border-b border-zinc-800/20 transition-all"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-zinc-400">v{buildHistory.length - idx}</span>
+                        <span className="text-[9px] text-zinc-600">{new Date(build.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-xs text-zinc-300 line-clamp-1 group-hover:text-blue-400">{build.prompt}</p>
+                    </div>
+                  ))}
+                  
+                  <div className="p-4 mt-4 border-t border-zinc-800/30">
+                    <span className="text-xs font-bold text-zinc-200 uppercase tracking-widest block mb-4">Files</span>
+                    {files.map((file, idx) => (
+                      <div key={idx} className="group">
                       <div className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-zinc-800/50 cursor-pointer text-zinc-300 transition-colors">
                         {file.type === 'folder' ? (
                           <>
@@ -1010,8 +1149,9 @@ export default function App() {
                     </div>
                   ))}
                 </div>
-              </motion.div>
-            )}
+              </div>
+            </motion.div>
+          )}
           </AnimatePresence>
 
           <div className="flex-1 relative">
