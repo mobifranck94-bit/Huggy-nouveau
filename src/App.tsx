@@ -37,7 +37,13 @@ import {
   Settings,
   LogOut,
   ExternalLink,
-  Coins
+  Coins,
+  Share2,
+  Brain,
+  Activity,
+  BarChart3,
+  Users,
+  ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -130,7 +136,9 @@ export default function App() {
   const [selectedModel, setSelectedModel] = useState('claude-3-5-sonnet-20241022');
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview');
+  const [viewMode, setViewMode] = useState<'preview' | 'code' | 'analytics'>('preview');
+  const [isCustomDomainModalOpen, setIsCustomDomainModalOpen] = useState(false);
+  const [customDomain, setCustomDomain] = useState('');
   const [selectedElement, setSelectedElement] = useState<{ selector: string, text: string } | null>(null);
   const [buildHistory, setBuildHistory] = useState<Build[]>([]);
   const [isPreviewOnly, setIsPreviewOnly] = useState(false);
@@ -658,6 +666,13 @@ export default function App() {
             <Code2 className="w-3.5 h-3.5" />
             Code
           </button>
+          <button 
+            onClick={() => setViewMode('analytics')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'analytics' ? 'bg-zinc-800/80 text-blue-400 shadow-sm border border-zinc-700/30' : 'text-zinc-400 hover:bg-zinc-800/80'}`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            Analytics
+          </button>
           <button className="p-1.5 hover:bg-zinc-800/80 rounded-md transition-colors text-zinc-400">
             <Cloud className="w-3.5 h-3.5" />
           </button>
@@ -759,6 +774,15 @@ export default function App() {
           >
             Publish
           </button>
+          {generatedFiles.length > 0 && (
+            <button 
+              onClick={() => setIsCustomDomainModalOpen(true)}
+              className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors flex items-center gap-2 text-xs border border-zinc-800"
+            >
+              <Globe2 className="w-3.5 h-3.5" />
+              Domain
+            </button>
+          )}
         </div>
       </header>
 
@@ -1196,7 +1220,7 @@ export default function App() {
               </div>
             </motion.div>
           )}
-          </AnimatePresence>
+        </AnimatePresence>
 
           <div className="flex-1 relative">
             {/* Subtle grid pattern background */}
@@ -1204,7 +1228,7 @@ export default function App() {
                  style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
             />
 
-            {/* Generated App Live Preview / Code Editor */}
+            {/* Generated App Live Preview / Code Editor / Analytics */}
             {previewUrl && !isBuilding && !isEditMode && (
               <div className="absolute inset-0 z-10 bg-[#0a0a0b]">
                 {viewMode === 'preview' ? (
@@ -1214,6 +1238,112 @@ export default function App() {
                     className="w-full h-full border-0"
                     sandbox="allow-scripts allow-same-origin"
                   />
+                ) : viewMode === 'analytics' ? (
+                  <div className="w-full h-full p-8 overflow-y-auto bg-[#0a0a0b] text-zinc-400">
+                    <div className="max-w-5xl mx-auto">
+                      <div className="flex items-center justify-between mb-8">
+                        <div>
+                          <h2 className="text-2xl font-bold text-white mb-1">Project Analytics</h2>
+                          <p className="text-zinc-500 text-sm">Real-time visitor data for {currentProject?.name || 'this project'}</p>
+                        </div>
+                        <div className="flex items-center gap-2 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-full">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                          <span className="text-xs font-bold text-green-400 uppercase tracking-widest">Live Now: 12 visitors</span>
+                        </div>
+                      </div>
+
+                      {/* Stats Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                        {[
+                          { label: 'Total Visitors', value: '748', sub: '+12% from last week', icon: Users, color: 'text-blue-400' },
+                          { label: 'Pageviews', value: '1.7k', sub: '2.28 views per visit', icon: Eye, color: 'text-violet-400' },
+                          { label: 'Avg. Duration', value: '13m 38s', sub: 'Engagement is up', icon: Clock, color: 'text-emerald-400' },
+                          { label: 'Bounce Rate', value: '73%', sub: '-2% improved', icon: Activity, color: 'text-orange-400' },
+                        ].map((stat, i) => (
+                          <div key={i} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{stat.label}</span>
+                              <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                            </div>
+                            <div className="text-2xl font-bold text-white mb-1">{stat.value}</div>
+                            <div className="text-[10px] text-zinc-600">{stat.sub}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Main Chart Placeholder */}
+                      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 mb-8 h-64 flex flex-col">
+                        <div className="flex items-center justify-between mb-6">
+                          <span className="text-xs font-bold text-zinc-400">Visitors (Last 7 Days)</span>
+                          <div className="flex gap-2">
+                            {['23 Apr', '25 Apr', '27 Apr', '29 Apr'].map(d => (
+                              <span key={d} className="text-[9px] text-zinc-600">{d}</span>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex-1 flex items-end gap-2 pb-2">
+                          {[40, 60, 45, 80, 55, 90, 70, 85, 100, 75, 60, 40].map((h, i) => (
+                            <motion.div 
+                              key={i}
+                              initial={{ height: 0 }}
+                              animate={{ height: `${h}%` }}
+                              className="flex-1 bg-gradient-to-t from-blue-600/20 to-blue-500/60 rounded-t-sm"
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Tables Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
+                        {/* Top Sources */}
+                        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
+                          <div className="flex items-center justify-between mb-4 pb-2 border-b border-zinc-800">
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Top Sources</span>
+                            <span className="text-[10px] text-zinc-600">Visitors</span>
+                          </div>
+                          <div className="space-y-3">
+                            {[
+                              { name: 'Direct', val: 468, pct: 60 },
+                              { name: 'm.facebook.com', val: 224, pct: 30 },
+                              { name: 'google.com', val: 34, pct: 5 },
+                              { name: 'instagram.com', val: 10, pct: 2 },
+                            ].map((s, i) => (
+                              <div key={i} className="flex items-center justify-between group">
+                                <span className="text-xs text-zinc-300 group-hover:text-blue-400 transition-colors">{s.name}</span>
+                                <div className="flex items-center gap-3">
+                                  <div className="w-20 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                    <div className="h-full bg-blue-500/50" style={{ width: `${s.pct}%` }} />
+                                  </div>
+                                  <span className="text-xs font-mono text-zinc-500 w-8 text-right">{s.val}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Top Pages */}
+                        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
+                          <div className="flex items-center justify-between mb-4 pb-2 border-b border-zinc-800">
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Top Pages</span>
+                            <span className="text-[10px] text-zinc-600">Visitors</span>
+                          </div>
+                          <div className="space-y-3">
+                            {[
+                              { name: '/produit/digitaux', val: 435 },
+                              { name: '/guide-diabete', val: 163 },
+                              { name: '/', val: 65 },
+                              { name: '/boutique', val: 48 },
+                            ].map((p, i) => (
+                              <div key={i} className="flex items-center justify-between group">
+                                <span className="text-xs text-zinc-300 group-hover:text-violet-400 transition-colors">{p.name}</span>
+                                <span className="text-xs font-mono text-zinc-500">{p.val}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <div className="w-full h-full p-6 overflow-y-auto font-mono text-sm bg-[#0d0d0e]">
                     <div className="flex items-center justify-between mb-4 pb-4 border-b border-zinc-800">
@@ -1237,6 +1367,80 @@ export default function App() {
                 )}
               </div>
             )}
+
+            {/* Custom Domain Modal */}
+            <AnimatePresence>
+              {isCustomDomainModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setIsCustomDomainModalOpen(false)}
+                    className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    className="relative w-full max-w-md bg-[#1c1c1e] border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden"
+                  >
+                    <div className="p-8">
+                      <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6">
+                        <Globe2 className="w-6 h-6 text-blue-400" />
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-2">Connect Custom Domain</h3>
+                      <p className="text-zinc-500 text-sm mb-8 leading-relaxed">Enter your own domain to make your application look more professional. We'll handle the SSL certificate.</p>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-2">Your Domain</label>
+                          <input 
+                            type="text" 
+                            placeholder="maboutique.com"
+                            value={customDomain}
+                            onChange={(e) => setCustomDomain(e.target.value)}
+                            className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-200 text-sm focus:outline-none focus:border-blue-500/50 transition-colors"
+                          />
+                        </div>
+                        
+                        <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-2xl p-4">
+                          <p className="text-[10px] text-zinc-500 mb-2 font-bold uppercase">Configuration Required</p>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-zinc-400">Type</span>
+                              <span className="text-zinc-100 font-mono">CNAME</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-zinc-400">Value</span>
+                              <span className="text-blue-400 font-mono">proxy.huggy.app</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 mt-8">
+                        <button 
+                          onClick={() => setIsCustomDomainModalOpen(false)}
+                          className="flex-1 px-4 py-3 bg-zinc-800 text-zinc-300 rounded-xl text-xs font-bold hover:bg-zinc-700 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          onClick={() => {
+                            alert(`Domaine ${customDomain} est en cours de propagation...`);
+                            setIsCustomDomainModalOpen(false);
+                          }}
+                          className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-500 shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2"
+                        >
+                          Connect <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
 
             {/* Edit Mode Selection Overlay */}
             <AnimatePresence>
