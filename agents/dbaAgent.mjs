@@ -48,7 +48,7 @@ Single valid JSON object only (no markdown fences):
 - If app is static (landing page, portfolio) → needsDatabase: false, tables: [], supabaseClientCode: ""
 - Always use auth.users for user references, NEVER create a custom users table
 - Enable RLS on ALL tables — no exceptions
-- supabaseClientCode uses NEXT_PUBLIC_ env vars only (never SERVICE_ROLE_KEY client-side)
+- supabaseClientCode uses VITE_ env vars only (prefix: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) — never SERVICE_ROLE_KEY client-side
 - Include sensible indexes for foreign keys and frequently queried columns
 - Be practical: only create tables the app actually needs
 - Respond ONLY with JSON

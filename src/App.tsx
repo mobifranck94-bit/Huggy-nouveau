@@ -50,6 +50,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { startBuildPipeline, checkServerHealth } from './lib/api';
 import { useAuth } from './lib/useAuth';
 import { useProjects } from './lib/useProjects';
+import { supabase, type Build } from './lib/supabase';
 
 // ─── Streaming Chat Types ─────────────────────────────────────────────────────
 type AgentStatus = 'idle' | 'active' | 'done' | 'skipped';
@@ -107,22 +108,29 @@ const AGENTS_DEF = [
 ];
 
 export default function App() {
-  // ─── Supabase Auth & Data (Mocked for Preview) ───────────────────────────
+  // ─── Supabase Auth & Data ────────────────────────────────────────────────────
+  // On utilise l'auth réelle. Si VITE_SUPABASE_URL n'est pas configuré (dev local
+  // sans Supabase), on active un fallback preview pour ne pas bloquer le développement.
   const realAuth = useAuth();
-  const auth = {
-    ...realAuth,
-    isAuthenticated: true,
-    loading: false,
-    user: { id: 'preview-user-id', email: 'preview@huggy.app' },
-    profile: {
-      id: 'preview-user-id',
-      full_name: 'Preview User',
-      credits: 500,
-      max_credits: 500,
-      plan: 'pro'
-    }
-  };
-  const { projects, currentProject, createProject, saveBuild } = useProjects(auth.user?.id);
+  const isSupabaseConfigured = !!(
+    import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
+  );
+  const auth = isSupabaseConfigured
+    ? realAuth
+    : {
+        ...realAuth,
+        isAuthenticated: true,
+        loading: false,
+        user: { id: 'preview-user-id', email: 'preview@huggy.app' },
+        profile: {
+          id: 'preview-user-id',
+          full_name: 'Preview User',
+          credits: 500,
+          max_credits: 500,
+          plan: 'pro' as const,
+        },
+      };
+  const { projects, currentProject, createProject, saveBuild, getBuilds } = useProjects(auth.user?.id);
 
   const [isDeviceMenuOpen, setIsDeviceMenuOpen] = useState(false);
   const [isFileExplorerOpen, setIsFileExplorerOpen] = useState(false);

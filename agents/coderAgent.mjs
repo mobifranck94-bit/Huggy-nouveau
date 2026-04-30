@@ -52,9 +52,11 @@ Respond with a SINGLE valid JSON object ONLY. No markdown fences. No text outsid
 `.trim();
 
 export async function runCoderAgent(refinedPrompt, complexity, existingFiles = []) {
+  // claude-sonnet-4-6 pour les projets complexes (multi-fichiers, TypeScript strict)
+  // claude-haiku-4-5-20251001 pour les projets simples (rapide + économique)
   const model = complexity === 'complex'
-    ? 'claude-sonnet-4-5'
-    : 'claude-haiku-4-5';
+    ? 'claude-sonnet-4-6'
+    : 'claude-haiku-4-5-20251001';
 
   const context = existingFiles.length > 0
     ? `\n\n# EXISTING CODEBASE\nThe following files already exist in the project. You MUST update them if necessary to fulfill the new request. If a file is not mentioned in your output, it will be kept as is.\nFILES:\n${existingFiles.map(f => `FILE: ${f.path}\nCONTENT:\n${f.content}\n---`).join('\n')}`

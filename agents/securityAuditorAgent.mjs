@@ -9,7 +9,7 @@ Analyze generated React/TypeScript code for security vulnerabilities BEFORE it r
 1. Secrets exposure
    - No hardcoded API keys, tokens, passwords, connection strings
    - No SERVICE_ROLE_KEY in client-side code
-   - NEXT_PUBLIC_ prefix for intentionally public env vars is ACCEPTABLE
+   - VITE_ prefix for intentionally public env vars is ACCEPTABLE (this is a Vite project, NOT Next.js)
 
 2. XSS vulnerabilities
    - No dangerouslySetInnerHTML with unescaped user input
