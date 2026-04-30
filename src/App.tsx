@@ -1,5 +1,6 @@
-import { 
-  Heart, 
+import { useState, useRef, useEffect } from 'react';
+import {
+  Heart,
   Home,
   ChevronDown, 
   Clock, 
@@ -43,7 +44,8 @@ import {
   Activity,
   BarChart3,
   Users,
-  ArrowRight
+  ArrowRight,
+  History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Editor from '@monaco-editor/react';
@@ -52,6 +54,7 @@ import { startBuildPipeline, checkServerHealth } from './lib/api';
 import { useAuth } from './lib/useAuth';
 import { useProjects } from './lib/useProjects';
 import { supabase, type Build } from './lib/supabase';
+import LandingPage from './pages/LandingPage';
 
 // ─── Streaming Chat Types ─────────────────────────────────────────────────────
 type AgentStatus = 'idle' | 'active' | 'done' | 'skipped';
@@ -533,6 +536,30 @@ export default function App() {
   ];
 
   const CurrentIcon = devices.find(d => d.id === selectedDevice)?.icon || MonitorSmartphone;
+
+  if (auth.loading) {
+    return (
+      <div className="min-h-screen bg-[#f2f2f2] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center animate-pulse">
+            <Heart className="w-6 h-6 text-white fill-white" />
+          </div>
+          <p className="text-sm text-zinc-500 font-medium">Loading Huggy…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!auth.isAuthenticated) {
+    return (
+      <LandingPage
+        onSignIn={realAuth.signInWithEmail}
+        onSignUp={realAuth.signUpWithEmail}
+        onGoogleSignIn={realAuth.signInWithGoogle}
+        onGithubSignIn={realAuth.signInWithGitHub}
+      />
+    );
+  }
 
   if (isPreviewOnly) {
     return (
