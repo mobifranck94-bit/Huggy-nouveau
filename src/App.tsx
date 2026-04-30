@@ -55,6 +55,7 @@ import { useAuth } from './lib/useAuth';
 import { useProjects } from './lib/useProjects';
 import { supabase, type Build } from './lib/supabase';
 import LandingPage from './pages/LandingPage';
+import { useNavigate } from 'react-router-dom';
 
 // ─── Streaming Chat Types ─────────────────────────────────────────────────────
 type AgentStatus = 'idle' | 'active' | 'completed' | 'skipped';
@@ -155,6 +156,7 @@ export default function App() {
   const [selectedElement, setSelectedElement] = useState<{ selector: string, text: string } | null>(null);
   const [buildHistory, setBuildHistory] = useState<Build[]>([]);
   const [isPreviewOnly, setIsPreviewOnly] = useState(false);
+  const navigate = useNavigate();
 
   // Handle shareable preview route /preview/:buildId
   useEffect(() => {
@@ -656,7 +658,13 @@ export default function App() {
 
                       {/* Menu Links */}
                       <div className="p-1.5">
-                        <button className="w-full flex items-center justify-between px-3 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-lg transition-all text-xs font-medium group">
+                        <button 
+                          onClick={() => {
+                            setIsHeaderMenuOpen(false);
+                            navigate('/dashboard');
+                          }}
+                          className="w-full flex items-center justify-between px-3 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-lg transition-all text-xs font-medium group"
+                        >
                           <div className="flex items-center gap-2">
                             <Layout className="w-4 h-4 text-zinc-500 group-hover:text-blue-400" />
                             User Dashboard
