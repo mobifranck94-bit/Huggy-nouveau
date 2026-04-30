@@ -40,10 +40,65 @@ import {
   Coins
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { startBuildPipeline, checkServerHealth } from './lib/api';
 import { useAuth } from './lib/useAuth';
 import { useProjects } from './lib/useProjects';
+
+// ─── Streaming Chat Types ─────────────────────────────────────────────────────
+type AgentStatus = 'idle' | 'active' | 'done' | 'skipped';
+
+interface AgentInfo {
+  name: string;
+  status: AgentStatus;
+  description: string;
+}
+
+interface FileEntry {
+  path: string;
+  content: string;
+}
+
+interface UserMessage {
+  id: string;
+  type: 'user';
+  content: string;
+  timestamp: number;
+}
+
+interface BuildMessage {
+  id: string;
+  type: 'build';
+  timestamp: number;
+  userPrompt: string;
+  agents: AgentInfo[];
+  thinkingLines: string[];
+  reply: string;
+  replyVisible: string;
+  files: FileEntry[];
+  filesVisible: number;
+  isComplete: boolean;
+  isStreaming: boolean;
+  meta?: {
+    securityScore?: number;
+    qaScore?: number;
+    complexity?: string;
+  };
+}
+
+type ChatEntry = UserMessage | BuildMessage;
+
+// ─── Agent Definitions ────────────────────────────────────────────────────────
+const AGENTS_DEF = [
+  { name: 'Web Research',      Icon: Globe2,        color: 'text-cyan-400',   bg: 'bg-cyan-500/10',   border: 'border-cyan-500/30'   },
+  { name: 'Product Manager',   Icon: ClipboardList, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/30' },
+  { name: 'DBA Architect',     Icon: Database,      color: 'text-amber-400',  bg: 'bg-amber-500/10',  border: 'border-amber-500/30'  },
+  { name: 'UX Designer',       Icon: Eye,           color: 'text-pink-400',   bg: 'bg-pink-500/10',   border: 'border-pink-500/30'   },
+  { name: 'Coder Agent',       Icon: Code2,         color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/30'   },
+  { name: 'Security Auditor',  Icon: ShieldCheck,   color: 'text-red-400',    bg: 'bg-red-500/10',    border: 'border-red-500/30'    },
+  { name: 'QA Reviewer',       Icon: CheckCircle2,  color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/30'  },
+  { name: 'i18n Agent',        Icon: Globe,         color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/30' },
+];
 
 export default function App() {
   // ─── Supabase Auth & Data (Mocked for Preview) ───────────────────────────
@@ -76,10 +131,13 @@ export default function App() {
   const [chatInput, setChatInput] = useState(() => {
     return localStorage.getItem('huggy_chat_input') || '';
   });
-  const [chatHistory, setChatHistory] = useState<{role: 'user' | 'assistant', content: string, timestamp: number}[]>(() => {
-    const saved = localStorage.getItem('huggy_chat_history');
-    return saved ? JSON.parse(saved) : [];
+  const [messages, setMessages] = useState<ChatEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem('huggy_messages_v2');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isServerOnline, setIsServerOnline] = useState(false);
   const [generatedFiles, setGeneratedFiles] = useState<Array<{path: string, content: string}>>([]);
@@ -135,10 +193,15 @@ export default function App() {
     localStorage.setItem('huggy_chat_input', chatInput);
   }, [chatInput]);
 
-  // Auto-save chat history
+  // Auto-save messages
   useEffect(() => {
-    localStorage.setItem('huggy_chat_history', JSON.stringify(chatHistory));
-  }, [chatHistory]);
+    localStorage.setItem('huggy_messages_v2', JSON.stringify(messages));
+  }, [messages]);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   // Handle textarea auto-resize
   useEffect(() => {
@@ -160,34 +223,48 @@ export default function App() {
 
   // Build Pipeline State
   const [isBuilding, setIsBuilding] = useState(false);
-  const [currentAgentIndex, setCurrentAgentIndex] = useState(-1);
 
+
+  // ─── Streaming Build Pipeline ───────────────────────────────────────────────
   const startBuild = async () => {
     if (!chatInput.trim() || isBuilding) return;
 
-    // Check credits
     if (auth.profile && auth.profile.credits <= 0) {
-      setChatHistory(prev => [...prev, {
-        role: 'assistant',
-        content: '⚠️ Crédits insuffisants. Upgrade ton plan pour continuer à build.',
-        timestamp: Date.now()
+      const errId = `err-${Date.now()}`;
+      setMessages(prev => [...prev, {
+        id: errId, type: 'build', timestamp: Date.now(), userPrompt: chatInput,
+        agents: [], thinkingLines: ['⚠️ Crédits insuffisants. Upgrade ton plan pour continuer.'],
+        reply: '⚠️ Crédits insuffisants. Upgrade ton plan pour continuer.',
+        replyVisible: '⚠️ Crédits insuffisants. Upgrade ton plan pour continuer.',
+        files: [], filesVisible: 0, isComplete: true, isStreaming: false,
       }]);
       return;
     }
 
     const prompt = chatInput;
-    
-    // Add to history
-    setChatHistory(prev => [...prev, { 
-      role: 'user', 
-      content: prompt, 
-      timestamp: Date.now() 
-    }]);
+    const buildId = `build-${Date.now()}`;
+    const userId = `user-${Date.now()}`;
+
+    // Initial agents state — all idle
+    const initialAgents: AgentInfo[] = AGENTS_DEF.map(a => ({
+      name: a.name, status: 'idle', description: '',
+    }));
+
+    // Push user message + empty build message
+    setMessages(prev => [
+      ...prev,
+      { id: userId, type: 'user', content: prompt, timestamp: Date.now() },
+      {
+        id: buildId, type: 'build', timestamp: Date.now(), userPrompt: prompt,
+        agents: initialAgents, thinkingLines: [],
+        reply: '', replyVisible: '', files: [], filesVisible: 0,
+        isComplete: false, isStreaming: true,
+      },
+    ]);
 
     setIsBuilding(true);
     setChatInput('');
 
-    // Auto-create project if none exists
     let projectId = currentProject?.id;
     if (!projectId) {
       try {
@@ -198,61 +275,111 @@ export default function App() {
 
     try {
       await startBuildPipeline(prompt, async (event) => {
+
+        // ── Agent progress ──────────────────────────────────────────────────
+        if (event.type === 'agent') {
+          setMessages(prev => prev.map(m => {
+            if (m.id !== buildId || m.type !== 'build') return m;
+            const bm = m as BuildMessage;
+            const updatedAgents = bm.agents.map((a, i) =>
+              i === event.index
+                ? { ...a, status: event.status as AgentStatus, description: event.description || '' }
+                : a
+            );
+            const newThinking = event.status === 'active' && event.description
+              ? [...bm.thinkingLines, `[${event.agent}] ${event.description}`]
+              : bm.thinkingLines;
+            return { ...bm, agents: updatedAgents, thinkingLines: newThinking };
+          }));
+        }
+
+        // ── Pipeline complete ───────────────────────────────────────────────
         if (event.type === 'complete') {
-          // Pipeline finished successfully
+          const finalFiles: FileEntry[] = event.files || [];
+          const fullReply = event.reply || '✅ Application générée avec succès.';
+
+          // Store files for preview
+          if (finalFiles.length) setGeneratedFiles(finalFiles);
+
+          // Set reply + files (hidden), mark complete
+          setMessages(prev => prev.map(m => {
+            if (m.id !== buildId || m.type !== 'build') return m;
+            return {
+              ...(m as BuildMessage),
+              reply: fullReply,
+              replyVisible: '',
+              files: finalFiles,
+              filesVisible: 0,
+              isComplete: true,
+              isStreaming: true,
+              meta: {
+                securityScore: event.meta?.securityScore,
+                qaScore: event.meta?.qaScore,
+                complexity: event.meta?.complexity,
+              },
+            };
+          }));
+
+          // Typewriter effect for reply
+          let charIndex = 0;
+          const CHARS_PER_TICK = 4;
+          const typeInterval = setInterval(() => {
+            charIndex = Math.min(charIndex + CHARS_PER_TICK, fullReply.length);
+            setMessages(prev => prev.map(m => {
+              if (m.id !== buildId || m.type !== 'build') return m;
+              return { ...(m as BuildMessage), replyVisible: fullReply.slice(0, charIndex) };
+            }));
+            if (charIndex >= fullReply.length) {
+              clearInterval(typeInterval);
+              // Stagger file appearances
+              finalFiles.forEach((_, fileIdx) => {
+                setTimeout(() => {
+                  setMessages(prev => prev.map(m => {
+                    if (m.id !== buildId || m.type !== 'build') return m;
+                    return { ...(m as BuildMessage), filesVisible: fileIdx + 1 };
+                  }));
+                }, fileIdx * 180);
+              });
+              // Mark streaming done after all files revealed
+              setTimeout(() => {
+                setMessages(prev => prev.map(m => {
+                  if (m.id !== buildId || m.type !== 'build') return m;
+                  return { ...(m as BuildMessage), isStreaming: false };
+                }));
+              }, finalFiles.length * 180 + 300);
+            }
+          }, 16);
+
           setIsBuilding(false);
 
-          // Add assistant response to chat
-          const replyParts = [];
-          if (event.reply) replyParts.push(event.reply);
-          if (event.meta) {
-            replyParts.push(`\n\n📊 **Résultats:** ${event.files?.length ?? 0} fichiers • Security: ${event.meta.securityScore ?? '—'}/100 • QA: ${event.meta.qaScore ?? '—'}/100`);
-          }
-          if (replyParts.length > 0) {
-            setChatHistory(prev => [...prev, {
-              role: 'assistant',
-              content: replyParts.join(''),
-              timestamp: Date.now()
-            }]);
-          }
-
-          // Store generated files for preview & file explorer
-          if (event.files?.length) {
-            setGeneratedFiles(event.files);
-          }
-
-          // Save build to Supabase & deduct credits
           if (projectId) {
             try {
-              await saveBuild(projectId, prompt, {
-                files: event.files,
-                reply: event.reply,
-                meta: event.meta,
-              });
+              await saveBuild(projectId, prompt, { files: event.files, reply: event.reply, meta: event.meta });
               await auth.refreshProfile();
-            } catch (e) {
-              console.warn('Failed to save build:', e);
-            }
+            } catch (e) { console.warn('Failed to save build:', e); }
           }
-
-        } else if (event.type === 'error') {
-          setIsBuilding(false);
-          setChatHistory(prev => [...prev, {
-            role: 'assistant',
-            content: `❌ Pipeline error: ${event.message}`,
-            timestamp: Date.now()
-          }]);
-
         }
+
+        // ── Error ───────────────────────────────────────────────────────────
+        if (event.type === 'error') {
+          setIsBuilding(false);
+          setMessages(prev => prev.map(m => {
+            if (m.id !== buildId || m.type !== 'build') return m;
+            const bm = m as BuildMessage;
+            const errReply = `❌ Erreur pipeline: ${event.message}`;
+            return { ...bm, reply: errReply, replyVisible: errReply, isComplete: true, isStreaming: false };
+          }));
+        }
+
       }, generatedFiles);
     } catch (error) {
       setIsBuilding(false);
-      setCurrentAgentIndex(-1);
-      setChatHistory(prev => [...prev, {
-        role: 'assistant',
-        content: `❌ Connection failed: ${(error as Error).message}. Make sure the pipeline server is running (npm run dev:server).`,
-        timestamp: Date.now()
-      }]);
+      setMessages(prev => prev.map(m => {
+        if (m.id !== buildId || m.type !== 'build') return m;
+        const bm = m as BuildMessage;
+        const errReply = `❌ Connexion échouée: ${(error as Error).message}. Vérifie que le serveur tourne (npm run dev:server).`;
+        return { ...bm, reply: errReply, replyVisible: errReply, isComplete: true, isStreaming: false };
+      }));
     }
   };
 
@@ -522,41 +649,211 @@ export default function App() {
             >
               {/* Conversation/History Area */}
               <div className="flex-1 bg-[#161617] rounded-2xl border border-zinc-800/50 overflow-hidden shadow-inner flex flex-col p-4 overflow-y-auto scrollbar-hide">
-                {chatHistory.length === 0 ? (
+                {messages.length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center text-center p-6 opacity-30">
                     <Clock className="w-8 h-8 mb-3" />
                     <p className="text-xs font-medium">No history yet</p>
                     <p className="text-[10px] mt-1">Your conversations will appear here</p>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-4">
-                    {chatHistory.map((msg, idx) => (
-                      <div key={idx} className="flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                            {msg.role === 'user' ? 'Request' : 'Huggy'}
-                          </span>
-                          <span className="text-[9px] text-zinc-600">
-                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
+                  <div className="flex flex-col gap-5">
+                    {messages.map((entry) => {
+
+                      // ── User message ──────────────────────────────────────
+                      if (entry.type === 'user') {
+                        return (
+                          <div key={entry.id} className="flex justify-end">
+                            <div className="max-w-[85%] bg-indigo-600/20 border border-indigo-500/30 rounded-2xl rounded-tr-sm px-3.5 py-2.5">
+                              <p className="text-xs text-zinc-200 leading-relaxed">{entry.content}</p>
+                              <span className="text-[9px] text-zinc-600 mt-1 block text-right">
+                                {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // ── Build message ─────────────────────────────────────
+                      const bm = entry as BuildMessage;
+                      return (
+                        <div key={bm.id} className="flex flex-col gap-2.5">
+
+                          {/* Agent track */}
+                          <div className="flex flex-wrap gap-1.5">
+                            {AGENTS_DEF.map((def, idx) => {
+                              const agent = bm.agents[idx];
+                              const status = agent?.status || 'idle';
+                              const isActive = status === 'active';
+                              const isDone = status === 'done';
+                              const DefIcon = def.Icon;
+                              return (
+                                <motion.div
+                                  key={def.name}
+                                  initial={{ opacity: 0, scale: 0.8 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  transition={{ delay: idx * 0.04 }}
+                                  className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-[10px] font-medium transition-all duration-300 ${
+                                    isDone
+                                      ? `${def.bg} ${def.border} ${def.color}`
+                                      : isActive
+                                      ? `${def.bg} ${def.border} ${def.color} ring-1 ring-offset-0 ring-current/30`
+                                      : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600'
+                                  }`}
+                                >
+                                  {isDone ? (
+                                    <CheckCircle2 className="w-2.5 h-2.5" />
+                                  ) : isActive ? (
+                                    <motion.div
+                                      className="w-1.5 h-1.5 rounded-full bg-current"
+                                      animate={{ opacity: [1, 0.3, 1] }}
+                                      transition={{ duration: 0.9, repeat: Infinity }}
+                                    />
+                                  ) : (
+                                    <DefIcon className="w-2.5 h-2.5 opacity-30" />
+                                  )}
+                                  <span className="hidden sm:inline">{def.name}</span>
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Thinking block — last 3 lines */}
+                          {bm.thinkingLines.length > 0 && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-3 overflow-hidden"
+                            >
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <motion.div
+                                  className="w-1.5 h-1.5 rounded-full bg-violet-400"
+                                  animate={bm.isStreaming && !bm.isComplete ? { opacity: [1, 0.3, 1] } : {}}
+                                  transition={{ duration: 0.9, repeat: Infinity }}
+                                />
+                                <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-bold">thinking</span>
+                              </div>
+                              <div className="space-y-0.5">
+                                {bm.thinkingLines.slice(-3).map((line, i) => (
+                                  <motion.p
+                                    key={i}
+                                    initial={{ opacity: 0, x: -4 }}
+                                    animate={{ opacity: i === bm.thinkingLines.slice(-3).length - 1 ? 1 : 0.35, x: 0 }}
+                                    className="text-[10px] text-zinc-500 font-mono leading-relaxed truncate"
+                                  >
+                                    {line}
+                                  </motion.p>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+
+                          {/* Streaming reply */}
+                          {(bm.replyVisible || bm.isStreaming) && (
+                            <div className="flex gap-2 items-start">
+                              <div className="w-6 h-6 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center shrink-0 mt-0.5">
+                                <div className="w-3 h-3 bg-indigo-500 rounded-full" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-xs text-zinc-200 leading-relaxed">
+                                  {bm.replyVisible}
+                                  {bm.isStreaming && bm.replyVisible.length < bm.reply.length && (
+                                    <motion.span
+                                      className="inline-block w-0.5 h-3 bg-indigo-400 ml-0.5 align-text-bottom"
+                                      animate={{ opacity: [1, 0] }}
+                                      transition={{ duration: 0.5, repeat: Infinity }}
+                                    />
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Files appearing one by one */}
+                          {bm.filesVisible > 0 && (
+                            <div className="flex flex-col gap-1 ml-8">
+                              {bm.files.slice(0, bm.filesVisible).map((file, fi) => {
+                                const ext = file.path.split('.').pop() || '';
+                                const iconColor =
+                                  ext === 'tsx' || ext === 'ts' ? 'text-blue-400' :
+                                  ext === 'css' ? 'text-violet-400' :
+                                  ext === 'json' ? 'text-amber-400' : 'text-zinc-400';
+                                const FileIconComp =
+                                  ext === 'tsx' || ext === 'ts' ? FileCode :
+                                  ext === 'css' ? Hash :
+                                  ext === 'json' ? FileJson : FileText;
+                                return (
+                                  <motion.div
+                                    key={fi}
+                                    initial={{ opacity: 0, x: -8 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ duration: 0.25 }}
+                                    className="flex items-center gap-2 px-2.5 py-1.5 bg-zinc-900/50 border border-zinc-800/60 rounded-lg"
+                                  >
+                                    <FileIconComp className={`w-3 h-3 shrink-0 ${iconColor}`} />
+                                    <span className="text-[10px] font-mono text-zinc-400 truncate flex-1">{file.path}</span>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/10 border border-green-500/20 text-green-400 shrink-0">
+                                      {fi === 0 ? 'new' : '+'}
+                                    </span>
+                                  </motion.div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Score badges after complete */}
+                          {bm.isComplete && !bm.isStreaming && bm.meta && (
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className="flex items-center gap-2 ml-8 flex-wrap"
+                            >
+                              {bm.meta.securityScore !== undefined && (
+                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400">
+                                  🛡 Security {bm.meta.securityScore}/100
+                                </span>
+                              )}
+                              {bm.meta.qaScore !== undefined && (
+                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20 text-green-400">
+                                  ✓ QA {bm.meta.qaScore}/100
+                                </span>
+                              )}
+                              {bm.meta.complexity && (
+                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400">
+                                  {bm.meta.complexity}
+                                </span>
+                              )}
+                              <span className="text-[9px] text-zinc-600 ml-auto">
+                                {new Date(bm.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </motion.div>
+                          )}
+
+                          {/* Loading pulse when pipeline just started */}
+                          {!bm.isComplete && bm.thinkingLines.length === 0 && (
+                            <div className="flex items-center gap-2 ml-2">
+                              {[0,1,2].map(i => (
+                                <motion.div
+                                  key={i}
+                                  className="w-1.5 h-1.5 rounded-full bg-zinc-600"
+                                  animate={{ opacity: [0.3, 1, 0.3] }}
+                                  transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
+                                />
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        <div className={`text-xs p-3 rounded-xl border ${
-                          msg.role === 'user' 
-                            ? 'bg-zinc-800/30 border-zinc-700/30 text-zinc-300' 
-                            : 'bg-blue-500/5 border-blue-500/20 text-blue-100'
-                        }`}>
-                          {msg.content}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
+
                     <div className="pt-4 flex justify-center">
-                      <button 
-                        onClick={() => setChatHistory([])}
+                      <button
+                        onClick={() => setMessages([])}
                         className="text-[9px] text-zinc-600 hover:text-zinc-400 uppercase tracking-tighter font-bold transition-colors"
                       >
                         Clear History
                       </button>
                     </div>
+                    <div ref={chatEndRef} />
                   </div>
                 )}
               </div>
