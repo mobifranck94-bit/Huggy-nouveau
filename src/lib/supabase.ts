@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl    = import.meta.env.VITE_SUPABASE_URL    || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Missing Supabase environment variables. Check your .env file.');
+  console.warn('[Huggy] VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY manquants — mode hors-ligne activé.');
 }
 
 // ─── Database Types ──────────────────────────────────────────────────────────
@@ -48,4 +48,13 @@ export interface Build {
   completed_at: string | null;
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+// createClient throws if either argument is an empty string.
+// We use a valid-looking placeholder so the app loads even without env vars.
+// The isSupabaseConfigured flag in App.tsx prevents any real DB calls in that case.
+const PLACEHOLDER_URL = 'https://placeholder.supabase.co';
+const PLACEHOLDER_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder';
+
+export const supabase = createClient(
+  supabaseUrl  || PLACEHOLDER_URL,
+  supabaseAnonKey || PLACEHOLDER_KEY,
+);
