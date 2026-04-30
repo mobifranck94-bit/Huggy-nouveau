@@ -210,20 +210,39 @@ export default function App() {
       <html>
         <head>
           <meta charset="utf-8">
-          <script src="https://cdn.tailwindcss.com"><\/script>
-          <script src="https://unpkg.com/axios/dist/axios.min.js"><\/script>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+          <script src="https://unpkg.com/lucide@latest"></script>
+          <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
           <style>${stylesFile?.content || ''}</style>
           <style>
-            body{margin:0;font-family:Inter,system-ui,sans-serif}
+            body{margin:0;font-family:'Inter',system-ui,sans-serif;background:#0a0a0b;color:white}
             .huggy-hover { outline: 2px solid #3b82f6 !important; cursor: pointer !important; }
+            #root { min-height: 100vh; }
           </style>
         </head>
-        <body class="bg-[#0a0a0b] text-white">
+        <body>
           <div id="root"></div>
-          <script src="https://unpkg.com/react@18/umd/react.development.js"><\/script>
-          <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
-          <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
+          <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+          <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+          <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
           <script type="text/babel">
+            // Global polyfills for common AI-generated code imports
+            window.React = React;
+            window.ReactDOM = ReactDOM;
+            window.motion = window.framerMotion?.motion || {};
+            window.AnimatePresence = window.framerMotion?.AnimatePresence || (({children}) => children);
+
+            // Mock Lucide components if needed
+            const LucideProxy = new Proxy({}, {
+              get: (target, name) => (props) => {
+                const Icon = lucide[name] || lucide.HelpCircle;
+                return <i data-lucide={name.toLowerCase()} {...props} />;
+              }
+            });
+            window.Lucide = LucideProxy;
+
             // Track Visit
             try {
               axios.post('/api/track', {
@@ -232,18 +251,55 @@ export default function App() {
               });
             } catch(e) {}
 
+            // Concatenate all files, stripping imports/exports
+            const allCode = ${JSON.stringify(
+              generatedFiles
+                .filter(f => f.path.endsWith('.tsx') || f.path.endsWith('.ts') || f.path.endsWith('.js'))
+                .map(f => {
+                  let content = f.content;
+                  // Remove imports and exports for simple browser execution
+                  content = content.replace(/import\s+.*?\s+from\s+['"].*?['"];?/g, '');
+                  content = content.replace(/export\s+default\s+/, '');
+                  content = content.replace(/export\s+/, '');
+                  return `// FILE: ${f.path}\n${content}`;
+                })
+                .join('\n\n')
+            )};
+
+            try {
+              // Execute all code
+              eval(Babel.transform(allCode, { presets: ['react', 'typescript'] }).code);
+              
+              // Render App
+              const root = ReactDOM.createRoot(document.getElementById('root'));
+              if (typeof App !== 'undefined') {
+                root.render(<App />);
+              } else {
+                // Fallback: look for the last defined functional component if App is missing
+                document.getElementById('root').innerHTML = '<div style="padding:20px;color:#fbbf24">Warning: Component "App" not found in generated code.</div>';
+              }
+              
+              // Initialize Lucide icons
+              if (window.lucide) lucide.createIcons();
+            } catch(e) {
+              console.error("Preview Error:", e);
+              document.getElementById('root').innerHTML = '<pre style="color:#f87171;padding:20px;white-space:pre-wrap;font-size:12px">' + e.stack + '</pre>';
+            }
+
             // Visual Edit Script
             if (${isEditMode}) {
               document.addEventListener('mouseover', (e) => {
-                e.target.classList.add('huggy-hover');
+                const target = e.target.closest('*');
+                if (target) target.classList.add('huggy-hover');
               });
               document.addEventListener('mouseout', (e) => {
-                e.target.classList.remove('huggy-hover');
+                const target = e.target.closest('*');
+                if (target) target.classList.remove('huggy-hover');
               });
               document.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const target = e.target;
+                const target = e.target.closest('*');
                 window.parent.postMessage({
                   type: 'visual-edit-select',
                   selector: target.tagName.toLowerCase(),
@@ -251,15 +307,7 @@ export default function App() {
                 }, '*');
               }, true);
             }
-
-            try {
-              ${appFile?.content || 'document.getElementById("root").innerHTML = "<h1>App ready</h1>"'}
-              const root = ReactDOM.createRoot(document.getElementById('root'));
-              if (typeof App !== 'undefined') root.render(React.createElement(App));
-            } catch(e) {
-              document.getElementById('root').innerHTML = '<pre style="color:#f87171;padding:20px">' + e.message + '</pre>';
-            }
-          <\/script>
+          </script>
         </body>
       </html>
     `;
@@ -807,30 +855,7 @@ export default function App() {
             Upgrade
           </button>
           <button 
-            onClick={async () => {
-              if (generatedFiles.length === 0) return;
-              const deployMsgId = `deploy-${Date.now()}`;
-              setMessages(prev => [...prev, {
-                id: deployMsgId, type: 'build', timestamp: Date.now(), userPrompt: 'Déploiement en cours...',
-                agents: [], thinkingLines: ['🚀 Préparation du déploiement sur Railway...', '📦 Compression des fichiers...', '☁️ Envoi vers Railway...'],
-                reply: '', replyVisible: '', files: [], filesVisible: 0, isComplete: false, isStreaming: true
-              }]);
-              
-              // Simulate API call
-              await new Promise(r => setTimeout(r, 3000));
-              
-              const deployedUrl = `https://${currentProject?.name?.toLowerCase().replace(/\s+/g, '-') || 'app'}-${Math.random().toString(36).slice(2, 7)}.railway.app`;
-              
-              setMessages(prev => prev.map(m => {
-                if (m.id !== deployMsgId || m.type !== 'build') return m;
-                return {
-                  ...(m as BuildMessage),
-                  reply: `✅ Votre application est en ligne ! \n\n🔗 **URL:** [${deployedUrl}](${deployedUrl})`,
-                  replyVisible: `✅ Votre application est en ligne ! \n\n🔗 **URL:** [${deployedUrl}](${deployedUrl})`,
-                  isComplete: true, isStreaming: false
-                };
-              }));
-            }}
+
             onClick={handleDeploy}
             disabled={isDeploying || generatedFiles.length === 0}
             className={`px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2 ${isDeploying ? 'opacity-70 cursor-not-allowed' : ''}`}
@@ -1269,11 +1294,7 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+
 
           <div className="flex-1 relative">
             {/* Subtle grid pattern background */}
