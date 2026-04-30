@@ -871,41 +871,93 @@ export default function App() {
                       return (
                         <div key={bm.id} className="flex flex-col gap-2.5">
 
+                          {/* Pipeline progress header — global bar + ETA */}
+                          {(() => {
+                            const finished = bm.agents.filter(a => a.status === 'completed' || a.status === 'skipped').length;
+                            const activeIdx = bm.agents.findIndex(a => a.status === 'active');
+                            const activeAgent = activeIdx >= 0 ? AGENTS_DEF[activeIdx] : null;
+                            const pct = Math.round((finished / 8) * 100);
+                            return (
+                              <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-xl p-2.5 mb-1">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <div className="flex items-center gap-1.5">
+                                    {bm.isComplete ? (
+                                      <CheckCircle2 className="w-3 h-3 text-green-400" />
+                                    ) : (
+                                      <motion.div
+                                        className="w-2 h-2 rounded-full bg-violet-400"
+                                        animate={{ opacity: [1, 0.3, 1] }}
+                                        transition={{ duration: 0.9, repeat: Infinity }}
+                                      />
+                                    )}
+                                    <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">
+                                      {bm.isComplete ? 'Pipeline complete' : (activeAgent ? activeAgent.name : 'Starting...')}
+                                    </span>
+                                  </div>
+                                  <span className="text-[9px] font-mono text-zinc-500">{finished}/8 · {pct}%</span>
+                                </div>
+                                <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                  <motion.div
+                                    className="h-full bg-gradient-to-r from-violet-500 via-blue-500 to-cyan-400"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${pct}%` }}
+                                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })()}
+
                           {/* Agent track */}
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1">
                             {AGENTS_DEF.map((def, idx) => {
                               const agent = bm.agents[idx];
                               const status = agent?.status || 'idle';
                               const isActive = status === 'active';
                               const isDone = status === 'completed';
+                              const isSkipped = status === 'skipped';
                               const DefIcon = def.Icon;
                               return (
-                                <motion.div
-                                  key={def.name}
-                                  initial={{ opacity: 0, scale: 0.8 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  transition={{ delay: idx * 0.04 }}
-                                  className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-[10px] font-medium transition-all duration-300 ${
-                                    isDone
-                                      ? `${def.bg} ${def.border} ${def.color}`
-                                      : isActive
-                                      ? `${def.bg} ${def.border} ${def.color} ring-1 ring-offset-0 ring-current/30`
-                                      : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600'
-                                  }`}
-                                >
-                                  {isDone ? (
-                                    <CheckCircle2 className="w-2.5 h-2.5" />
-                                  ) : isActive ? (
+                                <div key={def.name} className="flex items-center">
+                                  <motion.div
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: isActive ? 1.05 : 1 }}
+                                    transition={{ delay: idx * 0.04 }}
+                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-[10px] font-medium transition-all duration-300 ${
+                                      isDone
+                                        ? `${def.bg} ${def.border} ${def.color}`
+                                        : isActive
+                                        ? `${def.bg} ${def.border} ${def.color} ring-2 ring-current/30 shadow-[0_0_12px_currentColor]`
+                                        : isSkipped
+                                        ? 'bg-zinc-900/30 border-zinc-800/30 text-zinc-700 line-through opacity-60'
+                                        : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600'
+                                    }`}
+                                  >
+                                    {isDone ? (
+                                      <CheckCircle2 className="w-2.5 h-2.5" />
+                                    ) : isActive ? (
+                                      <motion.div
+                                        className="w-1.5 h-1.5 rounded-full bg-current"
+                                        animate={{ opacity: [1, 0.3, 1], scale: [1, 1.3, 1] }}
+                                        transition={{ duration: 0.9, repeat: Infinity }}
+                                      />
+                                    ) : isSkipped ? (
+                                      <span className="w-2.5 h-2.5 inline-flex items-center justify-center text-[10px]">—</span>
+                                    ) : (
+                                      <DefIcon className="w-2.5 h-2.5 opacity-30" />
+                                    )}
+                                    <span className="hidden sm:inline">{def.name}</span>
+                                  </motion.div>
+                                  {idx < AGENTS_DEF.length - 1 && (
                                     <motion.div
-                                      className="w-1.5 h-1.5 rounded-full bg-current"
-                                      animate={{ opacity: [1, 0.3, 1] }}
-                                      transition={{ duration: 0.9, repeat: Infinity }}
+                                      className={`h-px w-1.5 mx-0.5 transition-colors ${
+                                        isDone || isSkipped ? 'bg-zinc-600' : 'bg-zinc-800'
+                                      }`}
+                                      animate={isActive ? { opacity: [0.3, 1, 0.3] } : { opacity: 1 }}
+                                      transition={isActive ? { duration: 1, repeat: Infinity } : {}}
                                     />
-                                  ) : (
-                                    <DefIcon className="w-2.5 h-2.5 opacity-30" />
                                   )}
-                                  <span className="hidden sm:inline">{def.name}</span>
-                                </motion.div>
+                                </div>
                               );
                             })}
                           </div>

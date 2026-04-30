@@ -1,65 +1,29 @@
 import { callClaude } from '../lib/callClaude.mjs';
 
-const PM_SYSTEM_PROMPT = `
-# ROLE: Senior Product Manager & Solution Architect
-You are the PM agent of Huggy Simple. Transform raw user ideas into detailed implementation plans.
-
-# OUTPUT FORMAT
-Single valid JSON object only (no markdown fences):
+const PM_SYSTEM_PROMPT = `# Senior PM. Output ONE valid JSON only (no fences):
 {
-  "projectName": "kebab-case-name",
-  "summary": "One-line description",
-  "pages": [
-    {
-      "route": "/",
-      "name": "Home",
-      "description": "...",
-      "keyComponents": ["Hero", "Features"],
-      "dataNeeds": ["none"]
-    }
-  ],
-  "designGuidelines": {
-    "colorScheme": "dark with violet accents",
-    "typography": "Inter",
-    "style": "glassmorphism",
-    "mood": "premium SaaS"
-  },
-  "dataModel": [
-    {
-      "entity": "Post",
-      "fields": ["id", "title", "content", "author_id", "created_at"],
-      "relations": ["belongs_to User"]
-    }
-  ],
-  "authStrategy": "none | supabase_email | supabase_oauth | supabase_magic_link",
-  "complexity": "simple | medium | complex",
-  "estimatedFiles": 3,
+  "projectName": "kebab-case",
+  "summary": "one line",
+  "pages": [{ "route":"/", "name":"Home", "keyComponents":["Hero"], "dataNeeds":[] }],
+  "designGuidelines": { "colorScheme":"dark violet", "typography":"Inter", "style":"glassmorphism", "mood":"premium" },
+  "dataModel": [{ "entity":"Post", "fields":["id","title","author_id"], "relations":["belongs_to User"] }],
+  "authStrategy": "none|supabase_email|supabase_oauth|supabase_magic_link",
+  "complexity": "simple|medium|complex",
   "needsI18n": false,
   "targetLocales": [],
-  "securityLevel": "standard | strict | minimal",
-  "designSystemHints": "dark glassmorphism, accent violet #6366F1, Inter font",
-  "refinedPrompt": "Extremely detailed prompt for the Coder agent. Include exact layouts, colors, animations, sections, interactions, SEO strategy, accessibility. 5-10x more detailed than the original request."
+  "securityLevel": "standard|strict|minimal",
+  "refinedPrompt": "5-10x more detailed prompt for Coder: layouts, exact colors, animations, sections, SEO meta, a11y."
 }
-
-# RULES
-- Vague request → assume modern SaaS dashboard with dark theme
-- Always define at least 1 page
-- "refinedPrompt" is the most important field — be exhaustive and precise
-- Include SEO strategy in refinedPrompt (meta tags, semantic HTML5, OpenGraph)
-- Simple UI (landing/portfolio) → empty dataModel, authStrategy "none"
-- Set needsI18n: true only if user explicitly requests multilingual or targets non-English markets
-- Set securityLevel "strict" if app handles payments, health data, or auth with sensitive data
-- Respond ONLY with JSON
-`.trim();
+Rules: vague → modern dark SaaS. dataModel empty for landing/portfolio. needsI18n only if user asks. strict only for payments/health/sensitive auth.`;
 
 export async function runPMAgent(enrichedPrompt, existingFiles = []) {
-  const context = existingFiles.length > 0
-    ? `\n\n# EXISTING PROJECT CONTEXT\nThe user already has a project with the following files. Analyze them to determine if this is a modification request or a new feature addition.\nFILES:\n${existingFiles.map(f => `- ${f.path}`).join('\n')}`
+  const ctx = existingFiles.length
+    ? `\n\nEXISTING FILES (decide if modification or new feature):\n${existingFiles.map(f => `- ${f.path}`).join('\n')}`
     : '';
-
   return callClaude({
     systemPrompt: PM_SYSTEM_PROMPT,
-    userMessage: enrichedPrompt + context,
-    model: 'claude-haiku-4-5-20251001',
+    userMessage:  enrichedPrompt + ctx,
+    model:        'claude-haiku-4-5-20251001',
+    maxTokens:    3500,
   });
 }

@@ -1,70 +1,46 @@
 import { callClaude } from '../lib/callClaude.mjs';
 
-const CODER_SYSTEM_PROMPT = `
-# IDENTITY & MISSION
-You are Huggy, the elite intelligence engine of Huggy Simple — a premium AI SaaS builder.
-Transform user intents into complete, visually stunning, production-ready React applications.
-Operate autonomously: plan → code → deliver. Never ask for permission.
+const CODER_SYSTEM_PROMPT = `# Huggy Coder — premium AI SaaS builder. Generate complete, production-ready React+TypeScript apps.
 
-# CODE STANDARDS
-- Framework: React + strict TypeScript (no implicit any, all props typed)
-- Styling: Tailwind CSS — use the EXACT color tokens and spacing from the provided DESIGN SYSTEM
-- Animations: Framer Motion (motion, AnimatePresence). Icons: Lucide React.
-- SEO & Accessibility:
-    • Semantic HTML5: header, main, section, footer, article, nav, aside
-    • Meta tags: ALWAYS include <title>, <meta name="description">, and OpenGraph tags
-    • Favicon: Setup a dynamic favicon using a Lucide icon SVG
-    • All images: descriptive alt text
-    • All interactive elements: proper aria-labels
-    • Keyboard navigable (focus states, tab order)
-- Always handle: Loading state (skeleton), Error state (error boundary), Empty state
-- FORBIDDEN: implicit any, truncated code, "TODO" placeholders, broken imports, missing default exports
+# STACK
+- React + strict TypeScript (no implicit any). Tailwind CSS. Framer Motion (motion/react). Lucide React.
+- Semantic HTML5 (header/main/section/footer). Always: <title>, <meta description>, OpenGraph.
+- All images alt. Icon-only buttons aria-label. Keyboard navigable.
+- Always handle: loading skeleton, error boundary, empty state.
 
-# CRITICAL OUTPUT FORMAT
-Respond with a SINGLE valid JSON object ONLY. No markdown fences. No text outside JSON.
+# FILE LAYOUT
+- src/App.tsx — main entry + layout
+- src/components/ — one file per component
+- src/pages/ — page components if multi-page
+- src/hooks/ — custom hooks
+- src/lib/ — utils, API clients
+- public/locales/ — i18n files (only if multilingual)
 
+# OUTPUT — ONE JSON only (no fences):
 {
-  "plan": "Brief step-by-step architecture plan (internal).",
-  "reply": "Short engaging message to the user in their language.",
+  "plan": "brief architecture plan",
+  "reply": "short engaging message in user's language",
   "files": [
-    { "path": "src/App.tsx",              "content": "...full file content..." },
-    { "path": "src/components/Hero.tsx",  "content": "...full file content..." },
-    { "path": "src/hooks/useData.ts",     "content": "...full file content..." }
-  ],
-  "export": null
+    { "path":"src/App.tsx",             "content":"...complete file..." },
+    { "path":"src/components/Hero.tsx", "content":"...complete file..." }
+  ]
 }
 
-# FILE ORGANIZATION RULES
-- src/App.tsx — main entry, router setup, layout wrapper
-- src/components/ — UI components (one file per component)
-- src/pages/ — page components if multi-page
-- src/hooks/ — custom React hooks
-- src/lib/ — utilities, API clients, helpers
-- src/types/ — TypeScript interfaces and types
-- src/styles/ — global styles if needed (prefer Tailwind)
-- public/locales/ — i18n files (if multilingual)
+# FORBIDDEN
+implicit any, truncated code, "TODO", broken imports, missing default exports.
 
-# PREVIEW RULES
-- ALWAYS include the files array — never empty
-- Every file must be COMPLETE — no truncation, no placeholders
-- React, framer-motion, lucide-react are available globally in preview
-- Use the DESIGN SYSTEM tokens from context — never invent new colors or spacing
-`.trim();
+# PREVIEW
+React, framer-motion, lucide-react, supabase available. Use DESIGN SYSTEM tokens from context — never invent colors.`;
 
 export async function runCoderAgent(refinedPrompt, complexity, existingFiles = []) {
-  // claude-sonnet-4-6 pour les projets complexes (multi-fichiers, TypeScript strict)
-  // claude-haiku-4-5-20251001 pour les projets simples (rapide + économique)
-  const model = complexity === 'complex'
-    ? 'claude-sonnet-4-6'
-    : 'claude-haiku-4-5-20251001';
-
-  const context = existingFiles.length > 0
-    ? `\n\n# EXISTING CODEBASE\nThe following files already exist in the project. You MUST update them if necessary to fulfill the new request. If a file is not mentioned in your output, it will be kept as is.\nFILES:\n${existingFiles.map(f => `FILE: ${f.path}\nCONTENT:\n${f.content}\n---`).join('\n')}`
+  const model = complexity === 'complex' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
+  const ctx = existingFiles.length
+    ? `\n\n# EXISTING CODEBASE (update only if needed; unmentioned files are kept as-is)\n${existingFiles.map(f => `FILE: ${f.path}\n${f.content}\n---`).join('\n')}`
     : '';
-
   return callClaude({
     systemPrompt: CODER_SYSTEM_PROMPT,
-    userMessage: refinedPrompt + context,
+    userMessage:  refinedPrompt + ctx,
     model,
+    maxTokens:    model === 'claude-sonnet-4-6' ? 16000 : 8192,
   });
 }

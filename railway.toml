@@ -1,10 +1,10 @@
 [build]
-builder = "nixpacks"
-buildCommand = "npm run build"
+builder      = "nixpacks"
+buildCommand = "NODE_OPTIONS=--max-old-space-size=4096 npm run build"
 
 [deploy]
-startCommand = "node server.mjs"
-healthcheckPath = "/api/health"
-healthcheckTimeout = 30
-restartPolicyType = "on_failure"
+startCommand            = "node server.mjs"
+healthcheckPath         = "/api/health"
+healthcheckTimeout      = 30
+restartPolicyType       = "on_failure"
 restartPolicyMaxRetries = 3
