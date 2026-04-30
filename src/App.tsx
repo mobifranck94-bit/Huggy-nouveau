@@ -57,7 +57,7 @@ import { supabase, type Build } from './lib/supabase';
 import LandingPage from './pages/LandingPage';
 
 // ─── Streaming Chat Types ─────────────────────────────────────────────────────
-type AgentStatus = 'idle' | 'active' | 'done' | 'skipped';
+type AgentStatus = 'idle' | 'active' | 'completed' | 'skipped';
 
 interface AgentInfo {
   name: string;
@@ -162,24 +162,34 @@ export default function App() {
     if (!routePath.startsWith('/preview/')) return;
     const buildId = routePath.split('/')[2];
     setIsPreviewOnly(true);
-    supabase.from('builds').select('*').eq('id', buildId).single().then(async ({ data }) => {
-      if (!data?.files?.length) return;
-      setGeneratedFiles(data.files as any); // triggers preview build via the effect above
-    });
+    (async () => {
+      try {
+        const { data } = await supabase.from('builds').select('*').eq('id', buildId).single();
+        if (data?.files?.length) {
+          setGeneratedFiles(data.files as Array<{ path: string; content: string }>);
+        }
+      } catch (err: any) {
+        console.warn('[Preview] Failed to load build:', err?.message);
+      }
+    })();
   }, []);
 
   // Load latest build files and history when project changes
   useEffect(() => {
-    if (currentProject) {
-      getBuilds(currentProject.id).then(builds => {
+    if (!currentProject) return;
+    (async () => {
+      try {
+        const builds = await getBuilds(currentProject.id);
         setBuildHistory(builds);
-        if (builds && builds.length > 0) {
+        if (builds.length > 0) {
           const latest = builds[0];
-          if (latest.files) setGeneratedFiles(latest.files as any);
+          if (latest.files) setGeneratedFiles(latest.files as Array<{ path: string; content: string }>);
         }
-      });
-    }
-  }, [currentProject]);
+      } catch (err: any) {
+        console.warn('[Projects] Failed to load builds:', err?.message);
+      }
+    })();
+  }, [currentProject, getBuilds]);
 
   const [chatInput, setChatInput] = useState(() => {
     return localStorage.getItem('huggy_chat_input') || '';
@@ -867,7 +877,7 @@ export default function App() {
                               const agent = bm.agents[idx];
                               const status = agent?.status || 'idle';
                               const isActive = status === 'active';
-                              const isDone = status === 'done';
+                              const isDone = status === 'completed';
                               const DefIcon = def.Icon;
                               return (
                                 <motion.div
