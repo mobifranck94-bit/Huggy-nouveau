@@ -808,12 +808,7 @@ export default function App() {
             <Zap className="w-3.5 h-3.5 fill-white" />
             Upgrade
           </button>
-<<<<<<< HEAD
-          <button 
-
-=======
           <button
->>>>>>> 30864024c0e3a61308730081e216462d07303452
             onClick={handleDeploy}
             disabled={isDeploying || generatedFiles.length === 0}
             className={`px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2 ${isDeploying ? 'opacity-70 cursor-not-allowed' : ''}`}
