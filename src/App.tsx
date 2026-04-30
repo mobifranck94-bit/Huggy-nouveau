@@ -158,7 +158,9 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-
+  // Build Pipeline State
+  const [isBuilding, setIsBuilding] = useState(false);
+  const [currentAgentIndex, setCurrentAgentIndex] = useState(-1);
 
   const startBuild = async () => {
     if (!chatInput.trim() || isBuilding) return;
