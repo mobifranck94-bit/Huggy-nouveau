@@ -37,8 +37,8 @@ export default function LandingPage() {
 
       {/* ── Navigation ────────────────────────────────────────────────────── */}
       <nav className="relative z-10 flex items-center justify-between px-6 md:px-10 py-6 max-w-[1400px] mx-auto">
-        <div className="w-32 h-10 relative cursor-pointer" onClick={() => navigate('/')}>
-          <img src="/assets/huggy-logo-text.png" alt="Huggy" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[180px] md:w-[220px] max-w-none" />
+        <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
+          <img src="/assets/huggy-logo-text.png" alt="Huggy" className="h-8 md:h-10 w-auto object-contain" />
         </div>
 
         <div className="hidden md:flex items-center gap-8 text-[13px] font-bold text-zinc-400">
@@ -409,8 +409,8 @@ export default function LandingPage() {
 
       {/* ── Footer ────────────────────────────────────────────────────────── */}
       <footer className="relative z-10 py-20 px-6 md:px-10 max-w-[1400px] mx-auto flex flex-col md:flex-row items-center justify-between gap-12 border-t border-zinc-50 mt-20">
-        <div className="w-32 h-10 relative cursor-pointer" onClick={() => navigate('/')}>
-          <img src="/assets/huggy-logo-text.png" alt="Huggy" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[180px] md:w-[220px] max-w-none" />
+        <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
+          <img src="/assets/huggy-logo-text.png" alt="Huggy" className="h-8 md:h-10 w-auto object-contain" />
         </div>
 
         <div className="flex flex-wrap justify-center items-center gap-8 text-[11px] font-black text-zinc-400 uppercase tracking-[0.2em]">
