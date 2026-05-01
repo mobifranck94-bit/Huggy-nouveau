@@ -8,19 +8,34 @@ import {
 import { motion } from 'motion/react';
 import { useEffect } from 'react';
 
+import { useAuth } from '../lib/useAuth';
+
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user, profile, loading: authLoading, signOut } = useAuth();
   
-  // Mock data for free access mode
-  const user = { email: 'guest@huggy.app', id: '00000000-0000-0000-0000-000000000000' };
-  const profile = { full_name: 'Guest User', credits: 100 };
+  const { projects, loading: projectsLoading, fetchProjects } = useProjects(user?.id);
 
-  const { projects, loading: projectsLoading, fetchProjects } = useProjects(user.id);
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
 
-
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    await signOut();
     navigate('/');
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-huggy-blue border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user || !profile) return null;
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-huggy-dark font-sans selection:bg-huggy-blue/20">

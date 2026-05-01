@@ -113,25 +113,19 @@ const AGENTS_DEF = [
 ];
 
 export default function App() {
-  // ─── Supabase Auth & Data ────────────────────────────────────────────────────
-  // On utilise l'auth réelle. Si VITE_SUPABASE_URL n'est pas configuré (dev local
-  // sans Supabase), on active un fallback preview pour ne pas bloquer le développement.
-  // ─── Free Access Mode (Auth disabled) ───────────────────────────────────────
-  const auth = {
-    isAuthenticated: true,
-    loading: false,
-    user: { id: 'guest-user', email: 'guest@huggy.app' },
-    profile: {
-      id: 'guest-user',
-      full_name: 'Guest User',
-      credits: 999,
-      max_credits: 999,
-      plan: 'pro' as const,
-    },
-    signOut: () => navigate('/'),
-    refreshProfile: async () => {},
-  };
-  const { projects, currentProject, createProject, saveBuild, getBuilds } = useProjects(auth.user?.id);
+  const { user, profile, loading: authLoading, signOut, refreshProfile } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const { projects, currentProject, createProject, saveBuild, getBuilds } = useProjects(user?.id);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-huggy-blue border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   const [isDeviceMenuOpen, setIsDeviceMenuOpen] = useState(false);
   const [isFileExplorerOpen, setIsFileExplorerOpen] = useState(false);
@@ -367,7 +361,7 @@ export default function App() {
   const startBuild = async () => {
     if (!chatInput.trim() || isBuilding) return;
 
-    if (auth.profile && auth.profile.credits <= 0) {
+    if (profile && profile.credits <= 0) {
       const errId = `err-${Date.now()}`;
       setMessages(prev => [...prev, {
         id: errId, type: 'build', timestamp: Date.now(), userPrompt: chatInput,
@@ -497,7 +491,7 @@ export default function App() {
           if (projectId) {
             try {
               await saveBuild(projectId, prompt, { files: event.files, reply: event.reply, meta: event.meta });
-              await auth.refreshProfile();
+              await refreshProfile();
             } catch (e) { console.warn('Failed to save build:', e); }
           }
         }
@@ -647,24 +641,24 @@ export default function App() {
                     >
                       {/* User Info Section */}
                       <div className="px-4 py-3 border-b border-zinc-800/50">
-                        <div className="text-xs font-bold text-zinc-100">{auth.profile?.full_name || auth.user?.email?.split('@')[0] || 'User'}</div>
-                        <div className="text-[10px] text-zinc-500 truncate">{auth.user?.email || ''}</div>
+                        <div className="text-xs font-bold text-zinc-100">{profile?.full_name || user?.email?.split('@')[0] || 'User'}</div>
+                        <div className="text-[10px] text-zinc-500 truncate">{user?.email || ''}</div>
                       </div>
 
                       {/* Credits Section */}
                       <div className="px-4 py-3 border-b border-zinc-800/50 bg-blue-500/5">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Credits Huggy</span>
-                          <span className="text-[10px] text-blue-400 font-mono">{(auth.profile?.plan || 'free').toUpperCase()}</span>
+                          <span className="text-[10px] text-blue-400 font-mono">{(profile?.plan || 'free').toUpperCase()}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="p-1.5 bg-blue-500/20 rounded-md">
                             <Coins className="w-4 h-4 text-blue-400" />
                           </div>
                           <div>
-                            <div className="text-sm font-bold text-zinc-100">{auth.profile?.credits ?? 0} <span className="text-zinc-500 font-normal">/ {auth.profile?.max_credits ?? 500}</span></div>
+                            <div className="text-sm font-bold text-zinc-100">{profile?.credits ?? 0} <span className="text-zinc-500 font-normal">/ {profile?.max_credits ?? 500}</span></div>
                             <div className="w-32 h-1 bg-zinc-800 rounded-full mt-1 overflow-hidden">
-                              <div className="h-full bg-blue-500 transition-all" style={{ width: `${Math.round(((auth.profile?.credits ?? 0) / (auth.profile?.max_credits ?? 500)) * 100)}%` }} />
+                              <div className="h-full bg-blue-500 transition-all" style={{ width: `${Math.round(((profile?.credits ?? 0) / (profile?.max_credits ?? 500)) * 100)}%` }} />
                             </div>
                           </div>
                         </div>
@@ -700,7 +694,7 @@ export default function App() {
                       <div className="p-1.5">
                         <button 
                           onClick={async () => {
-                            await auth.signOut();
+                            await signOut();
                             setIsHeaderMenuOpen(false);
                           }}
                           className="w-full flex items-center gap-2 px-3 py-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all text-xs font-medium"

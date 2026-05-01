@@ -8,10 +8,15 @@ import {
   Plus, Mic, ChevronDown
 } from 'lucide-react';
 
+import { useAuth } from '../lib/useAuth';
+
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [prompt, setPrompt] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const pricingRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -20,7 +25,12 @@ export default function LandingPage() {
     }
   }, [prompt]);
 
-  const goToDashboard = () => navigate('/dashboard');
+  const scrollToPricing = () => {
+    pricingRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const goToDashboard = () => navigate(user ? '/dashboard' : '/auth');
+  const goToAuth = () => navigate('/auth');
   const goToBuilder = (customPrompt?: string) => {
     const finalPrompt = typeof customPrompt === 'string' ? customPrompt : prompt;
     navigate('/builder', { state: { initialPrompt: finalPrompt } });
@@ -53,17 +63,20 @@ export default function LandingPage() {
         </div>
 
         <div className="hidden md:flex items-center gap-8 text-[13px] font-bold text-zinc-400">
-          {['Templates', 'Enterprise', 'Pricing', 'iOS', 'Students', 'FAQ'].map(l => (
+          <button onClick={() => goToBuilder('Show me templates')} className="hover:text-huggy-blue transition-colors uppercase tracking-widest">Templates</button>
+          <button onClick={() => goToBuilder('Enterprise SaaS')} className="hover:text-huggy-blue transition-colors uppercase tracking-widest">Enterprise</button>
+          <button onClick={scrollToPricing} className="hover:text-huggy-blue transition-colors uppercase tracking-widest">Pricing</button>
+          {['iOS', 'Students', 'FAQ'].map(l => (
             <a key={l} href="#" className="hover:text-huggy-blue transition-colors uppercase tracking-widest">{l}</a>
           ))}
         </div>
 
         <div className="flex items-center gap-3">
           <button onClick={goToDashboard} className="text-sm font-bold text-zinc-400 hover:text-huggy-blue px-4 py-2 transition-colors uppercase tracking-widest">
-            Log in
+            {user ? 'Dashboard' : 'Log in'}
           </button>
-          <button onClick={goToBuilder} className="huggy-button px-6 py-2.5 shadow-lg shadow-huggy-blue/20 text-sm">
-            Sign Up
+          <button onClick={user ? goToDashboard : goToAuth} className="huggy-button px-6 py-2.5 shadow-lg shadow-huggy-blue/20 text-sm">
+            {user ? 'Open App' : 'Sign Up'}
           </button>
         </div>
       </nav>
@@ -126,7 +139,6 @@ export default function LandingPage() {
           </div>
         </motion.div>
 
-        {/* Suggestions */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -149,7 +161,42 @@ export default function LandingPage() {
             </button>
           ))}
         </motion.div>
+
+        {/* Trusted By Section */}
+        <div className="mt-24 w-full max-w-5xl">
+          <p className="text-center text-[10px] font-black text-zinc-300 uppercase tracking-[0.3em] mb-10">Trusted by modern engineering teams</p>
+          <div className="flex flex-wrap justify-center items-center gap-10 md:gap-20 opacity-30 grayscale hover:grayscale-0 transition-all">
+            {['Vercel', 'Supabase', 'Railway', 'Stripe', 'Framer'].map(logo => (
+              <span key={logo} className="text-xl font-display font-black tracking-tighter text-huggy-dark">{logo}</span>
+            ))}
+          </div>
+        </div>
       </main>
+
+      {/* ── Testimonials ────────────────────────────────────────────────── */}
+      <section className="py-20 bg-zinc-50/50">
+        <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-3 gap-8">
+          {[
+            { name: "Alex Rivers", role: "CTO @ Flow", text: "Huggy didn't just write code; it understood our business logic and built a secure, scalable MVP in hours instead of months." },
+            { name: "Sarah Chen", role: "Product Lead", text: "The multi-agent pipeline is a game changer. Having a dedicated Security Auditor agent built-in gives us massive peace of mind." },
+            { name: "Marc Dupont", role: "Indie Hacker", text: "I've tried every AI builder. Huggy is the first one that produces professional-grade code that I actually want to own." }
+          ].map((t, i) => (
+            <div key={i} className="bg-white p-8 rounded-[32px] border border-zinc-100 shadow-sm hover:shadow-xl transition-all">
+              <div className="flex gap-1 mb-4">
+                {[1, 2, 3, 4, 5].map(s => <Star key={s} className="w-3 h-3 text-huggy-blue fill-huggy-blue" />)}
+              </div>
+              <p className="text-sm text-zinc-500 font-medium leading-relaxed mb-6 italic">"{t.text}"</p>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-huggy-blue/10 flex items-center justify-center text-[10px] font-black text-huggy-blue">{t.name[0]}</div>
+                <div>
+                  <div className="text-xs font-black text-huggy-dark uppercase tracking-tight">{t.name}</div>
+                  <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{t.role}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* ── Features Section ──────────────────────────────────────────────── */}
       <section className="relative z-10 py-32 px-6 max-w-6xl mx-auto space-y-12">
@@ -274,7 +321,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Pricing Section ──────────────────────────────────────────────── */}
-      <section className="relative z-10 py-32 px-6 max-w-6xl mx-auto">
+      <section ref={pricingRef} className="relative z-10 py-32 px-6 max-w-6xl mx-auto">
         <div className="text-center mb-20">
           <h2 className="text-5xl md:text-7xl font-display font-black text-huggy-dark tracking-tight mb-6">
             Pricing plans for<br />every need

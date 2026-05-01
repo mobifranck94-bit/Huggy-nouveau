@@ -3,16 +3,18 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
+import Auth from './pages/Auth';
 import App from './App';
 import './index.css';
 
-// ── Auth disabled: free access to all routes ──────────────────────────────────
+// ── Auth integration ─────────────────────────────────────────────────────────
 
 function Root() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/auth" element={<Auth />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/builder" element={<App />} />
         {/* Catch all route */}
