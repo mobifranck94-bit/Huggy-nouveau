@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowUp, Paperclip, Globe, ShoppingCart, 
   BookOpen, Layout, User, Menu, Heart, Check, 
-  Github, Zap, MessageSquare, Rocket, Database
+  Github, Zap, MessageSquare, Rocket, Database,
+  Plus, Mic, ChevronDown
 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -365,27 +366,47 @@ export default function LandingPage() {
       </section>
 
       {/* ── Final CTA Section ────────────────────────────────────────────── */}
-      <section className="relative z-10 py-32 px-6">
-        <div className="max-w-6xl mx-auto bg-white border border-huggy-blue/5 rounded-[64px] p-12 md:p-24 text-center relative overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.08)] group">
-          <div className="absolute inset-0 bg-gradient-to-tr from-huggy-blue/5 via-transparent to-huggy-cyan/5 opacity-50 group-hover:scale-110 transition-transform duration-1000" />
-          
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            className="relative z-10 space-y-10"
-          >
-            <img src="/assets/huggy-mascot.png" alt="Huggy Mascot" className="w-32 h-32 mx-auto animate-floating" />
-            <h2 className="text-5xl md:text-8xl font-display font-black tracking-tight leading-[1.1] text-huggy-dark">
-              So, what are you<br />building?
-            </h2>
-            <p className="text-zinc-500 text-lg md:text-2xl font-medium max-w-2xl mx-auto">
-              Huggy is the AI-powered platform that lets you build fully functioning apps in minutes using natural language.
-            </p>
-            <button onClick={goToBuilder} className="huggy-button px-16 py-5 text-xl shadow-2xl">
-              Start building for free
-            </button>
-          </motion.div>
+      <section className="relative z-10 py-32 px-6 bg-[#0a0a0b] overflow-hidden mt-20">
+        {/* Glow Effects */}
+        <div className="absolute bottom-0 left-0 right-0 h-[500px] bg-gradient-to-t from-blue-600/40 via-purple-600/10 to-transparent pointer-events-none" />
+        <div className="absolute bottom-[-30%] left-1/2 -translate-x-1/2 w-[100%] max-w-4xl aspect-[2/1] bg-blue-500/30 blur-[120px] rounded-[100%] pointer-events-none" />
+
+        <div className="relative z-10 max-w-3xl mx-auto text-center space-y-6">
+          <p className="text-zinc-400 font-medium text-sm md:text-base">AI App Builder</p>
+          <h2 className="text-5xl md:text-7xl font-display font-black tracking-tight text-white mb-10">
+            Ready to build?
+          </h2>
+
+          <div className="relative group mx-auto w-full max-w-2xl text-left">
+            <div className="bg-[#1c1c1e] border border-zinc-800 rounded-3xl p-3 shadow-2xl focus-within:border-zinc-700 transition-colors flex flex-col min-h-[140px]">
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Ask Huggy to create a blog about..."
+                className="w-full bg-transparent border-none outline-none text-base md:text-lg text-zinc-200 placeholder:text-zinc-500 resize-none flex-1 font-medium px-2 py-2"
+                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && goToBuilder()}
+              />
+              <div className="flex items-center justify-between mt-auto pt-2 px-2">
+                <button className="w-8 h-8 rounded-full bg-zinc-800/80 flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 transition-colors">
+                  <Plus className="w-4 h-4" />
+                </button>
+                <div className="flex items-center gap-4">
+                  <button className="flex items-center gap-1.5 text-[13px] font-medium text-blue-500 hover:text-blue-400 transition-colors">
+                    Plan <ChevronDown className="w-3 h-3" />
+                  </button>
+                  <button className="text-zinc-500 hover:text-zinc-300 transition-colors">
+                    <Mic className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => goToBuilder()}
+                    className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-500 transition-colors"
+                  >
+                    <ArrowUp className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
