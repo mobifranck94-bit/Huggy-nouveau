@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../lib/useAuth';
 import { useProjects } from '../lib/useProjects';
 import { Plus, Layout, Zap, LogOut, Clock, Star, Code2, Globe } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -7,18 +6,17 @@ import { useEffect } from 'react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, profile, signOut, refreshProfile } = useAuth();
   const { projects, loading: projectsLoading, fetchProjects } = useProjects();
 
-  useEffect(() => {
-    if (user) {
-      fetchProjects();
-      refreshProfile();
-    }
-  }, [user, fetchProjects, refreshProfile]);
+  // Mock data for free access mode
+  const user = { email: 'guest@huggy.app' };
+  const profile = { full_name: 'Guest User', credits: 100 };
 
-  const handleSignOut = async () => {
-    await signOut();
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
+
+  const handleSignOut = () => {
     navigate('/');
   };
 

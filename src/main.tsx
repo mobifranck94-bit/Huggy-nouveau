@@ -1,51 +1,20 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './lib/useAuth';
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import App from './App';
 import './index.css';
 
+// ── Auth disabled: free access to all routes ──────────────────────────────────
+
 function Root() {
-  const { isAuthenticated, loading, signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithGitHub } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
     <BrowserRouter>
       <Routes>
-        <Route 
-          path="/" 
-          element={
-            isAuthenticated ? 
-              <Navigate to="/dashboard" replace /> : 
-              <LandingPage 
-                onSignIn={signInWithEmail} 
-                onSignUp={signUpWithEmail} 
-                onGoogleSignIn={signInWithGoogle} 
-                onGithubSignIn={signInWithGitHub} 
-              />
-          } 
-        />
-        <Route 
-          path="/dashboard" 
-          element={
-            isAuthenticated ? <Dashboard /> : <Navigate to="/" replace />
-          } 
-        />
-        <Route 
-          path="/builder" 
-          element={
-            isAuthenticated ? <App /> : <Navigate to="/" replace />
-          } 
-        />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/builder" element={<App />} />
         {/* Catch all route */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

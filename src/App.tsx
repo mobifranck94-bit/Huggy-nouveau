@@ -116,25 +116,21 @@ export default function App() {
   // ─── Supabase Auth & Data ────────────────────────────────────────────────────
   // On utilise l'auth réelle. Si VITE_SUPABASE_URL n'est pas configuré (dev local
   // sans Supabase), on active un fallback preview pour ne pas bloquer le développement.
-  const realAuth = useAuth();
-  const isSupabaseConfigured = !!(
-    import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
-  );
-  const auth = isSupabaseConfigured
-    ? realAuth
-    : {
-        ...realAuth,
-        isAuthenticated: true,
-        loading: false,
-        user: { id: 'preview-user-id', email: 'preview@huggy.app' },
-        profile: {
-          id: 'preview-user-id',
-          full_name: 'Preview User',
-          credits: 500,
-          max_credits: 500,
-          plan: 'pro' as const,
-        },
-      };
+  // ─── Free Access Mode (Auth disabled) ───────────────────────────────────────
+  const auth = {
+    isAuthenticated: true,
+    loading: false,
+    user: { id: 'guest-user', email: 'guest@huggy.app' },
+    profile: {
+      id: 'guest-user',
+      full_name: 'Guest User',
+      credits: 999,
+      max_credits: 999,
+      plan: 'pro' as const,
+    },
+    signOut: () => navigate('/'),
+    refreshProfile: async () => {},
+  };
   const { projects, currentProject, createProject, saveBuild, getBuilds } = useProjects(auth.user?.id);
 
   const [isDeviceMenuOpen, setIsDeviceMenuOpen] = useState(false);
@@ -562,16 +558,6 @@ export default function App() {
     );
   }
 
-  if (!auth.isAuthenticated) {
-    return (
-      <LandingPage
-        onSignIn={realAuth.signInWithEmail}
-        onSignUp={realAuth.signUpWithEmail}
-        onGoogleSignIn={realAuth.signInWithGoogle}
-        onGithubSignIn={realAuth.signInWithGitHub}
-      />
-    );
-  }
 
   if (isPreviewOnly) {
     return (
