@@ -10,11 +10,12 @@ import { useEffect } from 'react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { projects, loading: projectsLoading, fetchProjects } = useProjects();
-
+  
   // Mock data for free access mode
-  const user = { email: 'guest@huggy.app' };
+  const user = { email: 'guest@huggy.app', id: '00000000-0000-0000-0000-000000000000' };
   const profile = { full_name: 'Guest User', credits: 100 };
+
+  const { projects, loading: projectsLoading, fetchProjects } = useProjects(user.id);
 
   useEffect(() => {
     fetchProjects();
