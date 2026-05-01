@@ -67,12 +67,12 @@ export default function LandingPage() {
           className="text-center"
         >
           <h1 className="text-4xl md:text-6xl font-display font-black tracking-tight mb-4 text-huggy-dark leading-[1.1]">
-            What do you<br />want to create?
+            Your AI Dev Team<br />in a single prompt.
           </h1>
           <p className="text-base md:text-lg text-zinc-500 font-medium mb-10 max-w-2xl mx-auto">
-            Start building with a single prompt. No coding needed.<br />
+            Deploy enterprise-grade apps with PM, SecOps, UX, and i18n agents built-in.<br />
             <span className="text-huggy-blue flex items-center justify-center gap-2 mt-2">
-              Friendly AI magic at your service 
+              The only builder with a 7-agent pipeline 
             </span>
           </p>
         </motion.div>
@@ -123,10 +123,10 @@ export default function LandingPage() {
           className="flex flex-wrap justify-center gap-3 mt-10"
         >
           {[
-            { label: 'E-commerce website', icon: ShoppingCart },
-            { label: 'Personal blog', icon: BookOpen },
-            { label: 'Landing page', icon: Layout },
-            { label: 'Portfolio site', icon: User },
+            { label: 'B2B SaaS Dashboard', icon: Layout },
+            { label: 'Secure FinTech Portal', icon: Database },
+            { label: 'Multi-language Store', icon: Globe },
+            { label: 'AI Analytics Tool', icon: Zap },
           ].map((s, i) => (
             <button 
               key={i}
@@ -156,10 +156,10 @@ export default function LandingPage() {
               <Zap className="w-8 h-8 text-huggy-blue fill-huggy-blue" />
             </div>
             <h3 className="text-3xl md:text-5xl font-display font-black leading-[1.1] text-huggy-dark">
-              Create at the<br />speed of thought
+              Multi-Agent<br />Architecture
             </h3>
             <p className="text-zinc-500 text-lg leading-relaxed font-medium">
-              Tell Huggy your idea, and watch it transform into a working app—complete with all the necessary components.
+              Your prompt is orchestrated by a team of specialized agents: PM, DBA, UX Designer, and Coder working in parallel to build production-ready code.
             </p>
             <button onClick={goToBuilder} className="huggy-button px-10 py-4 text-lg">
               Start building
@@ -188,10 +188,10 @@ export default function LandingPage() {
               <Database className="w-8 h-8 text-huggy-cyan fill-huggy-cyan" />
             </div>
             <h3 className="text-3xl md:text-5xl font-display font-black leading-[1.1] text-huggy-dark">
-              The backend's built-<br />in automatically
+              Enterprise-Grade<br />Security & i18n
             </h3>
             <p className="text-zinc-500 text-lg leading-relaxed font-medium">
-              Everything your app needs to function—sign-in, data storage—is taken care of behind the scenes.
+              Native Security Auditor and i18n agents ensure your code is secure, scalable, and ready for global markets from day one. No more vulnerabilities.
             </p>
             <button onClick={goToBuilder} className="huggy-button px-10 py-4 text-lg">
               Start building
@@ -233,10 +233,10 @@ export default function LandingPage() {
               <Rocket className="w-8 h-8 text-purple-500 fill-purple-500" />
             </div>
             <h3 className="text-3xl md:text-5xl font-display font-black leading-[1.1] text-huggy-dark">
-              Ready to use,<br />instantly
+              Built for Real<br />Developers
             </h3>
             <p className="text-zinc-500 text-lg leading-relaxed font-medium">
-              Huggy includes built-in hosting, so when your app is ready the only thing left is publish, share and grow.
+              Full access to the React 19 + Tailwind 4 source code. Export instantly to GitHub and scale with native Supabase integration.
             </p>
             <button onClick={goToBuilder} className="huggy-button px-10 py-4 text-lg">
               Start building
