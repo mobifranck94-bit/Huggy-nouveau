@@ -34,6 +34,6 @@ body {
   }
   
   .huggy-button {
-    @apply huggy-gradient text-white font-bold rounded-full transition-all hover:scale-105 active:scale-95 hover:shadow-[0_0_20px_rgba(37,99,235,0.4)];
+    @apply bg-gradient-to-r from-huggy-blue to-huggy-blue-light text-white font-bold rounded-full transition-all hover:scale-105 active:scale-95 hover:shadow-[0_0_20px_rgba(37,99,235,0.4)];
   }
 }
