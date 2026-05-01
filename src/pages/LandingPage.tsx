@@ -83,10 +83,10 @@ export default function LandingPage() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="text-center"
         >
-          <h1 className="text-5xl md:text-8xl font-display font-black tracking-tight mb-6 text-huggy-dark leading-[1.1]">
+          <h1 className="text-4xl md:text-6xl font-display font-black tracking-tight mb-4 text-huggy-dark leading-[1.1]">
             What do you<br />want to create?
           </h1>
-          <p className="text-lg md:text-xl text-zinc-500 font-medium mb-12 max-w-2xl mx-auto">
+          <p className="text-base md:text-lg text-zinc-500 font-medium mb-10 max-w-2xl mx-auto">
             Start building with a single prompt. No coding needed.<br />
             <span className="text-huggy-blue flex items-center justify-center gap-2 mt-2">
               Friendly AI magic at your service 
@@ -107,7 +107,7 @@ export default function LandingPage() {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Ask Huggy to create an app..."
-              className="w-full bg-transparent border-none outline-none text-xl md:text-2xl text-huggy-dark placeholder:text-zinc-300 resize-none min-h-[120px] font-medium"
+              className="w-full bg-transparent border-none outline-none text-lg md:text-xl text-huggy-dark placeholder:text-zinc-300 resize-none min-h-[100px] font-medium"
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && goToBuilder()}
             />
             
@@ -160,7 +160,7 @@ export default function LandingPage() {
       {/* ── Features Section ──────────────────────────────────────────────── */}
       <section className="relative z-10 py-32 px-6 max-w-6xl mx-auto space-y-12">
         <div className="text-center mb-20">
-          <h2 className="text-5xl md:text-7xl font-display font-black text-huggy-dark tracking-tight mb-6">
+          <h2 className="text-4xl md:text-5xl font-display font-black text-huggy-dark tracking-tight mb-4">
             Consider yourself<br />limitless
           </h2>
           <div className="w-24 h-1.5 bg-huggy-blue rounded-full mx-auto" />
@@ -172,10 +172,10 @@ export default function LandingPage() {
             <div className="w-16 h-16 bg-huggy-blue/10 rounded-2xl flex items-center justify-center">
               <Zap className="w-8 h-8 text-huggy-blue fill-huggy-blue" />
             </div>
-            <h3 className="text-4xl md:text-6xl font-display font-black leading-[1.1] text-huggy-dark">
+            <h3 className="text-3xl md:text-5xl font-display font-black leading-[1.1] text-huggy-dark">
               Create at the<br />speed of thought
             </h3>
-            <p className="text-zinc-500 text-xl leading-relaxed font-medium">
+            <p className="text-zinc-500 text-lg leading-relaxed font-medium">
               Tell Huggy your idea, and watch it transform into a working app—complete with all the necessary components.
             </p>
             <button onClick={goToBuilder} className="huggy-button px-10 py-4 text-lg">
@@ -204,10 +204,10 @@ export default function LandingPage() {
              <div className="w-16 h-16 bg-huggy-cyan/10 rounded-2xl flex items-center justify-center">
               <Database className="w-8 h-8 text-huggy-cyan fill-huggy-cyan" />
             </div>
-            <h3 className="text-4xl md:text-6xl font-display font-black leading-[1.1] text-huggy-dark">
+            <h3 className="text-3xl md:text-5xl font-display font-black leading-[1.1] text-huggy-dark">
               The backend's built-<br />in automatically
             </h3>
-            <p className="text-zinc-500 text-xl leading-relaxed font-medium">
+            <p className="text-zinc-500 text-lg leading-relaxed font-medium">
               Everything your app needs to function—sign-in, data storage—is taken care of behind the scenes.
             </p>
             <button onClick={goToBuilder} className="huggy-button px-10 py-4 text-lg">
@@ -249,10 +249,10 @@ export default function LandingPage() {
             <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center">
               <Rocket className="w-8 h-8 text-purple-500 fill-purple-500" />
             </div>
-            <h3 className="text-4xl md:text-6xl font-display font-black leading-[1.1] text-huggy-dark">
+            <h3 className="text-3xl md:text-5xl font-display font-black leading-[1.1] text-huggy-dark">
               Ready to use,<br />instantly
             </h3>
-            <p className="text-zinc-500 text-xl leading-relaxed font-medium">
+            <p className="text-zinc-500 text-lg leading-relaxed font-medium">
               Huggy includes built-in hosting, so when your app is ready the only thing left is publish, share and grow.
             </p>
             <button onClick={goToBuilder} className="huggy-button px-10 py-4 text-lg">
@@ -274,7 +274,6 @@ export default function LandingPage() {
                   
                 </div>
               </div>
-              <div className="absolute -bottom-6 -left-6 w-16 h-16 bg-huggy-dark text-white rounded-2xl flex items-center justify-center text-4xl shadow-2xl">+</div>
             </div>
           </div>
         </div>

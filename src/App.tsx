@@ -603,37 +603,26 @@ export default function App() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#0a0a0b] text-zinc-400 overflow-hidden select-none">
+    <div className="flex flex-col h-screen bg-[#F8F9FA] text-zinc-500 overflow-hidden select-none font-sans">
       {/* Top Header */}
-      <header className="flex items-center px-4 py-2 border-b border-zinc-800/50 h-14 shrink-0">
+      <header className="flex items-center px-4 py-2 border-b border-zinc-200 bg-white h-14 shrink-0 z-10">
         <div className="flex items-center gap-2 w-auto shrink-0">
           <div className="flex items-center gap-2 pl-1">
             {/* Logo Icon */}
-            <div className="w-10 h-10 rounded-xl bg-[#1c1c1e] border border-zinc-800/80 flex items-center justify-center shadow-lg group cursor-pointer hover:border-zinc-700 transition-all duration-300 overflow-hidden">
-              <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center relative overflow-hidden group-hover:bg-indigo-500 transition-colors">
-                {/* Simplified monster-like shape */}
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-400 to-indigo-700 opacity-50" />
-                <div className="relative w-5 h-5 flex flex-col items-center justify-center">
-                  <div className="w-4 h-4 bg-white rounded-t-full relative">
-                    <div className="absolute top-1 left-1 w-1 h-1 bg-zinc-900 rounded-full" />
-                    <div className="absolute top-1 right-1 w-1 h-1 bg-zinc-900 rounded-full" />
-                    <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-0.5 bg-pink-500 rounded-full" />
-                  </div>
-                  <div className="w-5 h-2 bg-indigo-600 -mt-1 rounded-full border-t border-indigo-400/30" />
-                </div>
-              </div>
+            <div className="w-10 h-10 bg-huggy-blue rounded-xl flex items-center justify-center shadow-lg shadow-huggy-blue/20 overflow-hidden cursor-pointer" onClick={() => navigate('/')}>
+               <img src="/assets/huggy-mascot.png" className="w-full h-full object-cover" />
             </div>
             
             {/* Home Link Section */}
             <div className="flex items-center gap-2.5 ml-1 relative">
               <div 
                 onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
-                className="w-8 h-8 rounded-lg border border-zinc-800/80 flex items-center justify-center hover:bg-zinc-800/50 transition-all cursor-pointer group"
+                className="w-8 h-8 rounded-lg border border-zinc-200 flex items-center justify-center hover:bg-zinc-50 transition-all cursor-pointer group"
               >
-                <Home className={`w-4 h-4 transition-colors ${isHeaderMenuOpen ? 'text-blue-400' : 'text-zinc-400 group-hover:text-zinc-200'}`} />
+                <Home className={`w-4 h-4 transition-colors ${isHeaderMenuOpen ? 'text-blue-500' : 'text-zinc-400 group-hover:text-zinc-600'}`} />
               </div>
-              <span className="text-[13px] font-medium text-zinc-400">Home</span>
-              <span className="text-zinc-700 text-sm">/</span>
+              <span className="text-[13px] font-medium text-zinc-500">Home</span>
+              <span className="text-zinc-300 text-sm">/</span>
 
               <AnimatePresence>
                 {isHeaderMenuOpen && (
@@ -717,9 +706,9 @@ export default function App() {
 
             <div className="flex flex-col relative ml-1">
               <div 
-                className="bg-zinc-900/60 border border-zinc-800/80 rounded-[14px] px-4 py-2 flex items-center gap-3 shadow-sm"
+                className="bg-white border border-zinc-200 rounded-[14px] px-4 py-2 flex items-center gap-3 shadow-sm"
               >
-                <span className="font-display font-medium text-zinc-100 text-[13px] tracking-tight leading-none">{currentProject?.name || 'New Project'}</span>
+                <span className="font-display font-bold text-huggy-dark text-[13px] tracking-tight leading-none">{currentProject?.name || 'New Project'}</span>
               </div>
             </div>
           </div>
@@ -744,10 +733,10 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 bg-zinc-900/40 p-1 rounded-lg border border-zinc-800/50 ml-8">
+        <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-zinc-200 ml-8 shadow-sm">
           <button 
             onClick={() => setViewMode('preview')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'preview' ? 'bg-zinc-800/80 text-blue-400 shadow-sm border border-zinc-700/30' : 'text-zinc-400 hover:bg-zinc-800/80'}`}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'preview' ? 'bg-zinc-100 text-huggy-blue shadow-sm border border-zinc-200' : 'text-zinc-400 hover:bg-zinc-50'}`}
           >
             <Globe className="w-3.5 h-3.5" />
             Preview
