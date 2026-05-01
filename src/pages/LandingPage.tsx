@@ -37,11 +37,8 @@ export default function LandingPage() {
 
       {/* ── Navigation ────────────────────────────────────────────────────── */}
       <nav className="relative z-10 flex items-center justify-between px-6 md:px-10 py-6 max-w-[1400px] mx-auto">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-          <div className="w-10 h-10 bg-huggy-blue rounded-xl flex items-center justify-center shadow-lg shadow-huggy-blue/20 overflow-hidden">
-            <img src="/assets/huggy-mascot.png" alt="Huggy" className="w-full h-full object-cover" />
-          </div>
-          <span className="text-2xl font-display font-bold tracking-tight text-huggy-dark">Huggy</span>
+        <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
+          <img src="/assets/huggy-logo-text.png" alt="Huggy" className="h-10 w-auto object-contain" />
         </div>
 
         <div className="hidden md:flex items-center gap-8 text-[13px] font-bold text-zinc-400">
@@ -412,11 +409,8 @@ export default function LandingPage() {
 
       {/* ── Footer ────────────────────────────────────────────────────────── */}
       <footer className="relative z-10 py-20 px-6 md:px-10 max-w-[1400px] mx-auto flex flex-col md:flex-row items-center justify-between gap-12 border-t border-zinc-50 mt-20">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-huggy-blue rounded-xl flex items-center justify-center overflow-hidden">
-             <img src="/assets/huggy-mascot.png" className="w-full h-full object-cover" />
-          </div>
-          <span className="text-2xl font-display font-bold text-huggy-dark">Huggy</span>
+        <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
+          <img src="/assets/huggy-logo-text.png" alt="Huggy" className="h-10 w-auto object-contain" />
         </div>
 
         <div className="flex flex-wrap justify-center items-center gap-8 text-[11px] font-black text-zinc-400 uppercase tracking-[0.2em]">

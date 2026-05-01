@@ -609,8 +609,8 @@ export default function App() {
         <div className="flex items-center gap-2 w-auto shrink-0">
           <div className="flex items-center gap-2 pl-1">
             {/* Logo Icon */}
-            <div className="w-10 h-10 bg-huggy-blue rounded-xl flex items-center justify-center shadow-lg shadow-huggy-blue/20 overflow-hidden cursor-pointer" onClick={() => navigate('/')}>
-               <img src="/assets/huggy-mascot.png" className="w-full h-full object-cover" />
+            <div className="h-10 flex items-center justify-center cursor-pointer overflow-hidden px-1" onClick={() => navigate('/')}>
+               <img src="/assets/huggy-logo-text.png" className="h-full w-auto object-contain" alt="Huggy Logo" />
             </div>
             
             {/* Home Link Section */}
