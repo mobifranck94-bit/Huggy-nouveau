@@ -55,7 +55,7 @@ import { useAuth } from './lib/useAuth';
 import { useProjects } from './lib/useProjects';
 import { supabase, type Build } from './lib/supabase';
 import LandingPage from './pages/LandingPage';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 // ─── Streaming Chat Types ─────────────────────────────────────────────────────
 type AgentStatus = 'idle' | 'active' | 'completed' | 'skipped';
@@ -153,6 +153,22 @@ export default function App() {
   const [buildHistory, setBuildHistory] = useState<Build[]>([]);
   const [isPreviewOnly, setIsPreviewOnly] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Handle initial prompt from Landing Page
+  useEffect(() => {
+    const state = location.state as { initialPrompt?: string };
+    if (state?.initialPrompt && !isBuilding) {
+      setChatInput(state.initialPrompt);
+      // On donne un petit délai pour que le state se mette à jour avant de lancer le build
+      setTimeout(() => {
+        const btn = document.getElementById('send-prompt-btn');
+        if (btn) btn.click();
+      }, 500);
+      // Nettoyer le state pour éviter de relancer au refresh
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, isBuilding, navigate]);
 
   // Handle shareable preview route /preview/:buildId
   useEffect(() => {
@@ -188,6 +204,18 @@ export default function App() {
       }
     })();
   }, [currentProject, getBuilds]);
+
+  // Handle ?project= query param
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const projectId = params.get('project');
+    if (projectId && projects.length > 0) {
+      const proj = projects.find(p => p.id === projectId);
+      if (proj && proj.id !== currentProject?.id) {
+        setCurrentProject(proj);
+      }
+    }
+  }, [location.search, projects, currentProject, setCurrentProject]);
 
   const [chatInput, setChatInput] = useState(() => {
     return localStorage.getItem('huggy_chat_input') || '';
@@ -702,8 +730,16 @@ export default function App() {
             <button 
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               className={`p-1.5 rounded-md transition-colors ${isSidebarCollapsed ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-zinc-800 text-zinc-400'}`}
+              title="Toggle Chat"
             >
               <PanelLeft className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={() => setIsFileExplorerOpen(!isFileExplorerOpen)}
+              className={`p-1.5 rounded-md transition-colors ${isFileExplorerOpen ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-zinc-800 text-zinc-400'}`}
+              title="Toggle History"
+            >
+              <History className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -797,6 +833,18 @@ export default function App() {
               Share
             </button>
           )}
+          <button 
+            onClick={() => {
+              setMessages([]);
+              setGeneratedFiles([]);
+              setChatInput('');
+              navigate('/builder');
+            }}
+            className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors flex items-center gap-2 text-xs border border-zinc-800"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New
+          </button>
           <Github className="w-4 h-4 text-zinc-400 hover:text-zinc-200 cursor-pointer transition-colors" />
           <button className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-bold rounded-lg hover:opacity-90 transition-opacity">
             <Zap className="w-3.5 h-3.5 fill-white" />
@@ -1219,6 +1267,7 @@ export default function App() {
                       <Mic className="w-4 h-4" />
                     </button>
                     <button 
+                      id="send-prompt-btn"
                       disabled={!chatInput.trim() || isBuilding}
                       onClick={startBuild}
                       className={`p-2 rounded-full transition-colors border border-zinc-700/50 ${

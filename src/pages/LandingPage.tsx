@@ -20,7 +20,10 @@ export default function LandingPage() {
   }, [prompt]);
 
   const goToDashboard = () => navigate('/dashboard');
-  const goToBuilder = () => navigate('/builder');
+  const goToBuilder = (customPrompt?: string) => {
+    const finalPrompt = typeof customPrompt === 'string' ? customPrompt : prompt;
+    navigate('/builder', { state: { initialPrompt: finalPrompt } });
+  };
 
   return (
     <div className="min-h-screen bg-white text-huggy-dark font-sans selection:bg-huggy-blue/20 overflow-x-hidden">
@@ -120,7 +123,7 @@ export default function LandingPage() {
                 </button>
               </div>
               <button 
-                onClick={goToBuilder}
+                onClick={() => goToBuilder()}
                 className="w-12 h-12 bg-huggy-blue hover:bg-huggy-blue-light text-white rounded-full flex items-center justify-center transition-all shadow-lg shadow-huggy-blue/30 active:scale-90"
               >
                 <ArrowUp className="w-6 h-6" />
@@ -144,7 +147,7 @@ export default function LandingPage() {
           ].map((s, i) => (
             <button 
               key={i}
-              onClick={() => { setPrompt(s.label); goToBuilder(); }}
+              onClick={() => goToBuilder(s.label)}
               className="flex items-center gap-3 px-5 py-2.5 bg-white border border-huggy-blue/5 rounded-full text-[11px] font-bold text-zinc-400 hover:text-huggy-blue hover:border-huggy-blue/20 hover:shadow-xl transition-all active:scale-95 uppercase tracking-widest"
             >
               <s.icon className="w-4 h-4" />

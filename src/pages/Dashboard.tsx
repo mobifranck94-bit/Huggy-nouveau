@@ -17,9 +17,6 @@ export default function Dashboard() {
 
   const { projects, loading: projectsLoading, fetchProjects } = useProjects(user.id);
 
-  useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
 
   const handleSignOut = () => {
     navigate('/');
