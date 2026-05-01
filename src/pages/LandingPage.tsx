@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowUp, Paperclip, Globe, ShoppingCart, 
   BookOpen, Layout, User, Menu, Heart, Check, 
-  Sparkles, Github, Zap, MessageSquare, Rocket
+  Github, Zap, MessageSquare, Rocket, Database
 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -86,9 +86,7 @@ export default function LandingPage() {
           <p className="text-lg md:text-xl text-zinc-500 font-medium mb-12 max-w-2xl mx-auto">
             Start building with a single prompt. No coding needed.<br />
             <span className="text-huggy-blue flex items-center justify-center gap-2 mt-2">
-              <Sparkles className="w-5 h-5 fill-huggy-blue/20" /> 
               Friendly AI magic at your service 
-              <Sparkles className="w-5 h-5 fill-huggy-blue/20" />
             </span>
           </p>
         </motion.div>
@@ -270,7 +268,7 @@ export default function LandingPage() {
               <div className="grid grid-cols-2 gap-4 h-40">
                 <div className="bg-zinc-50 rounded-[24px]" />
                 <div className="huggy-gradient rounded-[24px] flex items-center justify-center">
-                  <Sparkles className="w-10 h-10 text-white fill-white/20" />
+                  
                 </div>
               </div>
               <div className="absolute -bottom-6 -left-6 w-16 h-16 bg-huggy-dark text-white rounded-2xl flex items-center justify-center text-4xl shadow-2xl">+</div>
@@ -328,7 +326,7 @@ export default function LandingPage() {
               <div className="absolute top-0 right-10 -translate-y-1/2 bg-huggy-blue text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-xl">Best Value</div>
               <div className="space-y-4">
                 <h4 className="text-2xl font-display font-black text-huggy-blue uppercase tracking-tight flex items-center gap-2">
-                  Pro Plan <Sparkles className="w-5 h-5 fill-huggy-blue/20" />
+                  Pro Plan 
                 </h4>
                 <p className="text-sm text-zinc-500 font-medium leading-relaxed">Freelancers, small startups & creators ready to build real products.</p>
               </div>

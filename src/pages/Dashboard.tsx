@@ -3,7 +3,7 @@ import { useProjects } from '../lib/useProjects';
 import { 
   Plus, Layout, Zap, LogOut, Clock, Star, 
   Code2, Globe, Heart, ChevronRight, Search, 
-  Settings, User, Sparkles
+  Settings, User, Users
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect } from 'react';
@@ -42,7 +42,7 @@ export default function Dashboard() {
             { label: 'All Projects', icon: Layout, active: true },
             { label: 'Marketplace', icon: Globe },
             { label: 'Academy', icon: Code2 },
-            { label: 'Community', icon: Sparkles },
+            { label: 'Community', icon: Users },
           ].map((item, i) => (
             <button 
               key={i}
@@ -104,7 +104,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-12">
             <div>
               <h1 className="text-4xl font-display font-black text-huggy-dark tracking-tight mb-2 flex items-center gap-3">
-                Projects <Sparkles className="w-6 h-6 text-huggy-blue fill-huggy-blue/10" />
+                Projects 
               </h1>
               <p className="text-sm text-zinc-500 font-medium tracking-wide">Manage and iterate on your AI creations.</p>
             </div>
