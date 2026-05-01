@@ -610,7 +610,18 @@ export default function App() {
           <div className="flex items-center gap-2 pl-1">
             {/* Logo Icon */}
             <div className="flex items-center cursor-pointer h-14 px-1" onClick={() => navigate('/')}>
-               <img src="/assets/huggy-logo-text.png" className="h-8 md:h-10 w-auto object-contain" alt="Huggy Logo" />
+               <img 
+                 src="/assets/huggy-logo-text.png" 
+                 className="h-8 md:h-10 w-auto object-contain" 
+                 alt="Huggy Logo" 
+                 onError={(e) => {
+                   e.currentTarget.style.display = 'none';
+                   const span = document.createElement('span');
+                   span.className = 'font-display font-black text-huggy-dark text-lg tracking-tighter ml-2';
+                   span.innerText = 'HUGGY';
+                   e.currentTarget.parentElement?.appendChild(span);
+                 }}
+               />
             </div>
             
             {/* Home Link Section */}

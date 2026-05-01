@@ -14,6 +14,7 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static('dist'));
+app.use('/assets', express.static(path.resolve('public/assets')));
 
 // ─── In-memory preview store (TTL: 30 min) ───────────────────────────────────
 const previewStore = new Map(); // id → { html, expires }
