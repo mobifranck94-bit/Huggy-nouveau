@@ -61,21 +61,6 @@ export default function LandingPage() {
 
       {/* ── Hero Section ──────────────────────────────────────────────────── */}
       <main className="relative z-10 pt-20 pb-20 px-6 flex flex-col items-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="mb-12"
-        >
-          <div className="w-48 h-48 md:w-64 md:h-64 relative group">
-            <div className="absolute inset-0 bg-huggy-blue/20 blur-3xl group-hover:bg-huggy-blue/30 transition-colors rounded-full" />
-            <img 
-              src="/assets/huggy-mascot.png" 
-              alt="Huggy Mascot" 
-              className="w-full h-full object-contain relative z-10 animate-floating" 
-            />
-          </div>
-        </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
