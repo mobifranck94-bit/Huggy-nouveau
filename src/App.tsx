@@ -146,8 +146,6 @@ export default function App() {
   const [selectedElement, setSelectedElement] = useState<{ selector: string, text: string } | null>(null);
   const [buildHistory, setBuildHistory] = useState<Build[]>([]);
   const [isPreviewOnly, setIsPreviewOnly] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
 
   // Handle initial prompt from Landing Page
   useEffect(() => {
@@ -567,7 +565,7 @@ export default function App() {
 
   const CurrentIcon = devices.find(d => d.id === selectedDevice)?.icon || MonitorSmartphone;
 
-  if (auth.loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-[#f2f2f2] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
