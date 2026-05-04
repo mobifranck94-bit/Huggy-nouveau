@@ -5,7 +5,7 @@ import {
   ArrowUp, Paperclip, Globe, ShoppingCart, 
   BookOpen, Layout, User, Menu, Heart, Check, 
   Github, Zap, MessageSquare, Rocket, Database,
-  Plus, Mic, ChevronDown, Sparkles, Star
+  Plus, Mic, ChevronDown, Sparkles, Star, Brain
 } from 'lucide-react';
 
 import { useAuth } from '../lib/useAuth';
