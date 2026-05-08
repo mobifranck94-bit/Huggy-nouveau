@@ -146,6 +146,7 @@ export default function App() {
   const [selectedElement, setSelectedElement] = useState<{ selector: string, text: string } | null>(null);
   const [buildHistory, setBuildHistory] = useState<Build[]>([]);
   const [isPreviewOnly, setIsPreviewOnly] = useState(false);
+  const [isBuilding, setIsBuilding] = useState(false);
 
   // Handle initial prompt from Landing Page
   useEffect(() => {
@@ -299,7 +300,6 @@ export default function App() {
   }, []);
 
   // Build Pipeline State
-  const [isBuilding, setIsBuilding] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployUrl, setDeployUrl] = useState<string | null>(null);
   const [realStats, setRealStats] = useState({ visitors: 0, views: 0 });
