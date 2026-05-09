@@ -343,8 +343,12 @@ function Navbar({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => v
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1488fc] to-[#1a94ff] flex items-center justify-center shadow-lg shadow-blue-500/20">
-          <span className="text-2xl">🤖</span>
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#1488fc] to-[#1a94ff] flex items-center justify-center shadow-lg shadow-blue-500/20 overflow-hidden">
+          <img 
+            src="/huggy-logo.png" 
+            alt="Huggy" 
+            className="w-full h-full object-contain p-1"
+          />
         </div>
         <span className="text-xl font-bold text-white tracking-tight">huggy</span>
       </motion.div>
