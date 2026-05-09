@@ -9,12 +9,31 @@ interface AuthState {
   loading: boolean;
 }
 
+// ─── Preview Mode: Bypass Auth ──────────────────────────────────────────────
+const DISABLE_AUTH = import.meta.env.VITE_DISABLE_AUTH === 'true';
+
+const MOCK_USER = {
+  id: 'preview-user-123',
+  email: 'preview@huggy.app',
+  user_metadata: { full_name: 'Preview User' }
+} as User;
+
+const MOCK_PROFILE = {
+  id: 'preview-user-123',
+  full_name: 'Preview User',
+  email: 'preview@huggy.app',
+  plan: 'pro',
+  credits: 9999,
+  max_credits: 9999,
+  created_at: new Date().toISOString()
+} as Profile;
+
 export function useAuth() {
   const [state, setState] = useState<AuthState>({
-    user: null,
-    profile: null,
-    session: null,
-    loading: true,
+    user: DISABLE_AUTH ? MOCK_USER : null,
+    profile: DISABLE_AUTH ? MOCK_PROFILE : null,
+    session: DISABLE_AUTH ? { user: MOCK_USER } as Session : null,
+    loading: !DISABLE_AUTH,
   });
 
   // Fetch profile from DB
@@ -29,6 +48,12 @@ export function useAuth() {
 
   // Initialize session + listen for changes
   useEffect(() => {
+    // Skip auth in preview mode
+    if (DISABLE_AUTH) {
+      console.log('🔓 PREVIEW MODE: Auth disabled');
+      return;
+    }
+    
     // Get initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
@@ -65,11 +90,13 @@ export function useAuth() {
   // ─── Auth Methods ────────────────────────────────────────────────────────────
 
   const signInWithEmail = async (email: string, password: string) => {
+    if (DISABLE_AUTH) return;
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
   };
 
   const signUpWithEmail = async (email: string, password: string, fullName: string) => {
+    if (DISABLE_AUTH) return;
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -81,6 +108,7 @@ export function useAuth() {
   };
 
   const signInWithGoogle = async () => {
+    if (DISABLE_AUTH) return;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -91,6 +119,7 @@ export function useAuth() {
   };
 
   const signInWithGitHub = async () => {
+    if (DISABLE_AUTH) return;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
       options: {
@@ -101,12 +130,20 @@ export function useAuth() {
   };
 
   const signOut = async () => {
+    if (DISABLE_AUTH) {
+      console.log('🔓 PREVIEW MODE: Sign out disabled');
+      return;
+    }
     await supabase.auth.signOut();
     setState({ user: null, profile: null, session: null, loading: false });
   };
 
   // Refresh profile data (e.g. after credits change)
   const refreshProfile = useCallback(async () => {
+    if (DISABLE_AUTH) {
+      setState(prev => ({ ...prev, profile: MOCK_PROFILE }));
+      return;
+    }
     if (state.user) {
       const profile = await fetchProfile(state.user.id);
       setState(prev => ({ ...prev, profile }));

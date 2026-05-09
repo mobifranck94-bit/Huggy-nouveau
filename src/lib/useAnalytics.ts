@@ -63,11 +63,19 @@ export function useAnalytics() {
 
 // Hook to track page views automatically
 export function usePageTracking(pageName: string) {
-  const { trackPageView } = useAnalytics();
-
   useEffect(() => {
-    trackPageView(pageName);
-  }, [pageName, trackPageView]);
+    // Track page view directly without calling useAnalytics recursively
+    fetch('/api/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'page_view',
+        metadata: { page: pageName, timestamp: Date.now() }
+      })
+    }).catch(() => {
+      // Silently fail
+    });
+  }, [pageName]);
 }
 
 // Hook to track session duration

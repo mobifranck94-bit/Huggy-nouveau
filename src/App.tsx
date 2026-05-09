@@ -55,9 +55,9 @@ import { useAuth } from './lib/useAuth';
 import { useProjects } from './lib/useProjects';
 import { supabase, type Build } from './lib/supabase';
 import LandingPage from './pages/LandingPage';
-import OnboardingTour from './components/OnboardingTour';
-import FeedbackWidget from './components/FeedbackWidget';
-import { useAnalytics, usePageTracking, useSessionTracking } from './lib/useAnalytics';
+// import OnboardingTour from './components/OnboardingTour';
+// import FeedbackWidget from './components/FeedbackWidget';
+// import { useAnalytics, usePageTracking, useSessionTracking } from './lib/useAnalytics';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // ─── Streaming Chat Types ─────────────────────────────────────────────────────
@@ -151,10 +151,10 @@ export default function App() {
   const [isPreviewOnly, setIsPreviewOnly] = useState(false);
   const [isBuilding, setIsBuilding] = useState(false);
 
-  // Analytics hooks
-  const { trackBuild, trackDeploy } = useAnalytics();
-  usePageTracking('builder');
-  useSessionTracking();
+  // Analytics hooks - disabled for preview
+  // const { trackBuild, trackDeploy } = useAnalytics();
+  // usePageTracking('builder');
+  // useSessionTracking();
 
   // Handle initial prompt from Landing Page
   useEffect(() => {
@@ -332,10 +332,10 @@ export default function App() {
     if (generatedFiles.length === 0) return;
     setIsDeploying(true);
     
-    // Track deploy start
-    trackDeploy(currentProject?.id || 'unknown', 'started', { 
-      filesCount: generatedFiles.length 
-    });
+    // Track deploy start - disabled for preview
+    // trackDeploy(currentProject?.id || 'unknown', 'started', { 
+    //   filesCount: generatedFiles.length 
+    // });
     
     const deployMsgId = `deploy-${Date.now()}`;
     setMessages(prev => [...prev, {
@@ -353,11 +353,11 @@ export default function App() {
       const url = response.data.url as string;
       setDeployUrl(url);
       
-      // Track deploy success
-      trackDeploy(currentProject?.id || 'unknown', 'completed', { 
-        url,
-        filesCount: generatedFiles.length 
-      });
+      // Track deploy success - disabled for preview
+      // trackDeploy(currentProject?.id || 'unknown', 'completed', { 
+      //   url,
+      //   filesCount: generatedFiles.length 
+      // });
       
       const msg = `✅ Application déployée !\n\n🔗 **URL:** [${url}](${url})`;
       setMessages(prev => prev.map(m => {
@@ -367,10 +367,10 @@ export default function App() {
     } catch (e: any) {
       const errMsg = `❌ Déploiement échoué : ${e?.response?.data?.error || e.message}`;
       
-      // Track deploy failure
-      trackDeploy(currentProject?.id || 'unknown', 'failed', { 
-        error: e?.response?.data?.error || e.message 
-      });
+      // Track deploy failure - disabled for preview
+      // trackDeploy(currentProject?.id || 'unknown', 'failed', { 
+      //   error: e?.response?.data?.error || e.message 
+      // });
       
       setMessages(prev => prev.map(m => {
         if (m.id !== deployMsgId || m.type !== 'build') return m;
@@ -402,11 +402,11 @@ export default function App() {
     const buildId = `build-${Date.now()}`;
     const userId = `user-${Date.now()}`;
     
-    // Track build start
-    trackBuild(currentProject?.id || 'unknown', 'started', { 
-      promptLength: prompt.length,
-      model: selectedModel 
-    });
+    // Track build start - disabled for preview
+    // trackBuild(currentProject?.id || 'unknown', 'started', { 
+    //   promptLength: prompt.length,
+    //   model: selectedModel 
+    // });
 
     // Initial agents state — all idle
     const initialAgents: AgentInfo[] = AGENTS_DEF.map(a => ({
@@ -1664,10 +1664,10 @@ export default function App() {
       </main>
       
       {/* Onboarding Tour for Builder */}
-      <OnboardingTour isBuilder={true} />
+      {/* <OnboardingTour isBuilder={true} /> */}
       
       {/* Feedback Widget */}
-      <FeedbackWidget />
+      {/* <FeedbackWidget /> */}
     </div>
   );
 }
