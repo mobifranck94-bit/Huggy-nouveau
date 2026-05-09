@@ -885,18 +885,6 @@ export default function App() {
               Share
             </button>
           )}
-          <button 
-            onClick={() => {
-              setMessages([]);
-              setGeneratedFiles([]);
-              setChatInput('');
-              navigate('/builder');
-            }}
-            className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors flex items-center gap-2 text-xs border border-zinc-800"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            New
-          </button>
           <Github className="w-4 h-4 text-zinc-400 hover:text-zinc-200 cursor-pointer transition-colors" />
           
           {/* Theme Toggle Button */}
