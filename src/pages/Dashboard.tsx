@@ -14,7 +14,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading, signOut } = useAuth();
   
-  const { projects, loading: projectsLoading, fetchProjects } = useProjects(user?.id);
+  const { projects, loading: projectsLoading, refreshProjects } = useProjects(user?.id);
 
   useEffect(() => {
     if (!authLoading && !user) {

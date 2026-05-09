@@ -10,11 +10,14 @@ interface AuthState {
 }
 
 // ─── Preview Mode: Bypass Auth ──────────────────────────────────────────────
-const DISABLE_AUTH = import.meta.env.VITE_DISABLE_AUTH === 'true';
+const DISABLE_AUTH = true;
 
 const MOCK_USER = {
   id: 'preview-user-123',
+  aud: 'authenticated',
   email: 'preview@huggy.app',
+  app_metadata: {},
+  created_at: new Date().toISOString(),
   user_metadata: { full_name: 'Preview User' }
 } as User;
 

@@ -150,7 +150,7 @@ export function useTheme() {
     
     // Apply all tokens as CSS variables
     Object.entries(tokens).forEach(([key, value]) => {
-      root.style.setProperty(`--${key}`, value);
+      root.style.setProperty(`--${key}`, String(value));
     });
     
     // Update class

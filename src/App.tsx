@@ -120,15 +120,7 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { projects, currentProject, createProject, saveBuild, getBuilds } = useProjects(user?.id);
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-huggy-blue border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const { projects, currentProject, setCurrentProject, createProject, saveBuild, getBuilds } = useProjects(user?.id);
 
   const [isDeviceMenuOpen, setIsDeviceMenuOpen] = useState(false);
   const [isFileExplorerOpen, setIsFileExplorerOpen] = useState(false);
@@ -591,20 +583,18 @@ export default function App() {
   })();
 
   const devices = [
-    { id: 'desktop', label: "Taille actuelle de l'écran", icon: MonitorSmartphone },
-    { id: 'mobile', label: 'Mobile', icon: Smartphone },
-    { id: 'tablet', label: 'Comprimé', icon: Tablet },
+    { id: 'desktop', label: 'Desktop', icon: Monitor, width: '100%' },
+    { id: 'tablet', label: 'Tablet', icon: Tablet, width: '768px' },
+    { id: 'mobile', label: 'Mobile', icon: Smartphone, width: '375px' },
   ];
 
   const CurrentIcon = devices.find(d => d.id === selectedDevice)?.icon || MonitorSmartphone;
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#f2f2f2] flex items-center justify-center">
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center animate-pulse">
-            <Heart className="w-6 h-6 text-white fill-white" />
-          </div>
+          <div className="w-12 h-12 border-4 border-huggy-blue border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-zinc-500 font-medium">Loading Huggy…</p>
         </div>
       </div>
