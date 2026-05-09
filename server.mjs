@@ -3,15 +3,63 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import crypto from 'crypto';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
 import { runFullPipeline } from './lib/pipeline.mjs';
 import { buildPreviewHTML } from './lib/buildPreview.mjs';
+import { validateFiles } from './lib/security.mjs';
+import { sendEmail } from './lib/email.mjs';
 
 // Load environment variables (.env.local has priority, then .env)
 dotenv.config({ path: '.env.local' });
 dotenv.config();
 
 const app = express();
-app.use(cors({ origin: true }));
+
+// ─── Security Middleware ────────────────────────────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://*.supabase.co"],
+    },
+  },
+}));
+
+app.use(cors({ 
+  origin: process.env.APP_URL || true,
+  credentials: true 
+}));
+
+// ─── Rate Limiting ───────────────────────────────────────────────────────────
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per window
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const buildLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5, // 5 builds per minute
+  message: { error: 'Build limit exceeded. Maximum 5 builds per minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const deployLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 3, // 3 deployments per 5 minutes
+  message: { error: 'Deploy limit exceeded. Maximum 3 deployments per 5 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use(generalLimiter);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static('dist'));
 app.use('/assets', express.static(path.resolve('public/assets')));
@@ -29,7 +77,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 // ─── Build Pipeline (SSE Stream) ─────────────────────────────────────────────
-app.post('/api/build', async (req, res) => {
+app.post('/api/build', buildLimiter, async (req, res) => {
   const { prompt, files, mode = 'build', model = 'claude-sonnet-4-6', projectId } = req.body;
 
   if (!prompt?.trim()) {
@@ -137,7 +185,7 @@ app.get('/api/preview/:id', (req, res) => {
 });
 
 // ─── Deploy: build with esbuild then push to Vercel ──────────────────────────
-app.post('/api/deploy', async (req, res) => {
+app.post('/api/deploy', deployLimiter, async (req, res) => {
   const { files, projectName = 'huggy-app' } = req.body;
   if (!files?.length) return res.status(400).json({ error: 'No files to deploy' });
 
@@ -147,7 +195,16 @@ app.post('/api/deploy', async (req, res) => {
   }
 
   try {
-    // 1. Build the app with esbuild
+    // 1. Validate files for security
+    const validation = validateFiles(files);
+    if (!validation.valid) {
+      return res.status(400).json({ 
+        error: 'Security validation failed', 
+        details: validation.errors 
+      });
+    }
+
+    // 2. Build the app with esbuild
     const html    = await buildPreviewHTML(files);
     const content = Buffer.from(html, 'utf-8');
     const sha1    = crypto.createHash('sha1').update(content).digest('hex');
@@ -211,11 +268,87 @@ app.post('/api/deploy', async (req, res) => {
 
 // ─── Analytics Tracking ──────────────────────────────────────────────────────
 app.post('/api/track', async (req, res) => {
-  const { projectId, type } = req.body;
-  // In a real app, we would insert into Supabase here
-  // For now we just log it
+  const { projectId, type, metadata = {} } = req.body;
+  
+  // Store in Supabase analytics table
+  try {
+    const { supabase } = await import('./lib/supabase.mjs');
+    await supabase.from('analytics').insert({
+      project_id: projectId,
+      event_type: type,
+      metadata: metadata,
+      created_at: new Date().toISOString()
+    });
+  } catch (err) {
+    console.warn('[Analytics] Failed to store:', err.message);
+  }
+  
   console.log(`[Analytics] ${type} on project ${projectId}`);
   res.json({ success: true });
+});
+
+// ─── Email API ───────────────────────────────────────────────────────────────
+app.post('/api/send-email', generalLimiter, async (req, res) => {
+  const { to, subject, html, type = 'welcome' } = req.body;
+  
+  if (!to || !subject || !html) {
+    return res.status(400).json({ error: 'Missing required fields: to, subject, html' });
+  }
+  
+  try {
+    const result = await sendEmail({ to, subject, html, type });
+    res.json({ success: true, messageId: result.messageId });
+  } catch (err) {
+    console.error('[Email] Failed:', err.message);
+    res.status(500).json({ error: 'Failed to send email' });
+  }
+});
+
+// ─── Feedback API ────────────────────────────────────────────────────────────
+app.post('/api/feedback', generalLimiter, async (req, res) => {
+  const { userId, type, message, rating, page } = req.body;
+  
+  try {
+    const { supabase } = await import('./lib/supabase.mjs');
+    await supabase.from('feedback').insert({
+      user_id: userId,
+      type,
+      message,
+      rating,
+      page,
+      created_at: new Date().toISOString()
+    });
+    
+    // Send notification email to admin
+    if (process.env.ADMIN_EMAIL) {
+      await sendEmail({
+        to: process.env.ADMIN_EMAIL,
+        subject: `New Feedback: ${type}`,
+        html: `<p><strong>User:</strong> ${userId}</p><p><strong>Type:</strong> ${type}</p><p><strong>Rating:</strong> ${rating}/5</p><p><strong>Message:</strong> ${message}</p>`,
+        type: 'notification'
+      });
+    }
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Feedback] Failed:', err.message);
+    res.status(500).json({ error: 'Failed to submit feedback' });
+  }
+});
+
+// ─── Health Check with Details ───────────────────────────────────────────────
+app.get('/api/health', (_req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: Date.now(),
+    version: process.env.npm_package_version || '0.0.0',
+    features: {
+      anthropic: !!process.env.ANTHROPIC_API_KEY,
+      vercel: !!process.env.VERCEL_TOKEN,
+      supabase: !!process.env.SUPABASE_URL,
+      email: !!(process.env.RESEND_API_KEY || process.env.BREVO_API_KEY)
+    }
+  });
 });
 
 // ─── Start Server ────────────────────────────────────────────────────────────
@@ -227,6 +360,11 @@ app.listen(PORT, () => {
   console.log(`   → Endpoints:`);
   console.log(`      GET  /api/health`);
   console.log(`      POST /api/build  { prompt: "..." }\n`);
+});
+
+// ─── API 404 Handler ─────────────────────────────────────────────────────────
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ error: 'API endpoint not found' });
 });
 
 // Fallback for SPA routing
