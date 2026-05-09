@@ -1,4 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+
+type Theme = 'dark' | 'light';
 import {
   Heart,
   Home,
@@ -45,7 +47,9 @@ import {
   BarChart3,
   Users,
   ArrowRight,
-  History
+  History,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Editor from '@monaco-editor/react';
@@ -142,6 +146,29 @@ export default function App() {
   const [buildHistory, setBuildHistory] = useState<Build[]>([]);
   const [isPreviewOnly, setIsPreviewOnly] = useState(false);
   const [isBuilding, setIsBuilding] = useState(false);
+
+  // Theme state - synced with LandingPage via localStorage
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('huggy-theme') as Theme | null;
+      return saved || 'dark';
+    }
+    return 'dark';
+  });
+
+  // Sync theme class on html element
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('huggy-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  }, []);
 
   // Analytics hooks
   const { trackBuild, trackDeploy } = useAnalytics();
@@ -618,9 +645,17 @@ export default function App() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#F8F9FA] text-zinc-500 overflow-hidden select-none font-sans">
+    <div className={`flex flex-col h-screen overflow-hidden select-none font-sans transition-colors duration-300 ${
+      theme === 'dark' 
+        ? 'bg-[#0a0a0b] text-zinc-400' 
+        : 'bg-[#F8F9FA] text-zinc-500'
+    }`}>
       {/* Top Header */}
-      <header className="flex items-center px-4 py-2 border-b border-zinc-200 bg-white h-14 shrink-0 z-10">
+      <header className={`flex items-center px-4 py-2 border-b h-14 shrink-0 z-10 transition-colors duration-300 ${
+        theme === 'dark'
+          ? 'border-zinc-800 bg-[#141415]'
+          : 'border-zinc-200 bg-white'
+      }`}>
         <div className="flex items-center gap-2 w-auto shrink-0">
           <div className="flex items-center gap-2 pl-1">
             {/* Logo Icon */}
@@ -861,6 +896,20 @@ export default function App() {
             New
           </button>
           <Github className="w-4 h-4 text-zinc-400 hover:text-zinc-200 cursor-pointer transition-colors" />
+          
+          {/* Theme Toggle Button */}
+          <button
+            onClick={toggleTheme}
+            className={`p-1.5 rounded-lg transition-colors ${
+              theme === 'dark'
+                ? 'hover:bg-zinc-800 text-zinc-400 hover:text-yellow-400'
+                : 'hover:bg-zinc-100 text-zinc-500 hover:text-orange-500'
+            }`}
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+          
           <button className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-bold rounded-lg hover:opacity-90 transition-opacity">
             <Zap className="w-3.5 h-3.5 fill-white" />
             Upgrade
