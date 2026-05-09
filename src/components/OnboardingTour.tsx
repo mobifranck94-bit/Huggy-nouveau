@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import Joyride, { Step, StoreHelpers } from 'react-joyride';
 import { useAuth } from '../lib/useAuth';
 
 interface OnboardingTourProps {
@@ -7,207 +6,151 @@ interface OnboardingTourProps {
   isDashboard?: boolean;
 }
 
+interface Step {
+  target: string;
+  content: string;
+  position: 'top' | 'bottom' | 'left' | 'right' | 'center';
+}
+
 export default function OnboardingTour({ isBuilder = false, isDashboard = false }: OnboardingTourProps) {
   const { user } = useAuth();
-  const [run, setRun] = useState(false);
-  const [stepIndex, setStepIndex] = useState(0);
-  const [helpers, setHelpers] = useState<StoreHelpers | null>(null);
-
-  useEffect(() => {
-    // Check if user has completed onboarding
-    const hasCompletedOnboarding = localStorage.getItem(`huggy-onboarding-${user?.id}`);
-    const hasStartedOnboarding = localStorage.getItem(`huggy-onboarding-started-${user?.id}`);
-    
-    if (!hasCompletedOnboarding && !hasStartedOnboarding && user) {
-      // Delay slightly to let the UI render
-      const timer = setTimeout(() => setRun(true), 1000);
-      localStorage.setItem(`huggy-onboarding-started-${user?.id}`, 'true');
-      return () => clearTimeout(timer);
-    }
-  }, [user]);
-
-  const handleJoyrideCallback = (data: any) => {
-    const { status, index, type } = data;
-    
-    if (['finished', 'skipped'].includes(status)) {
-      setRun(false);
-      localStorage.setItem(`huggy-onboarding-${user?.id}`, 'completed');
-    } else if (type === 'step:after') {
-      setStepIndex(index + (data.action === 'next' ? 1 : 0));
-    }
-  };
+  const [isVisible, setIsVisible] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
   const getSteps = (): Step[] => {
     if (isBuilder) {
       return [
-        {
-          target: 'body',
-          content: '👋 Welcome to the Huggy Builder! Let\'s take a quick tour of the interface.',
-          placement: 'center',
-          disableBeacon: true,
-        },
-        {
-          target: '[data-tour="chat-input"]',
-          content: '💬 This is where you describe what you want to build. Our 8 AI agents will understand your requirements and build it for you.',
-          placement: 'top',
-        },
-        {
-          target: '[data-tour="preview-panel"]',
-          content: '👁️ See your app come to life here in real-time. As our agents build, you\'ll see the preview update instantly.',
-          placement: 'left',
-        },
-        {
-          target: '[data-tour="code-editor"]',
-          content: '💻 View and edit the generated code directly. All changes are reflected in the preview immediately.',
-          placement: 'right',
-        },
-        {
-          target: '[data-tour="deploy-btn"]',
-          content: '🚀 When you\'re happy with your app, click here to deploy it to Vercel with one click!',
-          placement: 'bottom',
-        },
-        {
-          target: '[data-tour="agent-status"]',
-          content: '🤖 Watch our 8 specialized agents work: Web Research, Product Manager, DBA, UX Designer, Coder, Security Auditor, QA, and i18n.',
-          placement: 'bottom',
-        },
+        { target: 'body', content: '👋 Welcome to the Huggy Builder! Let\'s take a quick tour.', position: 'center' },
+        { target: '[data-tour="chat-input"]', content: '💬 Describe what you want to build here.', position: 'top' },
+        { target: '[data-tour="preview-panel"]', content: '👁️ See your app come to life in real-time.', position: 'left' },
+        { target: '[data-tour="code-editor"]', content: '💻 View and edit generated code here.', position: 'right' },
+        { target: '[data-tour="deploy-btn"]', content: '🚀 Deploy to Vercel with one click!', position: 'bottom' },
       ];
     }
-
     if (isDashboard) {
       return [
-        {
-          target: 'body',
-          content: '🎉 Welcome to your Huggy Dashboard! This is your command center.',
-          placement: 'center',
-          disableBeacon: true,
-        },
-        {
-          target: '[data-tour="credits-widget"]',
-          content: '💳 Track your credits here. Each build uses credits based on complexity. Upgrade anytime for more!',
-          placement: 'bottom',
-        },
-        {
-          target: '[data-tour="projects-list"]',
-          content: '📁 All your projects are listed here. Click any project to open it in the builder.',
-          placement: 'right',
-        },
-        {
-          target: '[data-tour="new-project-btn"]',
-          content: '➕ Start a new project anytime by clicking here. Describe your app idea and let AI do the rest!',
-          placement: 'bottom',
-        },
-        {
-          target: '[data-tour="help-menu"]',
-          content: '❓ Need help? Access documentation, tutorials, and support here.',
-          placement: 'left',
-        },
+        { target: 'body', content: '🎉 Welcome to your Dashboard!', position: 'center' },
+        { target: '[data-tour="credits-widget"]', content: '💳 Track your credits here.', position: 'bottom' },
+        { target: '[data-tour="projects-list"]', content: '📁 Your projects are listed here.', position: 'right' },
       ];
     }
-
-    // Default landing page tour
     return [
-      {
-        target: 'body',
-        content: '🚀 Welcome to Huggy! The AI-powered platform that builds complete SaaS applications for you.',
-        placement: 'center',
-        disableBeacon: true,
-      },
-      {
-        target: '[data-tour="hero-input"]',
-        content: '📝 Start by describing what you want to build. Be as specific as possible - include features, design preferences, and target users.',
-        placement: 'bottom',
-      },
-      {
-        target: '[data-tour="model-selector"]',
-        content: '🤖 Choose your AI model. We recommend Claude Sonnet for best results, or GPT-4 for faster builds.',
-        placement: 'bottom',
-      },
-      {
-        target: '[data-tour="features-section"]',
-        content: '✨ Our 8 specialized AI agents handle everything: research, design, coding, security, and deployment.',
-        placement: 'top',
-      },
-      {
-        target: '[data-tour="examples-section"]',
-        content: '💡 Not sure what to build? Check out these example prompts for inspiration.',
-        placement: 'top',
-      },
+      { target: 'body', content: '🚀 Welcome to Huggy! AI-powered SaaS builder.', position: 'center' },
+      { target: '[data-tour="hero-input"]', content: '📝 Start by describing your app idea.', position: 'bottom' },
     ];
   };
 
-  const handleRestart = () => {
-    setStepIndex(0);
-    setRun(true);
+  const steps = getSteps();
+
+  useEffect(() => {
+    const hasCompleted = localStorage.getItem(`huggy-onboarding-${user?.id || 'guest'}`);
+    if (!hasCompleted && user) {
+      const timer = setTimeout(() => setIsVisible(true), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!isVisible || steps[currentStep].target === 'body') return;
+    
+    const target = document.querySelector(steps[currentStep].target);
+    if (target) {
+      const rect = target.getBoundingClientRect();
+      setTooltipPosition({ 
+        x: rect.left + rect.width / 2, 
+        y: rect.top - 10 
+      });
+    }
+  }, [isVisible, currentStep, steps]);
+
+  const handleNext = () => {
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(prev => prev + 1);
+    } else {
+      setIsVisible(false);
+      localStorage.setItem(`huggy-onboarding-${user?.id || 'guest'}`, 'completed');
+    }
   };
+
+  const handleSkip = () => {
+    setIsVisible(false);
+    localStorage.setItem(`huggy-onboarding-${user?.id || 'guest'}`, 'completed');
+  };
+
+  const handleRestart = () => {
+    setCurrentStep(0);
+    setIsVisible(true);
+    localStorage.removeItem(`huggy-onboarding-${user?.id || 'guest'}`);
+  };
+
+  if (!isVisible) {
+    return (
+      <button
+        onClick={handleRestart}
+        className="fixed bottom-6 right-20 z-50 bg-[#1488fc] text-white px-3 py-2 rounded-lg shadow-lg hover:bg-[#1172e2] transition-all text-xs font-medium"
+        title="Restart tour"
+      >
+        ? Tour
+      </button>
+    );
+  }
+
+  const currentStepData = steps[currentStep];
+  const isCenter = currentStepData.position === 'center';
 
   return (
     <>
-      <Joyride
-        callback={handleJoyrideCallback}
-        continuous
-        hideCloseButton
-        run={run}
-        scrollToFirstStep
-        showProgress
-        showSkipButton
-        stepIndex={stepIndex}
-        steps={getSteps()}
-        styles={{
-          options: {
-            arrowColor: '#1488fc',
-            backgroundColor: '#ffffff',
-            overlayColor: 'rgba(0, 0, 0, 0.5)',
-            primaryColor: '#1488fc',
-            textColor: '#333',
-            zIndex: 10000,
-            borderRadius: 12,
-          },
-          buttonNext: {
-            backgroundColor: '#1488fc',
-            borderRadius: 8,
-            color: '#fff',
-            fontSize: 14,
-            padding: '10px 20px',
-          },
-          buttonSkip: {
-            color: '#666',
-            fontSize: 14,
-          },
-          tooltip: {
-            borderRadius: 12,
-            boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
-          },
-          tooltipTitle: {
-            fontSize: 18,
-            fontWeight: 600,
-            marginBottom: 8,
-          },
-          tooltipContent: {
-            fontSize: 14,
-            lineHeight: 1.6,
-          },
-        }}
-        locale={{
-          back: '← Back',
-          close: 'Close',
-          last: 'Finish 🎉',
-          next: 'Next →',
-          skip: 'Skip tour',
-        }}
-        getHelpers={(helpers) => setHelpers(helpers)}
-      />
+      {/* Overlay */}
+      <div className="fixed inset-0 bg-black/50 z-50" onClick={handleSkip} />
       
-      {/* Restart button - shown after completion */}
-      {!run && (
-        <button
-          onClick={handleRestart}
-          className="fixed bottom-6 right-6 z-50 bg-[#1488fc] text-white px-4 py-2 rounded-lg shadow-lg hover:bg-[#1172e2] transition-all flex items-center gap-2 text-sm font-medium"
-          title="Restart onboarding tour"
-        >
-          <span>❓</span>
-          <span>Tour</span>
-        </button>
+      {/* Tooltip */}
+      <div 
+        className={`fixed z-50 bg-white rounded-xl shadow-2xl p-6 max-w-sm ${
+          isCenter ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' : ''
+        }`}
+        style={!isCenter ? {
+          left: `${tooltipPosition.x}px`,
+          top: `${tooltipPosition.y}px`,
+          transform: 'translate(-50%, -100%)'
+        } : {}}
+      >
+        <div className="text-zinc-800 leading-relaxed mb-4">
+          {currentStepData.content}
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-zinc-400">
+            {currentStep + 1} / {steps.length}
+          </span>
+          
+          <div className="flex gap-2">
+            <button 
+              onClick={handleSkip}
+              className="px-3 py-1.5 text-sm text-zinc-500 hover:text-zinc-700"
+            >
+              Skip
+            </button>
+            <button 
+              onClick={handleNext}
+              className="px-4 py-1.5 bg-[#1488fc] text-white text-sm rounded-lg hover:bg-[#1172e2]"
+            >
+              {currentStep === steps.length - 1 ? 'Finish 🎉' : 'Next →'}
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Highlight box for non-center steps */}
+      {!isCenter && (
+        <style>{`
+          ${currentStepData.target} {
+            position: relative !important;
+            z-index: 51 !important;
+            box-shadow: 0 0 0 4px #1488fc, 0 0 20px rgba(20, 136, 252, 0.5) !important;
+            border-radius: 8px !important;
+          }
+        `}</style>
       )}
     </>
   );
