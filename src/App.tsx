@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useTyping } from './hooks/useTyping';
 
 type Theme = 'dark' | 'light';
 import {
@@ -31,6 +32,7 @@ import {
   Database,
   Code2,
   ShieldCheck,
+  Shield,
   Eye,
   Globe2,
   CheckCircle2,
@@ -920,7 +922,7 @@ export default function App() {
             className={`px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2 ${isDeploying ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
             {isDeploying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Cloud className="w-3.5 h-3.5" />}
-            {isDeploying ? 'Deploying...' : 'Deploy to Railway'}
+            {isDeploying ? 'Deploying...' : 'Deploy'}
           </button>
           {generatedFiles.length > 0 && (
             <button 
@@ -1014,168 +1016,337 @@ export default function App() {
                             );
                           })()}
 
-                          {/* Agent track */}
-                          <div className="flex flex-wrap items-center gap-1">
-                            {AGENTS_DEF.map((def, idx) => {
-                              const agent = bm.agents[idx];
-                              const status = agent?.status || 'idle';
-                              const isActive = status === 'active';
-                              const isDone = status === 'completed';
-                              const isSkipped = status === 'skipped';
-                              const DefIcon = def.Icon;
-                              return (
-                                <div key={def.name} className="flex items-center">
-                                  <motion.div
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: isActive ? 1.05 : 1 }}
-                                    transition={{ delay: idx * 0.04 }}
-                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-[10px] font-medium transition-all duration-300 ${
-                                      isDone
-                                        ? `${def.bg} ${def.border} ${def.color}`
-                                        : isActive
-                                        ? `${def.bg} ${def.border} ${def.color} ring-2 ring-current/30 shadow-[0_0_12px_currentColor]`
-                                        : isSkipped
-                                        ? 'bg-zinc-900/30 border-zinc-800/30 text-zinc-700 line-through opacity-60'
-                                        : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600'
-                                    }`}
-                                  >
-                                    {isDone ? (
-                                      <CheckCircle2 className="w-2.5 h-2.5" />
-                                    ) : isActive ? (
-                                      <motion.div
-                                        className="w-1.5 h-1.5 rounded-full bg-current"
-                                        animate={{ opacity: [1, 0.3, 1], scale: [1, 1.3, 1] }}
-                                        transition={{ duration: 0.9, repeat: Infinity }}
-                                      />
-                                    ) : isSkipped ? (
-                                      <span className="w-2.5 h-2.5 inline-flex items-center justify-center text-[10px]">—</span>
-                                    ) : (
-                                      <DefIcon className="w-2.5 h-2.5 opacity-30" />
-                                    )}
-                                    <span className="hidden sm:inline">{def.name}</span>
-                                  </motion.div>
-                                  {idx < AGENTS_DEF.length - 1 && (
+                          {/* Windsurf-style Agent Pipeline */}
+                          <div className="flex items-center gap-2">
+                            {/* Progress line background */}
+                            <div className="flex-1 h-0.5 bg-zinc-800 rounded-full overflow-hidden relative">
+                              <motion.div
+                                className="absolute inset-y-0 left-0 bg-gradient-to-r from-violet-500 via-blue-500 to-cyan-400"
+                                initial={{ width: '0%' }}
+                                animate={{ width: `${pct}%` }}
+                                transition={{ duration: 0.6, ease: 'easeOut' }}
+                              />
+                            </div>
+                            
+                            {/* Agent dots */}
+                            <div className="flex items-center gap-1.5">
+                              {AGENTS_DEF.map((def, idx) => {
+                                const agent = bm.agents[idx];
+                                const status = agent?.status || 'idle';
+                                const isActive = status === 'active';
+                                const isDone = status === 'completed';
+                                const isSkipped = status === 'skipped';
+                                
+                                return (
+                                  <div key={def.name} className="relative">
                                     <motion.div
-                                      className={`h-px w-1.5 mx-0.5 transition-colors ${
-                                        isDone || isSkipped ? 'bg-zinc-600' : 'bg-zinc-800'
+                                      initial={{ opacity: 0, scale: 0 }}
+                                      animate={{ 
+                                        opacity: 1, 
+                                        scale: isActive ? 1.2 : 1,
+                                      }}
+                                      transition={{ delay: idx * 0.08, type: 'spring', stiffness: 300 }}
+                                      className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                                        isDone
+                                          ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'
+                                          : isActive
+                                          ? 'bg-blue-500 shadow-[0_0_12px_rgba(20,136,252,0.6)]'
+                                          : isSkipped
+                                          ? 'bg-zinc-700'
+                                          : 'bg-zinc-600'
                                       }`}
-                                      animate={isActive ? { opacity: [0.3, 1, 0.3] } : { opacity: 1 }}
-                                      transition={isActive ? { duration: 1, repeat: Infinity } : {}}
-                                    />
-                                  )}
-                                </div>
-                              );
-                            })}
+                                    >
+                                      {/* Pulse effect for active agent */}
+                                      {isActive && (
+                                        <motion.div
+                                          className="absolute inset-0 rounded-full bg-blue-500"
+                                          animate={{ scale: [1, 1.8, 1], opacity: [0.6, 0, 0.6] }}
+                                          transition={{ duration: 1.5, repeat: Infinity }}
+                                        />
+                                      )}
+                                    </motion.div>
+                                    
+                                    {/* Tooltip on hover */}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
+                                      <span className="text-[8px] bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded whitespace-nowrap">
+                                        {def.name}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            
+                            {/* 3-dot pulse animation when streaming */}
+                            {bm.isStreaming && !bm.isComplete && (
+                              <div className="flex items-center gap-0.5 ml-2">
+                                <motion.div
+                                  className="w-1 h-1 rounded-full bg-blue-400"
+                                  animate={{ opacity: [0.3, 1, 0.3] }}
+                                  transition={{ duration: 1.2, repeat: Infinity, delay: 0 }}
+                                />
+                                <motion.div
+                                  className="w-1 h-1 rounded-full bg-blue-400"
+                                  animate={{ opacity: [0.3, 1, 0.3] }}
+                                  transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }}
+                                />
+                                <motion.div
+                                  className="w-1 h-1 rounded-full bg-blue-400"
+                                  animate={{ opacity: [0.3, 1, 0.3] }}
+                                  transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }}
+                                />
+                              </div>
+                            )}
                           </div>
 
-                          {/* Thinking block — last 3 lines */}
+                          {/* Windsurf-style Thinking Block - Terminal */}
                           {bm.thinkingLines.length > 0 && (
                             <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-3 overflow-hidden"
+                              initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
+                              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                              transition={{ duration: 0.4, ease: 'easeOut' }}
+                              className="bg-[#0d0d0d] border border-[#1a1a1a] rounded-lg overflow-hidden"
                             >
-                              <div className="flex items-center gap-1.5 mb-2">
-                                <motion.div
-                                  className="w-1.5 h-1.5 rounded-full bg-violet-400"
-                                  animate={bm.isStreaming && !bm.isComplete ? { opacity: [1, 0.3, 1] } : {}}
-                                  transition={{ duration: 0.9, repeat: Infinity }}
-                                />
-                                <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-bold">thinking</span>
+                              {/* Header */}
+                              <div className="flex items-center justify-between px-3 py-2 bg-[#111111] border-b border-[#1a1a1a]">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
+                                    <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
+                                    <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
+                                  </div>
+                                  <span className="text-[10px] text-zinc-500 font-medium ml-2">thinking</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {bm.isStreaming && !bm.isComplete && (
+                                    <>
+                                      <motion.div
+                                        className="w-1 h-1 rounded-full bg-green-400"
+                                        animate={{ opacity: [0.4, 1, 0.4] }}
+                                        transition={{ duration: 1.4, repeat: Infinity, delay: 0 }}
+                                      />
+                                      <motion.div
+                                        className="w-1 h-1 rounded-full bg-green-400"
+                                        animate={{ opacity: [0.4, 1, 0.4] }}
+                                        transition={{ duration: 1.4, repeat: Infinity, delay: 0.15 }}
+                                      />
+                                      <motion.div
+                                        className="w-1 h-1 rounded-full bg-green-400"
+                                        animate={{ opacity: [0.4, 1, 0.4] }}
+                                        transition={{ duration: 1.4, repeat: Infinity, delay: 0.3 }}
+                                      />
+                                    </>
+                                  )}
+                                </div>
                               </div>
-                              <div className="space-y-0.5">
-                                {bm.thinkingLines.slice(-3).map((line, i) => (
-                                  <motion.p
-                                    key={i}
-                                    initial={{ opacity: 0, x: -4 }}
-                                    animate={{ opacity: i === bm.thinkingLines.slice(-3).length - 1 ? 1 : 0.35, x: 0 }}
-                                    className="text-[10px] text-zinc-500 font-mono leading-relaxed truncate"
-                                  >
-                                    {line}
-                                  </motion.p>
-                                ))}
+                              
+                              {/* Terminal content */}
+                              <div className="p-3 windsurf-scrollbar max-h-32 overflow-y-auto">
+                                <div className="space-y-1">
+                                  {bm.thinkingLines.map((line, i) => (
+                                    <motion.div
+                                      key={i}
+                                      initial={{ opacity: 0, x: -8 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      transition={{ delay: i * 0.05, duration: 0.3 }}
+                                      className="flex items-start gap-2"
+                                    >
+                                      <span className="text-[9px] text-zinc-600 font-mono shrink-0">
+                                        {(i + 1).toString().padStart(2, '0')}
+                                      </span>
+                                      <span className={`text-[10px] font-mono leading-relaxed ${
+                                        line.includes('✓') || line.includes('✅') 
+                                          ? 'text-green-400' 
+                                          : line.includes('⚠️') || line.includes('⚠')
+                                          ? 'text-amber-400'
+                                          : line.includes('✗') || line.includes('❌')
+                                          ? 'text-red-400'
+                                          : 'text-zinc-400'
+                                      }`}>
+                                        {line}
+                                      </span>
+                                    </motion.div>
+                                  ))}
+                                  {/* Cursor at end when streaming */}
+                                  {bm.isStreaming && !bm.isComplete && (
+                                    <motion.div
+                                      initial={{ opacity: 0 }}
+                                      animate={{ opacity: 1 }}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <span className="text-[9px] text-zinc-600 font-mono shrink-0">
+                                        {(bm.thinkingLines.length + 1).toString().padStart(2, '0')}
+                                      </span>
+                                      <span className="windsurf-cursor animate-windsurf-cursor" />
+                                    </motion.div>
+                                  )}
+                                </div>
                               </div>
                             </motion.div>
                           )}
 
-                          {/* Streaming reply */}
+                          {/* Windsurf-style Streaming Reply - Word by word */}
                           {(bm.replyVisible || bm.isStreaming) && (
-                            <div className="flex gap-2 items-start">
-                              <div className="w-6 h-6 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center shrink-0 mt-0.5">
-                                <div className="w-3 h-3 bg-indigo-500 rounded-full" />
+                            <motion.div
+                              initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
+                              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                              transition={{ duration: 0.4, ease: 'easeOut' }}
+                              className="flex gap-3 items-start"
+                            >
+                              {/* Avatar */}
+                              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shrink-0 mt-0.5 shadow-[0_0_12px_rgba(20,136,252,0.3)]">
+                                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
                               </div>
-                              <div className="flex-1">
-                                <p className="text-xs text-zinc-200 leading-relaxed">
-                                  {bm.replyVisible}
-                                  {bm.isStreaming && bm.replyVisible.length < bm.reply.length && (
-                                    <motion.span
-                                      className="inline-block w-0.5 h-3 bg-indigo-400 ml-0.5 align-text-bottom"
-                                      animate={{ opacity: [1, 0] }}
-                                      transition={{ duration: 0.5, repeat: Infinity }}
-                                    />
-                                  )}
-                                </p>
+                              
+                              <div className="flex-1 min-w-0">
+                                {/* Header */}
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <span className="text-[11px] font-semibold text-zinc-300">Huggy AI</span>
+                                  <span className="text-[9px] text-zinc-500">
+                                    {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                                
+                                {/* Content with Windsurf typing */}
+                                <div className="text-xs text-zinc-200 leading-relaxed space-y-2">
+                                  <p className="whitespace-pre-wrap">
+                                    {bm.replyVisible}
+                                    {bm.isStreaming && bm.replyVisible.length < bm.reply.length && (
+                                      <span className="windsurf-cursor animate-windsurf-cursor inline-block ml-0.5" />
+                                    )}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
+                            </motion.div>
                           )}
 
-                          {/* Files appearing one by one */}
+                          {/* Windsurf-style Files Section - Stagger cascade */}
                           {bm.filesVisible > 0 && (
-                            <div className="flex flex-col gap-1 ml-8">
-                              {bm.files.slice(0, bm.filesVisible).map((file, fi) => {
-                                const ext = file.path.split('.').pop() || '';
-                                const iconColor =
-                                  ext === 'tsx' || ext === 'ts' ? 'text-blue-400' :
-                                  ext === 'css' ? 'text-violet-400' :
-                                  ext === 'json' ? 'text-amber-400' : 'text-zinc-400';
-                                const FileIconComp =
-                                  ext === 'tsx' || ext === 'ts' ? FileCode :
-                                  ext === 'css' ? Hash :
-                                  ext === 'json' ? FileJson : FileText;
-                                return (
-                                  <motion.div
-                                    key={fi}
-                                    initial={{ opacity: 0, x: -8 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ duration: 0.25 }}
-                                    className="flex items-center gap-2 px-2.5 py-1.5 bg-zinc-900/50 border border-zinc-800/60 rounded-lg"
-                                  >
-                                    <FileIconComp className={`w-3 h-3 shrink-0 ${iconColor}`} />
-                                    <span className="text-[10px] font-mono text-zinc-400 truncate flex-1">{file.path}</span>
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/10 border border-green-500/20 text-green-400 shrink-0">
-                                      {fi === 0 ? 'new' : '+'}
-                                    </span>
-                                  </motion.div>
-                                );
-                              })}
-                            </div>
+                            <motion.div
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.4 }}
+                              className="ml-10"
+                            >
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Generated files</span>
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                  {bm.filesVisible}
+                                </span>
+                              </div>
+                              
+                              <div className="flex flex-col gap-1.5">
+                                {bm.files.slice(0, bm.filesVisible).map((file, fi) => {
+                                  const ext = file.path.split('.').pop() || '';
+                                  const iconColor =
+                                    ext === 'tsx' || ext === 'ts' ? 'text-blue-400' :
+                                    ext === 'css' || ext === 'scss' ? 'text-violet-400' :
+                                    ext === 'json' ? 'text-amber-400' :
+                                    ext === 'html' ? 'text-orange-400' :
+                                    ext === 'js' ? 'text-yellow-400' :
+                                    'text-zinc-400';
+                                  const bgColor =
+                                    ext === 'tsx' || ext === 'ts' ? 'bg-blue-500/5' :
+                                    ext === 'css' || ext === 'scss' ? 'bg-violet-500/5' :
+                                    ext === 'json' ? 'bg-amber-500/5' :
+                                    'bg-zinc-500/5';
+                                  const FileIconComp =
+                                    ext === 'tsx' || ext === 'ts' ? FileCode :
+                                    ext === 'css' || ext === 'scss' ? Hash :
+                                    ext === 'json' ? FileJson : FileText;
+                                  
+                                  return (
+                                    <motion.div
+                                      key={fi}
+                                      initial={{ opacity: 0, x: -12, filter: 'blur(4px)' }}
+                                      animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+                                      transition={{ 
+                                        delay: fi * 0.08, 
+                                        duration: 0.3,
+                                        ease: 'easeOut'
+                                      }}
+                                      className={`flex items-center gap-2.5 px-3 py-2 ${bgColor} border border-zinc-800/40 rounded-md hover:border-zinc-700/60 transition-colors group`}
+                                    >
+                                      <FileIconComp className={`w-4 h-4 shrink-0 ${iconColor} group-hover:scale-110 transition-transform`} />
+                                      <span className="text-[11px] font-mono text-zinc-300 truncate flex-1">{file.path}</span>
+                                      <motion.span 
+                                        initial={{ opacity: 0, scale: 0 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ delay: fi * 0.08 + 0.15 }}
+                                        className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/10 border border-green-500/20 text-green-400 shrink-0"
+                                      >
+                                        created
+                                      </motion.span>
+                                    </motion.div>
+                                  );
+                                })}
+                              </div>
+                            </motion.div>
                           )}
 
-                          {/* Score badges after complete */}
+                          {/* Windsurf-style Score badges after complete */}
                           {bm.isComplete && !bm.isStreaming && bm.meta && (
                             <motion.div
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              className="flex items-center gap-2 ml-8 flex-wrap"
+                              initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
+                              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                              transition={{ duration: 0.4, delay: 0.2 }}
+                              className="ml-10"
                             >
-                              {bm.meta.securityScore !== undefined && (
-                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400">
-                                  🛡 Security {bm.meta.securityScore}/100
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Build metrics</span>
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+                                  className="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center"
+                                >
+                                  <CheckCircle2 className="w-3 h-3 text-green-400" />
+                                </motion.div>
+                              </div>
+                              
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {bm.meta.securityScore !== undefined && (
+                                  <motion.span 
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ delay: 0.3 }}
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#1a1a1a] border border-[#2a2a2a] hover:border-red-500/30 transition-colors"
+                                  >
+                                    <Shield className="w-3 h-3 text-red-400" />
+                                    <span className="text-[10px] text-zinc-300 font-medium">Security</span>
+                                    <span className="text-[10px] text-red-400 font-bold">{bm.meta.securityScore}%</span>
+                                  </motion.span>
+                                )}
+                                {bm.meta.qaScore !== undefined && (
+                                  <motion.span 
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ delay: 0.35 }}
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#1a1a1a] border border-[#2a2a2a] hover:border-green-500/30 transition-colors"
+                                  >
+                                    <CheckCircle2 className="w-3 h-3 text-green-400" />
+                                    <span className="text-[10px] text-zinc-300 font-medium">QA</span>
+                                    <span className="text-[10px] text-green-400 font-bold">{bm.meta.qaScore}%</span>
+                                  </motion.span>
+                                )}
+                                {bm.meta.complexity && (
+                                  <motion.span 
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ delay: 0.4 }}
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#1a1a1a] border border-[#2a2a2a] hover:border-blue-500/30 transition-colors"
+                                  >
+                                    <Zap className="w-3 h-3 text-blue-400" />
+                                    <span className="text-[10px] text-zinc-300 font-medium">Complexity</span>
+                                    <span className="text-[10px] text-blue-400 font-bold">{bm.meta.complexity}</span>
+                                  </motion.span>
+                                )}
+                                <span className="text-[9px] text-zinc-600 ml-auto">
+                                  {new Date(bm.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
-                              )}
-                              {bm.meta.qaScore !== undefined && (
-                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20 text-green-400">
-                                  ✓ QA {bm.meta.qaScore}/100
-                                </span>
-                              )}
-                              {bm.meta.complexity && (
-                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400">
-                                  {bm.meta.complexity}
-                                </span>
-                              )}
-                              <span className="text-[9px] text-zinc-600 ml-auto">
-                                {new Date(bm.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
+                              </div>
                             </motion.div>
                           )}
 
