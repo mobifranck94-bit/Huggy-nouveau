@@ -51,17 +51,24 @@ const app = express();
 app.set('trust proxy', 1);
 
 // ─── Security Middleware ────────────────────────────────────────────────────
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://*.supabase.co"],
+// Skip Helmet entirely for the preview iframe route: the iframe is sandboxed
+// on the client side and must load scripts/styles from esm.sh & cdn.tailwindcss.com.
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/preview/')) return next();
+  return helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "https://*.supabase.co", "https://esm.sh"],
+        frameSrc: ["'self'"],
+        fontSrc: ["'self'", "data:", "https:"],
+      },
     },
-  },
-}));
+  })(req, res, next);
+});
 
 app.use(cors({ 
   origin: process.env.APP_URL || true,
@@ -288,6 +295,9 @@ app.get('/api/preview/:id', (req, res) => {
   const entry = previewStore.get(req.params.id);
   if (!entry) return res.status(404).send('Preview expired or not found');
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  // Explicitly remove any inherited CSP so the preview iframe can load esm.sh/cdn.tailwindcss.com
+  res.removeHeader('Content-Security-Policy');
+  res.removeHeader('X-Frame-Options');
   res.send(entry.html);
 });
 
