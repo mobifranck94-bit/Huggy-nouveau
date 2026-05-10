@@ -666,15 +666,19 @@ export default function App() {
             {/* Logo Icon */}
             <div className="flex items-center cursor-pointer h-14 px-1" onClick={() => navigate('/')}>
                <img 
-                 src="/assets/huggy-logo-text.png" 
-                 className="h-8 md:h-10 w-auto object-contain" 
-                 alt="Huggy Logo" 
+                 src={`/assets/huggy-logo-text.png?v=${Date.now()}`}
+                 className="h-9 md:h-11 w-auto object-contain max-w-[160px]"
+                 alt="Huggy Logo"
+                 loading="eager"
                  onError={(e) => {
                    e.currentTarget.style.display = 'none';
-                   const span = document.createElement('span');
-                   span.className = 'font-display font-black text-huggy-dark text-lg tracking-tighter ml-2';
-                   span.innerText = 'HUGGY';
-                   e.currentTarget.parentElement?.appendChild(span);
+                   const existing = e.currentTarget.parentElement?.querySelector('.huggy-fallback');
+                   if (!existing) {
+                     const span = document.createElement('span');
+                     span.className = 'huggy-fallback font-black text-blue-500 text-xl tracking-tighter';
+                     span.innerText = 'huggy';
+                     e.currentTarget.parentElement?.appendChild(span);
+                   }
                  }}
                />
             </div>
