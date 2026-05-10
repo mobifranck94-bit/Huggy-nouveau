@@ -53,7 +53,8 @@ import {
   Sun,
   Moon,
   Wand2,
-  Edit3
+  Edit3,
+  Paperclip
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Editor from '@monaco-editor/react';
@@ -140,6 +141,8 @@ export default function App() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<'desktop' | 'mobile' | 'tablet'>('desktop');
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachedFiles, setAttachedFiles] = useState<{ name: string; content: string }[]>([]);
   
   const [appMode, setAppMode] = useState<'build' | 'plan'>('build');
   const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-6');
@@ -1461,9 +1464,50 @@ export default function App() {
                   className={`w-full bg-transparent border-none text-sm font-medium resize-none focus:outline-none placeholder:text-zinc-400 mb-2 max-h-[160px] scrollbar-hide overflow-y-auto ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`}
                 />
                 
+                {/* Attached files preview */}
+                {attachedFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {attachedFiles.map((f, i) => (
+                      <div key={i} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-medium border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-300' : 'bg-zinc-100 border-zinc-200 text-zinc-600'}`}>
+                        <Paperclip className="w-3 h-3" />
+                        <span className="max-w-[120px] truncate">{f.name}</span>
+                        <button onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))} className="text-zinc-500 hover:text-red-400 ml-0.5">×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between mt-auto">
                   <div className="flex items-center gap-2">
-                    <button className={`p-2 rounded-full border transition-colors text-zinc-500 ${theme === 'dark' ? 'hover:bg-zinc-800 border-zinc-800/80' : 'hover:bg-zinc-100 border-zinc-200'}`}>
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,.txt,.md,.json,.csv,.tsx,.ts,.js,.jsx,.css,.html"
+                      multiple
+                      className="hidden"
+                      onChange={async (e) => {
+                        const files = Array.from(e.target.files || []);
+                        const results: { name: string; content: string }[] = [];
+                        for (const file of files) {
+                          if (file.type.startsWith('image/')) {
+                            results.push({ name: file.name, content: `[Image: ${file.name}]` });
+                          } else {
+                            const text = await file.text();
+                            results.push({ name: file.name, content: text.slice(0, 2000) });
+                          }
+                        }
+                        setAttachedFiles(prev => [...prev, ...results]);
+                        const extra = results.map(r => `\n\n---\n**${r.name}**:\n${r.content}`).join('');
+                        setChatInput(prev => prev + extra);
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`p-2 rounded-full border transition-colors text-zinc-500 ${theme === 'dark' ? 'hover:bg-zinc-800 border-zinc-800/80' : 'hover:bg-zinc-100 border-zinc-200'}`}
+                      title="Attach file"
+                    >
                       <Plus className="w-4 h-4" />
                     </button>
                     <button 
