@@ -264,8 +264,14 @@ export default function App() {
   const [messages, setMessages] = useState<ChatEntry[]>(() => {
     try {
       const saved = localStorage.getItem('huggy_messages_v2');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((m: any) => m && m.id && m.type);
+    } catch {
+      localStorage.removeItem('huggy_messages_v2');
+      return [];
+    }
   });
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -425,18 +431,6 @@ export default function App() {
   // ─── Streaming Build Pipeline ───────────────────────────────────────────────
   const startBuild = async () => {
     if (!chatInput.trim() || isBuilding) return;
-
-    if (profile && profile.credits <= 0) {
-      const errId = `err-${Date.now()}`;
-      setMessages(prev => [...prev, {
-        id: errId, type: 'build', timestamp: Date.now(), userPrompt: chatInput,
-        agents: [], thinkingLines: ['⚠️ Crédits insuffisants. Upgrade ton plan pour continuer.'],
-        reply: '⚠️ Crédits insuffisants. Upgrade ton plan pour continuer.',
-        replyVisible: '⚠️ Crédits insuffisants. Upgrade ton plan pour continuer.',
-        files: [], filesVisible: 0, isComplete: true, isStreaming: false,
-      }]);
-      return;
-    }
 
     const prompt = chatInput;
     const buildId = `build-${Date.now()}`;

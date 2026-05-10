@@ -112,9 +112,12 @@ app.post('/api/build', buildLimiter, async (req, res) => {
     return res.status(400).json({ error: 'Prompt is required' });
   }
 
-  const MOCK_MODE = !process.env.ANTHROPIC_API_KEY;
+  const MOCK_MODE = !process.env.ANTHROPIC_API_KEY && !process.env.OPENROUTER_API_KEY;
   if (MOCK_MODE) {
-    console.log('⚠️  ANTHROPIC_API_KEY missing. Entering MOCK MODE for testing.');
+    console.log('⚠️  No AI key found (OPENROUTER_API_KEY or ANTHROPIC_API_KEY). Entering MOCK MODE.');
+  } else {
+    const provider = process.env.OPENROUTER_API_KEY ? 'OpenRouter' : 'Anthropic';
+    console.log(`✅ Using ${provider} as LLM provider.`);
   }
 
   // Set SSE headers
@@ -432,7 +435,9 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`\n🤖 Huggy Pipeline Server`);
   console.log(`   → http://localhost:${PORT}`);
-  console.log(`   → API Key: ${process.env.ANTHROPIC_API_KEY ? '✅ configured' : '❌ MISSING'}`);
+  console.log(`   → OpenRouter: ${process.env.OPENROUTER_API_KEY ? '✅ configured' : '—'}`);
+  console.log(`   → Anthropic:  ${process.env.ANTHROPIC_API_KEY ? '✅ configured' : '—'}`);
+  console.log(`   → Provider:   ${process.env.OPENROUTER_API_KEY ? 'OpenRouter' : process.env.ANTHROPIC_API_KEY ? 'Anthropic' : '❌ NONE - MOCK MODE'}`);
   console.log(`   → Endpoints:`);
   console.log(`      GET  /api/health`);
   console.log(`      POST /api/build  { prompt: "..." }\n`);
