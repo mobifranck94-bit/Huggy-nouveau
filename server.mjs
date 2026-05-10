@@ -10,6 +10,10 @@ import { windsurfOrchestrator } from './lib/orchestrator/windsurfOrchestrator.mj
 
 // Helper function to transform orchestrator events to legacy format
 function transformToLegacyEvent(event) {
+  if (!event?.data) {
+    return event;
+  }
+
   const typeMap = {
     'agent.start': 'agent',
     'agent.complete': 'agent',
@@ -214,6 +218,17 @@ app.post('/api/build', buildLimiter, async (req, res) => {
       }
     }
 
+    if (!result?.success) {
+      const message = result?.error || result?.reply || 'Pipeline failed without details';
+      sendEvent({ type: 'error', message });
+      return;
+    }
+
+    if (!Array.isArray(result.files) || result.files.length === 0) {
+      sendEvent({ type: 'error', message: 'Pipeline completed but no files were generated.' });
+      return;
+    }
+
     // Send the final result
     sendEvent({
       type: 'complete',
@@ -252,7 +267,10 @@ app.post('/api/preview', async (req, res) => {
     previewStore.set(id, { html, expires: Date.now() + 30 * 60 * 1000 });
     res.json({ id });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: err.message,
+      details: 'Preview compilation failed. Check generated files or regenerate the app.',
+    });
   }
 });
 

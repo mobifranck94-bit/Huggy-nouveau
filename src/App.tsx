@@ -280,32 +280,42 @@ export default function App() {
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewBuilding, setIsPreviewBuilding] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   // Build preview server-side (esbuild) whenever generated files change
   useEffect(() => {
-    if (generatedFiles.length === 0) { setPreviewUrl(null); return; }
+    if (generatedFiles.length === 0) { setPreviewUrl(null); setPreviewError(null); return; }
 
     let cancelled = false;
     setIsPreviewBuilding(true);
+    setPreviewError(null);
 
     fetch('/api/preview', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ files: generatedFiles, isEditMode }),
     })
-      .then(r => r.json())
+      .then(async r => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || `Preview failed (${r.status})`);
+        return data;
+      })
       .then(({ id, error }) => {
         if (cancelled) return;
         if (error) throw new Error(error);
         setPreviewUrl(`/api/preview/${id}`);
       })
       .catch(err => {
-        if (!cancelled) console.warn('[Preview] build failed:', err.message);
+        if (!cancelled) {
+          setPreviewUrl(null);
+          setPreviewError(err.message || 'Preview build failed');
+          console.warn('[Preview] build failed:', err.message);
+        }
       })
       .finally(() => { if (!cancelled) setIsPreviewBuilding(false); });
 
     return () => { cancelled = true; };
-  }, [generatedFiles]);
+  }, [generatedFiles, isEditMode]);
 
   // Auto-save chat input
   useEffect(() => {
@@ -476,16 +486,45 @@ export default function App() {
           setMessages(prev => prev.map(m => {
             if (m.id !== buildId || m.type !== 'build') return m;
             const bm = m as BuildMessage;
-            const updatedAgents = bm.agents.map((a, i) =>
-              i === event.index
+            const currentAgents = Array.isArray(bm.agents) ? bm.agents : initialAgents;
+            const agentIndex = typeof event.index === 'number'
+              ? event.index
+              : currentAgents.findIndex(a => a.name === event.agent);
+            const updatedAgents = currentAgents.map((a, i) =>
+              i === agentIndex
                 ? { ...a, status: event.status as AgentStatus, description: event.description || '' }
                 : a
             );
             const newThinking = event.status === 'active' && event.description
-              ? [...bm.thinkingLines, `[${event.agent}] ${event.description}`]
-              : bm.thinkingLines;
+              ? [...(Array.isArray(bm.thinkingLines) ? bm.thinkingLines : []), `[${event.agent}] ${event.description}`]
+              : (Array.isArray(bm.thinkingLines) ? bm.thinkingLines : []);
             return { ...bm, agents: updatedAgents, thinkingLines: newThinking };
           }));
+        }
+
+        if (event.type === 'thinking') {
+          const line = event.thinkingLine || event.description || event.message;
+          if (line) {
+            setMessages(prev => prev.map(m => {
+              if (m.id !== buildId || m.type !== 'build') return m;
+              const bm = m as BuildMessage;
+              const thinkingLines = Array.isArray(bm.thinkingLines) ? bm.thinkingLines : [];
+              return { ...bm, thinkingLines: [...thinkingLines, `[${event.agent || 'AI'}] ${line}`] };
+            }));
+          }
+        }
+
+        if (event.type === 'reply') {
+          const chunk = event.replyChunk || event.reply || '';
+          if (chunk) {
+            setMessages(prev => prev.map(m => {
+              if (m.id !== buildId || m.type !== 'build') return m;
+              const bm = m as BuildMessage;
+              const reply = `${bm.reply || ''}${chunk}`;
+              const replyVisible = `${bm.replyVisible || ''}${chunk}`;
+              return { ...bm, reply, replyVisible };
+            }));
+          }
         }
 
         // ── Pipeline complete ───────────────────────────────────────────────
@@ -1724,6 +1763,30 @@ export default function App() {
                 <div className="flex flex-col items-center gap-3">
                   <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
                   <span className="text-xs text-zinc-500">Compilation en cours…</span>
+                </div>
+              </div>
+            )}
+
+            {previewError && !isBuilding && !isPreviewBuilding && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0a0a0b] p-6">
+                <div className="max-w-lg w-full rounded-2xl border border-red-500/30 bg-zinc-950 p-6 shadow-2xl">
+                  <div className="flex items-center gap-3 mb-4">
+                    <AlertCircle className="w-5 h-5 text-red-400" />
+                    <div>
+                      <h3 className="text-sm font-bold text-zinc-100">Preview compilation failed</h3>
+                      <p className="text-xs text-zinc-500">The generated code needs a correction or regeneration.</p>
+                    </div>
+                  </div>
+                  <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-xl bg-black/50 p-3 text-[11px] text-red-200 font-mono">{previewError}</pre>
+                  <button
+                    onClick={() => {
+                      setPreviewError(null);
+                      setGeneratedFiles(prev => [...prev]);
+                    }}
+                    className="mt-4 w-full rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-500 transition"
+                  >
+                    Retry preview build
+                  </button>
                 </div>
               </div>
             )}

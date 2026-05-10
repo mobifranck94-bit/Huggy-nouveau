@@ -2,12 +2,14 @@
 // Connects to the Express backend and streams real-time agent progress events.
 
 export interface PipelineEvent {
-  type?: 'connected' | 'agent' | 'complete' | 'error';
+  type?: 'connected' | 'agent' | 'thinking' | 'reply' | 'complete' | 'error';
   agent?: string;
   status?: 'active' | 'completed';
   index?: number;
   total?: number;
   description?: string;
+  thinkingLine?: string;
+  replyChunk?: string;
   message?: string;
   files?: Array<{ path: string; content: string }>;
   reply?: string;
