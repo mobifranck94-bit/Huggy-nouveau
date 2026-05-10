@@ -6,6 +6,34 @@ import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { runFullPipeline } from './lib/pipeline.mjs';
+import { windsurfOrchestrator } from './lib/orchestrator/windsurfOrchestrator.js';
+
+// Helper function to transform orchestrator events to legacy format
+function transformToLegacyEvent(event) {
+  const typeMap = {
+    'agent.start': 'agent',
+    'agent.complete': 'agent',
+    'agent.error': 'error',
+    'thinking': 'thinking',
+    'reply.chunk': 'reply',
+    'files.ready': 'complete',
+    'pipeline.complete': 'complete',
+  };
+  
+  return {
+    type: typeMap[event.type] || event.type,
+    agent: event.agent,
+    status: event.data?.agentStatus,
+    index: event.data?.agentIndex,
+    total: event.data?.totalAgents,
+    description: event.data?.description,
+    thinkingLine: event.data?.thinkingLine,
+    replyChunk: event.data?.replyChunk,
+    message: event.data?.error,
+    files: event.data?.files,
+    meta: event.data?.meta,
+  };
+}
 import { buildPreviewHTML } from './lib/buildPreview.mjs';
 import { validateFiles } from './lib/security.mjs';
 import { sendEmail } from './lib/email.mjs';
@@ -110,29 +138,77 @@ app.post('/api/build', buildLimiter, async (req, res) => {
 
     let result;
     if (MOCK_MODE) {
-      // Simulate pipeline progress
-      const agents = ['Web Research', 'Product Manager', 'DBA Architect', 'UX Designer', 'Coder Agent', 'Security Auditor', 'QA Reviewer', 'i18n Agent'];
+      // Simulate pipeline progress with new orchestrator-style events
+      const agents = [
+        { name: 'Web Research', desc: 'Analyzing context...' },
+        { name: 'Product Manager', desc: 'Creating project plan...' },
+        { name: 'DBA Architect', desc: 'Designing database...' },
+        { name: 'UX Designer', desc: 'Building design system...' },
+        { name: 'Coder Agent', desc: 'Writing React code...' },
+        { name: 'Security Auditor', desc: 'Auditing vulnerabilities...' },
+        { name: 'QA Reviewer', desc: 'Reviewing code quality...' },
+        { name: 'i18n Agent', desc: 'Adding i18n support...' },
+      ];
+      
       for (let i = 0; i < agents.length; i++) {
-        sendEvent({ type: 'agent', index: i, agent: agents[i], status: 'active', description: `Simulation: ${agents[i]} working...` });
-        await new Promise(r => setTimeout(r, 800));
-        sendEvent({ type: 'agent', index: i, agent: agents[i], status: 'completed', description: `Simulation: ${agents[i]} done` });
+        // Emit start
+        sendEvent({ 
+          type: 'agent', 
+          index: i, 
+          agent: agents[i].name, 
+          status: 'active', 
+          total: agents.length,
+          description: agents[i].desc 
+        });
+        
+        // Simulate thinking/progress
+        sendEvent({
+          type: 'thinking',
+          agent: agents[i].name,
+          thinkingLine: `🤖 ${agents[i].name} starting...`,
+        });
+        
+        await new Promise(r => setTimeout(r, 600));
+        
+        // Emit complete
+        sendEvent({ 
+          type: 'agent', 
+          index: i, 
+          agent: agents[i].name, 
+          status: 'completed', 
+          total: agents.length,
+          description: `${agents[i].name} completed` 
+        });
       }
+      
       result = {
         files: [
-          { path: 'src/App.tsx', content: 'export default function App() { return <div className="p-8"><h1>Mock Mode Active</h1><p>Set ANTHROPIC_API_KEY to use real AI.</p></div>; }' },
-          { path: 'src/index.css', content: 'body { background: #000; color: #fff; }' }
+          { path: 'src/App.tsx', content: 'export default function App() { return <div className="p-8"><h1>Mock Mode Active</h1><p>Set ANTHROPIC_API_KEY to use real AI.</p><p>New architecture: Event-driven orchestration with retry logic and parallelization.</p></div>; }' },
+          { path: 'src/index.css', content: 'body { background: #000; color: #fff; font-family: system-ui; }' }
         ],
-        reply: 'Ceci est une réponse simulée car la clé API Claude est absente. Configurez votre ANTHROPIC_API_KEY pour activer l\'intelligence réelle.',
-        meta: { secReport: { score: 100, approved: true }, review: { score: 95, approved: true }, pmPlan: { complexity: 'simple', projectName: 'Mock Project' } }
+        reply: '🎉 **New Windsurf Architecture Active!**\n\nThis is a simulated response because ANTHROPIC_API_KEY is not configured.\n\n**New Features:**\n- ✅ Event-driven agent orchestration\n- ✅ Parallel execution (Design + DBA)\n- ✅ Retry logic with circuit breaker\n- ✅ LLM Gateway with streaming\n- ✅ State machine for robustness\n\nConfigure your API key to enable real AI generation.',
+        meta: { 
+          secReport: { score: 100, approved: true }, 
+          review: { score: 95, approved: true }, 
+          pmPlan: { complexity: 'simple', projectName: 'Mock Project' } 
+        }
       };
     } else {
-      result = await runFullPipeline(prompt, {
-        existingFiles: files,
-        mode,
-        model,
-        projectId,
-        onProgress: sendEvent,
-      });
+      // Use new Windsurf Orchestrator
+      try {
+        result = await windsurfOrchestrator.runPipeline(prompt, {
+          mode,
+          projectId,
+          onEvent: (event) => {
+            // Transform orchestrator events to legacy format for compatibility
+            const legacyEvent = transformToLegacyEvent(event);
+            sendEvent(legacyEvent);
+          },
+        });
+      } catch (error) {
+        console.error('[WindsurfOrchestrator] Error:', error.message);
+        throw error;
+      }
     }
 
     // Send the final result
