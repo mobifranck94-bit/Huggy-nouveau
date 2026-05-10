@@ -6,7 +6,7 @@ import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { runFullPipeline } from './lib/pipeline.mjs';
-import { windsurfOrchestrator } from './lib/orchestrator/windsurfOrchestrator.js';
+import { windsurfOrchestrator } from './lib/orchestrator/windsurfOrchestrator.mjs';
 
 // Helper function to transform orchestrator events to legacy format
 function transformToLegacyEvent(event) {

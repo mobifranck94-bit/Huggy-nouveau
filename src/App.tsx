@@ -51,12 +51,14 @@ import {
   ArrowRight,
   History,
   Sun,
-  Moon
+  Moon,
+  Wand2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Editor from '@monaco-editor/react';
 import axios from 'axios';
 import { startBuildPipeline, checkServerHealth } from './lib/api';
+import { VisualBuilder } from './components/visual';
 import { useAuth } from './lib/useAuth';
 import { useProjects } from './lib/useProjects';
 import { supabase, type Build } from './lib/supabase';
@@ -140,7 +142,7 @@ export default function App() {
   const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-6');
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'preview' | 'code' | 'analytics'>('preview');
+  const [viewMode, setViewMode] = useState<'preview' | 'code' | 'visual' | 'analytics'>('preview');
   const [isCustomDomainModalOpen, setIsCustomDomainModalOpen] = useState(false);
   const [customDomain, setCustomDomain] = useState('');
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
@@ -810,6 +812,13 @@ export default function App() {
           >
             <Code2 className="w-3.5 h-3.5" />
             Code
+          </button>
+          <button 
+            onClick={() => setViewMode('visual')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'visual' ? 'bg-zinc-800/80 text-purple-400 shadow-sm border border-zinc-700/30' : 'text-zinc-400 hover:bg-zinc-800/80'}`}
+          >
+            <Wand2 className="w-3.5 h-3.5" />
+            Visual
           </button>
           <button 
             onClick={() => setViewMode('analytics')}
@@ -1593,6 +1602,36 @@ export default function App() {
                     className="w-full h-full border-0"
                     sandbox="allow-scripts allow-same-origin allow-forms"
                   />
+                ) : viewMode === 'visual' ? (
+                  (() => {
+                    const targetFile = generatedFiles.find(f => 
+                      f.path.endsWith('App.tsx') || f.path.endsWith('App.jsx')
+                    ) || generatedFiles.find(f => 
+                      f.path.endsWith('.tsx') || f.path.endsWith('.jsx')
+                    );
+                    if (!targetFile) {
+                      return (
+                        <div className="w-full h-full flex items-center justify-center text-zinc-400">
+                          <div className="text-center">
+                            <Wand2 className="w-12 h-12 mx-auto mb-3 text-purple-400" />
+                            <p>No JSX file to edit visually</p>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <VisualBuilder
+                        initialCode={targetFile.content}
+                        fileName={targetFile.path}
+                        onCodeChange={(newCode) => {
+                          setGeneratedFiles(prev => prev.map(f => 
+                            f.path === targetFile.path ? { ...f, content: newCode } : f
+                          ));
+                        }}
+                        onClose={() => setViewMode('code')}
+                      />
+                    );
+                  })()
                 ) : viewMode === 'analytics' ? (
                   <div className="w-full h-full p-8 overflow-y-auto bg-[#0a0a0b] text-zinc-400">
                     <div className="max-w-5xl mx-auto">
