@@ -1057,6 +1057,8 @@ export default function App() {
                       const bm = entry as BuildMessage;
                       const safeAgents = Array.isArray(bm.agents) ? bm.agents : [];
                       const safeThinkingLines = Array.isArray(bm.thinkingLines) ? bm.thinkingLines : [];
+                      const safeFiles = Array.isArray(bm.files) ? bm.files : [];
+                      const safeFilesVisible = typeof bm.filesVisible === 'number' ? bm.filesVisible : 0;
                       return (
                         <div key={bm.id} className="flex flex-col gap-2.5">
 
@@ -1293,8 +1295,8 @@ export default function App() {
                                 {/* Content with Windsurf typing */}
                                 <div className="text-xs text-zinc-200 leading-relaxed space-y-2">
                                   <p className="whitespace-pre-wrap">
-                                    {bm.replyVisible}
-                                    {bm.isStreaming && bm.replyVisible.length < bm.reply.length && (
+                                    {bm.replyVisible || ''}
+                                    {bm.isStreaming && (bm.replyVisible || '').length < (bm.reply || '').length && (
                                       <span className="windsurf-cursor animate-windsurf-cursor inline-block ml-0.5" />
                                     )}
                                   </p>
@@ -1304,7 +1306,7 @@ export default function App() {
                           )}
 
                           {/* Windsurf-style Files Section - Stagger cascade */}
-                          {bm.filesVisible > 0 && (
+                          {safeFilesVisible > 0 && (
                             <motion.div
                               initial={{ opacity: 0, y: 8 }}
                               animate={{ opacity: 1, y: 0 }}
@@ -1314,12 +1316,12 @@ export default function App() {
                               <div className="flex items-center gap-2 mb-2">
                                 <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Generated files</span>
                                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                  {bm.filesVisible}
+                                  {safeFilesVisible}
                                 </span>
                               </div>
                               
                               <div className="flex flex-col gap-1.5">
-                                {bm.files.slice(0, bm.filesVisible).map((file, fi) => {
+                                {safeFiles.slice(0, safeFilesVisible).map((file, fi) => {
                                   const ext = file.path.split('.').pop() || '';
                                   const iconColor =
                                     ext === 'tsx' || ext === 'ts' ? 'text-blue-400' :

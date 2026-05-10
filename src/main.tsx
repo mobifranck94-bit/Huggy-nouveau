@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Auth from './pages/Auth';
 import Help from './pages/Help';
 import App from './App';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 
 // ── Auth integration ─────────────────────────────────────────────────────────
@@ -17,7 +18,7 @@ function Root() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/builder" element={<App />} />
+        <Route path="/builder" element={<ErrorBoundary><App /></ErrorBoundary>} />
         <Route path="/help" element={<Help />} />
         {/* Catch all route */}
         <Route path="*" element={<Navigate to="/" replace />} />
