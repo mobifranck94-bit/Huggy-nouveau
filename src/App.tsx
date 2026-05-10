@@ -775,7 +775,7 @@ export default function App() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1 ml-auto">
+          <div className="flex items-center gap-1 ml-6">
             <button 
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               className={`p-1.5 rounded-md transition-colors ${isSidebarCollapsed ? 'bg-blue-600/20 text-blue-400' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-400')}`}
