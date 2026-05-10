@@ -2,7 +2,7 @@
 // Connects to the Express backend and streams real-time agent progress events.
 
 export interface PipelineEvent {
-  type?: 'connected' | 'agent' | 'thinking' | 'reply' | 'complete' | 'error';
+  type?: 'connected' | 'agent' | 'thinking' | 'reply' | 'complete' | 'error' | 'files_partial';
   agent?: string;
   status?: 'active' | 'completed';
   index?: number;
@@ -29,6 +29,11 @@ export interface PipelineEvent {
  * Calls `onEvent` for each server-sent event (agent progress, completion, error).
  * Returns a Promise that resolves when the stream ends.
  */
+export interface ChatHistoryEntry {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export async function startBuildPipeline(
   prompt: string,
   onEvent: (event: PipelineEvent) => void,
@@ -36,11 +41,12 @@ export async function startBuildPipeline(
   mode: 'build' | 'plan' = 'build',
   model: string = 'claude-sonnet-4-6',
   projectId?: string | null,
+  history?: ChatHistoryEntry[],
 ): Promise<void> {
   const response = await fetch('/api/build', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, files: existingFiles, mode, model, projectId }),
+    body: JSON.stringify({ prompt, files: existingFiles, mode, model, projectId, history: history || [] }),
   });
 
   let errorData;

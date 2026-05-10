@@ -109,7 +109,7 @@ app.get('/api/health', (_req, res) => {
 
 // ─── Build Pipeline (SSE Stream) ─────────────────────────────────────────────
 app.post('/api/build', buildLimiter, async (req, res) => {
-  const { prompt, files, mode = 'build', model = 'claude-sonnet-4-6', projectId } = req.body;
+  const { prompt, files, mode = 'build', model = 'claude-sonnet-4-6', projectId, history = [] } = req.body;
 
   if (!prompt?.trim()) {
     return res.status(400).json({ error: 'Prompt is required' });
@@ -202,7 +202,13 @@ app.post('/api/build', buildLimiter, async (req, res) => {
           mode,
           projectId,
           files,
+          history,
           onEvent: (event) => {
+            // Forward files_partial immediately for progressive display
+            if (event.type === 'files_partial') {
+              sendEvent({ type: 'files_partial', files: event.files });
+              return;
+            }
             const legacyEvent = transformToLegacyEvent(event);
             sendEvent(legacyEvent);
           },

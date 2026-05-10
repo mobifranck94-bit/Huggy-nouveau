@@ -62,7 +62,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import Editor from '@monaco-editor/react';
 import axios from 'axios';
-import { startBuildPipeline, checkServerHealth } from './lib/api';
+import { startBuildPipeline, checkServerHealth, type ChatHistoryEntry } from './lib/api';
 import { VisualBuilder } from './components/visual';
 import { HuggyLogo } from './components/HuggyLogo';
 import { VibeCodingOverlay } from './components/VibeCodingOverlay';
@@ -597,6 +597,12 @@ export default function App() {
           }
         }
 
+        // ── Partial files (progressive display) ────────────────────────────
+        if (event.type === 'files_partial' && Array.isArray(event.files) && event.files.length > 0) {
+          setGeneratedFiles(event.files as FileEntry[]);
+          if (!activeFilePath) setActiveFilePath(event.files[0].path);
+        }
+
         // ── Error ───────────────────────────────────────────────────────────
         if (event.type === 'error') {
           setIsBuilding(false);
@@ -608,7 +614,18 @@ export default function App() {
           }));
         }
 
-      }, generatedFiles, appMode, selectedModel, projectId);
+      }, generatedFiles, appMode, selectedModel, projectId,
+        // Build chat history from current messages
+        messages
+          .filter(m => m.type === 'user' || (m.type === 'build' && (m as BuildMessage).isComplete))
+          .slice(-8)
+          .map(m => ({
+            role: m.type === 'user' ? 'user' : 'assistant',
+            content: m.type === 'user'
+              ? (m as UserMessage).content
+              : ((m as BuildMessage).reply || '').slice(0, 300),
+          } as ChatHistoryEntry))
+      );
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       const errReply = `❌ Connexion échouée: ${errMsg}`;
