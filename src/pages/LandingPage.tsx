@@ -447,34 +447,79 @@ function CurtainOverlay({ phase, color }: { phase: CurtainPhase; color: string }
 }
 
 // MAIN LANDING PAGE COMPONENT
-// ROTATING TEXT COMPONENT
-function RotatingText({ words, interval = 2000 }: { words: string[]; interval?: number }) {
+// TYPING TEXT COMPONENT - Style rédaction avec curseur
+function TypingText({ words, interval = 3000 }: { words: string[]; interval?: number }) {
   const [index, setIndex] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
+  const [displayText, setDisplayText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showCursor, setShowCursor] = useState(true);
 
+  // Couleurs différentes pour chaque mot
+  const wordColors = [
+    'from-violet-500 to-purple-500',      // SaaS - violet
+    'from-emerald-400 to-teal-500',       // app - vert
+    'from-orange-400 to-amber-500',     // website - orange
+    'from-pink-500 to-rose-500',        // dashboard - rose
+    'from-cyan-400 to-blue-500',        // platform - cyan
+    'from-indigo-400 to-violet-500',    // tool - indigo
+    'from-fuchsia-500 to-pink-500',     // portal - fuchsia
+    'from-lime-400 to-green-500',       // system - lime
+  ];
+
+  // Effet typing style rédaction
   useEffect(() => {
-    const timer = setInterval(() => {
-      setIsAnimating(true);
-      setTimeout(() => {
-        setIndex((prev) => (prev + 1) % words.length);
-        setIsAnimating(false);
-      }, 300);
-    }, interval);
-    return () => clearInterval(timer);
-  }, [words.length, interval]);
+    const currentWord = words[index];
+    const typingSpeed = isDeleting ? 50 : 100; // Plus rapide en suppression
+
+    const timer = setTimeout(() => {
+      if (!isDeleting) {
+        // Phase d'écriture
+        if (displayText.length < currentWord.length) {
+          setDisplayText(currentWord.slice(0, displayText.length + 1));
+        } else {
+          // Mot complet, attendre avant de supprimer
+          setTimeout(() => setIsDeleting(true), 1500);
+        }
+      } else {
+        // Phase de suppression
+        if (displayText.length > 0) {
+          setDisplayText(displayText.slice(0, -1));
+        } else {
+          // Passer au mot suivant
+          setIsDeleting(false);
+          setIndex((prev) => (prev + 1) % words.length);
+        }
+      }
+    }, typingSpeed);
+
+    return () => clearTimeout(timer);
+  }, [displayText, isDeleting, index, words]);
+
+  // Curseur clignotant
+  useEffect(() => {
+    const cursorTimer = setInterval(() => {
+      setShowCursor((prev) => !prev);
+    }, 530);
+    return () => clearInterval(cursorTimer);
+  }, []);
+
+  const currentColor = wordColors[index % wordColors.length];
 
   return (
-    <span className="inline-block relative overflow-hidden">
+    <span className="inline-flex items-baseline">
       <motion.span
-        key={index}
-        initial={{ y: 40, opacity: 0, rotateX: -90 }}
-        animate={isAnimating ? { y: -40, opacity: 0, rotateX: 90 } : { y: 0, opacity: 1, rotateX: 0 }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="inline-block bg-gradient-to-r from-[#1488fc] to-[#3b82f6] bg-clip-text text-transparent italic"
-        style={{ transformStyle: "preserve-3d" }}
+        className={`bg-gradient-to-r ${currentColor} bg-clip-text text-transparent italic font-semibold`}
+        layout
       >
-        {words[index]}
+        {displayText}
       </motion.span>
+      {/* Curseur style Windsurf block */}
+      <motion.span
+        className={`inline-block w-[3px] h-[0.9em] ml-[2px] bg-gradient-to-b ${currentColor} rounded-sm`}
+        animate={{ opacity: showCursor ? 1 : 0 }}
+        transition={{ duration: 0.1 }}
+        style={{ verticalAlign: 'baseline' }}
+      />
     </span>
   );
 }
@@ -570,7 +615,7 @@ export default function LandingPage() {
           {/* Title section */}
           <div className="text-center mb-6">
             <h1 className={`text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-none transition-colors duration-300 ${theme === 'dark' ? 'text-white' : 'text-[#1a1a2e]'}`}>
-              Build any <RotatingText words={['SaaS', 'app', 'website', 'dashboard', 'platform', 'tool', 'portal', 'system']} />
+              Build any <TypingText words={['SaaS', 'app', 'website', 'dashboard', 'platform', 'tool', 'portal', 'system']} />
             </h1>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-none">
               <span className="bg-gradient-to-r from-[#1488fc] to-[#3b82f6] bg-clip-text text-transparent italic">
