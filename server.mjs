@@ -47,6 +47,9 @@ dotenv.config();
 
 const app = express();
 
+// Trust proxy (required when behind Railway/Nginx/Vite proxy for rate-limit)
+app.set('trust proxy', 1);
+
 // ─── Security Middleware ────────────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: {
