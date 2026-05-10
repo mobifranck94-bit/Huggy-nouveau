@@ -432,27 +432,21 @@ export default function App() {
   const startBuild = async () => {
     if (!chatInput.trim() || isBuilding) return;
 
-    const prompt = chatInput;
+    const prompt = chatInput.trim();
     const buildId = `build-${Date.now()}`;
     const userId = `user-${Date.now()}`;
-    
-    // Track build start
-    trackBuild(currentProject?.id || 'unknown', 'started', { 
-      promptLength: prompt.length,
-      model: selectedModel 
-    });
 
     // Initial agents state — all idle
     const initialAgents: AgentInfo[] = AGENTS_DEF.map(a => ({
-      name: a.name, status: 'idle', description: '',
+      name: a.name, status: 'idle' as AgentStatus, description: '',
     }));
 
-    // Push user message + empty build message
+    // Push user message + empty build message AVANT tout appel async
     setMessages(prev => [
       ...prev,
-      { id: userId, type: 'user', content: prompt, timestamp: Date.now() },
+      { id: userId, type: 'user' as const, content: prompt, timestamp: Date.now() },
       {
-        id: buildId, type: 'build', timestamp: Date.now(), userPrompt: prompt,
+        id: buildId, type: 'build' as const, timestamp: Date.now(), userPrompt: prompt,
         agents: initialAgents, thinkingLines: [],
         reply: '', replyVisible: '', files: [], filesVisible: 0,
         isComplete: false, isStreaming: true,
@@ -462,11 +456,14 @@ export default function App() {
     setIsBuilding(true);
     setChatInput('');
 
+    // Track silencieusement (ne bloque pas)
+    try { trackBuild(currentProject?.id || 'unknown', 'started', { promptLength: prompt.length, model: selectedModel }); } catch {}
+
     let projectId = currentProject?.id;
-    if (!projectId) {
+    if (!projectId && user?.id) {
       try {
         const proj = await createProject(prompt.slice(0, 50), prompt);
-        projectId = proj.id;
+        projectId = proj?.id;
       } catch { /* continue without project */ }
     }
 
@@ -574,13 +571,14 @@ export default function App() {
 
       }, generatedFiles, appMode, selectedModel, projectId);
     } catch (error) {
-      setIsBuilding(false);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const errReply = `❌ Connexion échouée: ${errMsg}`;
       setMessages(prev => prev.map(m => {
         if (m.id !== buildId || m.type !== 'build') return m;
-        const bm = m as BuildMessage;
-        const errReply = `❌ Connexion échouée: ${(error as Error).message}. Vérifie que le serveur tourne (npm run dev:server).`;
-        return { ...bm, reply: errReply, replyVisible: errReply, isComplete: true, isStreaming: false };
+        return { ...(m as BuildMessage), reply: errReply, replyVisible: errReply, isComplete: true, isStreaming: false };
       }));
+    } finally {
+      setIsBuilding(false);
     }
   };
 
@@ -1057,13 +1055,15 @@ export default function App() {
 
                       // ── Build message ─────────────────────────────────────
                       const bm = entry as BuildMessage;
+                      const safeAgents = Array.isArray(bm.agents) ? bm.agents : [];
+                      const safeThinkingLines = Array.isArray(bm.thinkingLines) ? bm.thinkingLines : [];
                       return (
                         <div key={bm.id} className="flex flex-col gap-2.5">
 
                           {/* Pipeline progress header — global bar + ETA */}
                           {(() => {
-                            const finished = bm.agents.filter(a => a.status === 'completed' || a.status === 'skipped').length;
-                            const activeIdx = bm.agents.findIndex(a => a.status === 'active');
+                            const finished = safeAgents.filter(a => a.status === 'completed' || a.status === 'skipped').length;
+                            const activeIdx = safeAgents.findIndex(a => a.status === 'active');
                             const activeAgent = activeIdx >= 0 ? AGENTS_DEF[activeIdx] : null;
                             const pct = Math.round((finished / 8) * 100);
                             return (
@@ -1083,7 +1083,7 @@ export default function App() {
                                       {bm.isComplete ? 'Pipeline complete' : (activeAgent ? activeAgent.name : 'Starting...')}
                                     </span>
                                   </div>
-                                  <span className="text-[9px] font-mono text-zinc-500">{finished}/8 · {pct}%</span>
+                                  <span className="text-[9px] font-mono text-zinc-500">{finished}/{safeAgents.length || 8} · {pct}%</span>
                                 </div>
                                 <div className={`h-1 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-200'}`}>
                                   <motion.div
@@ -1112,7 +1112,7 @@ export default function App() {
                             {/* Agent dots */}
                             <div className="flex items-center gap-1.5">
                               {AGENTS_DEF.map((def, idx) => {
-                                const agent = bm.agents[idx];
+                                const agent = safeAgents[idx];
                                 const status = agent?.status || 'idle';
                                 const isActive = status === 'active';
                                 const isDone = status === 'completed';
@@ -1181,7 +1181,7 @@ export default function App() {
                           </div>
 
                           {/* Windsurf-style Thinking Block - Terminal */}
-                          {bm.thinkingLines.length > 0 && (
+                          {safeThinkingLines.length > 0 && (
                             <motion.div
                               initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
                               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -1224,7 +1224,7 @@ export default function App() {
                               {/* Terminal content */}
                               <div className="p-3 windsurf-scrollbar max-h-32 overflow-y-auto">
                                 <div className="space-y-1">
-                                  {bm.thinkingLines.map((line, i) => (
+                                  {safeThinkingLines.map((line, i) => (
                                     <motion.div
                                       key={i}
                                       initial={{ opacity: 0, x: -8 }}
@@ -1256,7 +1256,7 @@ export default function App() {
                                       className="flex items-center gap-2"
                                     >
                                       <span className="text-[9px] text-zinc-600 font-mono shrink-0">
-                                        {(bm.thinkingLines.length + 1).toString().padStart(2, '0')}
+                                        {(safeThinkingLines.length + 1).toString().padStart(2, '0')}
                                       </span>
                                       <span className="windsurf-cursor animate-windsurf-cursor" />
                                     </motion.div>
@@ -1432,7 +1432,7 @@ export default function App() {
                           )}
 
                           {/* Loading pulse when pipeline just started */}
-                          {!bm.isComplete && bm.thinkingLines.length === 0 && (
+                          {!bm.isComplete && safeThinkingLines.length === 0 && (
                             <div className="flex items-center gap-2 ml-2">
                               {[0,1,2].map(i => (
                                 <motion.div
