@@ -212,6 +212,11 @@ app.post('/api/build', buildLimiter, async (req, res) => {
               sendEvent({ type: 'files_partial', files: event.files });
               return;
             }
+            // Forward meta updates (e.g., early chatOnly flag) immediately
+            if (event.type === 'meta') {
+              sendEvent({ type: 'meta', meta: event.meta });
+              return;
+            }
             const legacyEvent = transformToLegacyEvent(event);
             sendEvent(legacyEvent);
           },

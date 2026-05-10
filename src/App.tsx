@@ -78,6 +78,22 @@ import { useNavigate, useLocation } from 'react-router-dom';
 // ─── Streaming Chat Types ─────────────────────────────────────────────────────
 type AgentStatus = 'idle' | 'active' | 'completed' | 'skipped';
 
+// Remove markdown code blocks (```...```) and file:path markers from text shown in chat.
+// Code is rendered separately in the VibeCodingOverlay and the files section.
+function stripCodeBlocks(text: string): string {
+  if (!text) return '';
+  let out = text;
+  // Remove complete fenced code blocks (```lang\n...\n```)
+  out = out.replace(/```[\s\S]*?```/g, '');
+  // Remove any dangling opening fence and content until end (streaming in progress)
+  out = out.replace(/```[\s\S]*$/g, '');
+  // Remove bare file:path lines that sometimes leak
+  out = out.replace(/^\s*file:\S+\s*$/gim, '');
+  // Collapse excessive blank lines
+  out = out.replace(/\n{3,}/g, '\n\n').trim();
+  return out;
+}
+
 interface AgentInfo {
   name: string;
   status: AgentStatus;
@@ -608,6 +624,18 @@ export default function App() {
           }
         }
 
+        // ── Early meta (e.g., chatOnly flag) ──────────────────────────────
+        if (event.type === 'meta' && event.meta) {
+          const isChatOnly = !!event.meta.chatOnly;
+          if (isChatOnly) {
+            setMessages(prev => prev.map(m => {
+              if (m.id !== buildId || m.type !== 'build') return m;
+              const bm = m as BuildMessage;
+              return { ...bm, chatOnly: true, meta: { ...(bm.meta || {}), chatOnly: true } };
+            }));
+          }
+        }
+
         // ── Partial files (progressive display) ────────────────────────────
         if (event.type === 'files_partial' && Array.isArray(event.files) && event.files.length > 0) {
           setGeneratedFiles(event.files as FileEntry[]);
@@ -1124,7 +1152,7 @@ export default function App() {
                       const bm = entry as BuildMessage;
 
                       if (bm.chatOnly || bm.meta?.chatOnly) {
-                        const text = bm.replyVisible || bm.reply || '';
+                        const text = stripCodeBlocks(bm.replyVisible || bm.reply || '');
                         return (
                           <div key={bm.id} className="flex justify-start">
                             <div className={`max-w-[85%] rounded-2xl rounded-tl-sm px-3.5 py-2.5 border ${theme === 'dark' ? 'bg-zinc-900/60 border-zinc-800/60 text-zinc-200' : 'bg-white border-zinc-200 text-zinc-800'}`}>
@@ -1385,7 +1413,7 @@ export default function App() {
                                 {/* Content with Windsurf typing */}
                                 <div className="text-xs text-zinc-200 leading-relaxed space-y-2">
                                   <p className="whitespace-pre-wrap">
-                                    {bm.replyVisible || ''}
+                                    {stripCodeBlocks(bm.replyVisible || '')}
                                     {bm.isStreaming && (bm.replyVisible || '').length < (bm.reply || '').length && (
                                       <span className="windsurf-cursor animate-windsurf-cursor inline-block ml-0.5" />
                                     )}
