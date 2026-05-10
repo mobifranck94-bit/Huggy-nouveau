@@ -6,8 +6,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Globe2, ClipboardList, Database, Eye, Code2,
-  ShieldCheck, CheckCircle2, Globe, Zap
+  ClipboardList, Eye, Code2,
+  ShieldCheck, CheckCircle2, Zap
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -73,14 +73,10 @@ const CODE_LINES = [
 
 // ─── Agent definitions ────────────────────────────────────────────────────────
 const AGENT_DEFS = [
-  { name: 'Web Research',     icon: Globe2,        color: '#22d3ee', label: 'Research'  },
-  { name: 'Product Manager',  icon: ClipboardList, color: '#a78bfa', label: 'Planning'  },
-  { name: 'DBA Architect',    icon: Database,      color: '#fbbf24', label: 'Database'  },
-  { name: 'UX Designer',      icon: Eye,           color: '#f472b6', label: 'Design'    },
-  { name: 'Coder Agent',      icon: Code2,         color: '#60a5fa', label: 'Coding'    },
-  { name: 'Security Auditor', icon: ShieldCheck,   color: '#f87171', label: 'Security'  },
-  { name: 'QA Reviewer',      icon: CheckCircle2,  color: '#4ade80', label: 'QA'        },
-  { name: 'i18n Agent',       icon: Globe,         color: '#fb923c', label: 'i18n'      },
+  { name: 'Intent Parser',    icon: ClipboardList, color: '#a78bfa', label: 'Intent'  },
+  { name: 'Builder Agent',    icon: Code2,         color: '#60a5fa', label: 'Builder' },
+  { name: 'Preview Compiler', icon: Eye,           color: '#22d3ee', label: 'Preview' },
+  { name: 'Repair Agent',     icon: ShieldCheck,   color: '#4ade80', label: 'Repair'  },
 ];
 
 // ─── Syntax Coloring ──────────────────────────────────────────────────────────

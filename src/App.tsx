@@ -120,14 +120,10 @@ type ChatEntry = UserMessage | BuildMessage;
 
 // ─── Agent Definitions ────────────────────────────────────────────────────────
 const AGENTS_DEF = [
-  { name: 'Web Research',      Icon: Globe2,        color: 'text-cyan-400',   bg: 'bg-cyan-500/10',   border: 'border-cyan-500/30'   },
-  { name: 'Product Manager',   Icon: ClipboardList, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/30' },
-  { name: 'DBA Architect',     Icon: Database,      color: 'text-amber-400',  bg: 'bg-amber-500/10',  border: 'border-amber-500/30'  },
-  { name: 'UX Designer',       Icon: Eye,           color: 'text-pink-400',   bg: 'bg-pink-500/10',   border: 'border-pink-500/30'   },
-  { name: 'Coder Agent',       Icon: Code2,         color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/30'   },
-  { name: 'Security Auditor',  Icon: ShieldCheck,   color: 'text-red-400',    bg: 'bg-red-500/10',    border: 'border-red-500/30'    },
-  { name: 'QA Reviewer',       Icon: CheckCircle2,  color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/30'  },
-  { name: 'i18n Agent',        Icon: Globe,         color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/30' },
+  { name: 'Intent Parser',     Icon: ClipboardList, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/30' },
+  { name: 'Builder Agent',     Icon: Code2,         color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/30'   },
+  { name: 'Preview Compiler',  Icon: Eye,           color: 'text-cyan-400',   bg: 'bg-cyan-500/10',   border: 'border-cyan-500/30'   },
+  { name: 'Repair Agent',      Icon: ShieldCheck,   color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/30'  },
 ];
 
 export default function App() {
@@ -1099,7 +1095,8 @@ export default function App() {
                       const safeFiles = Array.isArray(bm.files) ? bm.files : [];
                       const safeFilesVisible = typeof bm.filesVisible === 'number' ? bm.filesVisible : 0;
                       const finishedCount = safeAgents.filter(a => a.status === 'completed' || a.status === 'skipped').length;
-                      const pct = Math.round((finishedCount / 8) * 100);
+                      const totalAgentCount = AGENTS_DEF.length;
+                      const pct = Math.round((finishedCount / totalAgentCount) * 100);
                       return (
                         <div key={bm.id} className="flex flex-col gap-2.5">
 
@@ -1108,7 +1105,7 @@ export default function App() {
                             const finished = safeAgents.filter(a => a.status === 'completed' || a.status === 'skipped').length;
                             const activeIdx = safeAgents.findIndex(a => a.status === 'active');
                             const activeAgent = activeIdx >= 0 ? AGENTS_DEF[activeIdx] : null;
-                            const pct = Math.round((finished / 8) * 100);
+                            const pct = Math.round((finished / totalAgentCount) * 100);
                             return (
                               <div className={`rounded-xl p-2.5 mb-1 border ${theme === 'dark' ? 'bg-zinc-900/40 border-zinc-800/50' : 'bg-zinc-100/80 border-zinc-200'}`}>
                                 <div className="flex items-center justify-between mb-1.5">
@@ -1126,7 +1123,7 @@ export default function App() {
                                       {bm.isComplete ? 'Pipeline complete' : (activeAgent ? activeAgent.name : 'Starting...')}
                                     </span>
                                   </div>
-                                  <span className="text-[9px] font-mono text-zinc-500">{finished}/{safeAgents.length || 8} · {pct}%</span>
+                                  <span className="text-[9px] font-mono text-zinc-500">{finished}/{safeAgents.length || totalAgentCount} · {pct}%</span>
                                 </div>
                                 <div className={`h-1 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-200'}`}>
                                   <motion.div

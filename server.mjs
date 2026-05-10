@@ -5,8 +5,7 @@ import path from 'path';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
-import { runFullPipeline } from './lib/pipeline.mjs';
-import { windsurfOrchestrator } from './lib/orchestrator/windsurfOrchestrator.mjs';
+import { runLovablePipeline } from './lib/lovablePipeline.mjs';
 
 // Helper function to transform orchestrator events to legacy format
 function transformToLegacyEvent(event) {
@@ -147,14 +146,10 @@ app.post('/api/build', buildLimiter, async (req, res) => {
     if (MOCK_MODE) {
       // Simulate pipeline progress with new orchestrator-style events
       const agents = [
-        { name: 'Web Research', desc: 'Analyzing context...' },
-        { name: 'Product Manager', desc: 'Creating project plan...' },
-        { name: 'DBA Architect', desc: 'Designing database...' },
-        { name: 'UX Designer', desc: 'Building design system...' },
-        { name: 'Coder Agent', desc: 'Writing React code...' },
-        { name: 'Security Auditor', desc: 'Auditing vulnerabilities...' },
-        { name: 'QA Reviewer', desc: 'Reviewing code quality...' },
-        { name: 'i18n Agent', desc: 'Adding i18n support...' },
+        { name: 'Intent Parser', desc: 'Understanding product intent...' },
+        { name: 'Builder Agent', desc: 'Generating working React files...' },
+        { name: 'Preview Compiler', desc: 'Compiling live preview...' },
+        { name: 'Repair Agent', desc: 'Repairing compile issues...' },
       ];
       
       for (let i = 0; i < agents.length; i++) {
@@ -190,10 +185,10 @@ app.post('/api/build', buildLimiter, async (req, res) => {
       
       result = {
         files: [
-          { path: 'src/App.tsx', content: 'export default function App() { return <div className="p-8"><h1>Mock Mode Active</h1><p>Set ANTHROPIC_API_KEY to use real AI.</p><p>New architecture: Event-driven orchestration with retry logic and parallelization.</p></div>; }' },
+          { path: 'src/App.tsx', content: 'export default function App() { return <div className="min-h-screen bg-black text-white p-8"><h1 className="text-4xl font-bold">Lovable-like Mock Mode</h1><p className="mt-4 text-zinc-400">Set OPENROUTER_API_KEY to use real AI generation.</p></div>; }' },
           { path: 'src/index.css', content: 'body { background: #000; color: #fff; font-family: system-ui; }' }
         ],
-        reply: '🎉 **New Windsurf Architecture Active!**\n\nThis is a simulated response because ANTHROPIC_API_KEY is not configured.\n\n**New Features:**\n- ✅ Event-driven agent orchestration\n- ✅ Parallel execution (Design + DBA)\n- ✅ Retry logic with circuit breaker\n- ✅ LLM Gateway with streaming\n- ✅ State machine for robustness\n\nConfigure your API key to enable real AI generation.',
+        reply: '🎉 **Lovable-like architecture active!**\n\nThis is a simulated response because no AI key is configured.\n\n**Pipeline:**\n- Intent Parser\n- Builder Agent\n- Preview Compiler\n- Repair Agent\n\nConfigure OPENROUTER_API_KEY to enable real generation.',
         meta: { 
           secReport: { score: 100, approved: true }, 
           review: { score: 95, approved: true }, 
@@ -201,19 +196,19 @@ app.post('/api/build', buildLimiter, async (req, res) => {
         }
       };
     } else {
-      // Use new Windsurf Orchestrator
+      // Use simplified Lovable-like pipeline
       try {
-        result = await windsurfOrchestrator.runPipeline(prompt, {
+        result = await runLovablePipeline(prompt, {
           mode,
           projectId,
+          files,
           onEvent: (event) => {
-            // Transform orchestrator events to legacy format for compatibility
             const legacyEvent = transformToLegacyEvent(event);
             sendEvent(legacyEvent);
           },
         });
       } catch (error) {
-        console.error('[WindsurfOrchestrator] Error:', error.message);
+        console.error('[LovablePipeline] Error:', error.message);
         throw error;
       }
     }
