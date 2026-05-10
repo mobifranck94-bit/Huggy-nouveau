@@ -1505,31 +1505,32 @@ export default function App() {
                     />
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className={`p-2 rounded-full border transition-colors text-zinc-500 ${theme === 'dark' ? 'hover:bg-zinc-800 border-zinc-800/80' : 'hover:bg-zinc-100 border-zinc-200'}`}
+                      className={`p-1.5 rounded-full border transition-colors text-zinc-500 ${theme === 'dark' ? 'hover:bg-zinc-800 border-zinc-800/80' : 'hover:bg-zinc-100 border-zinc-200'}`}
                       title="Attach file"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-3.5 h-3.5" />
                     </button>
                     <button 
                       onClick={() => setIsEditMode(!isEditMode)}
-                      className={`p-2 rounded-full border transition-all duration-200 ${
+                      className={`p-1.5 rounded-full border transition-all duration-200 ${
                         isEditMode 
                           ? 'bg-blue-600/20 border-blue-500/50 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]' 
                           : (theme === 'dark' ? 'hover:bg-zinc-800 border-zinc-800/80 text-zinc-500' : 'hover:bg-zinc-100 border-zinc-200 text-zinc-500')
                       }`}
+                      title="Edit mode"
                     >
-                      <Target className="w-4 h-4" />
+                      <Target className="w-3.5 h-3.5" />
                     </button>
                   </div>
                   <div className="flex items-center gap-2 relative">
                     <div className={`flex items-center rounded-lg overflow-hidden border ${theme === 'dark' ? 'bg-zinc-800/50 border-zinc-700/30' : 'bg-zinc-100 border-zinc-200'}`}>
                       <button 
                         onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
-                        className={`px-3 py-1.5 transition-colors text-[10px] font-bold flex items-center gap-1.5 ${theme === 'dark' ? 'hover:bg-zinc-700/50 text-zinc-400' : 'hover:bg-zinc-200 text-zinc-600'}`}
+                        className={`px-2 py-1 transition-colors text-[9px] font-bold flex items-center gap-1 ${theme === 'dark' ? 'hover:bg-zinc-700/50 text-zinc-400' : 'hover:bg-zinc-200 text-zinc-600'}`}
                       >
-                        <Brain className="w-3 h-3 text-violet-400" />
+                        <Brain className="w-2.5 h-2.5 text-violet-400" />
                         {selectedModel.includes('sonnet') ? 'ELITE' : 'FAST'}
-                        <ChevronDown className={`w-3 h-3 transition-transform ${isModelMenuOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-2.5 h-2.5 transition-transform ${isModelMenuOpen ? 'rotate-180' : ''}`} />
                       </button>
                     </div>
 
@@ -1563,14 +1564,14 @@ export default function App() {
                     </AnimatePresence>
 
                     <div className={`flex items-center rounded-lg overflow-hidden border ${theme === 'dark' ? 'bg-zinc-800/50 border-zinc-700/30' : 'bg-zinc-100 border-zinc-200'}`}>
-                      <button className={`px-3 py-1.5 transition-colors text-xs font-medium capitalize ${theme === 'dark' ? 'hover:bg-zinc-700/50 text-zinc-400' : 'hover:bg-zinc-200 text-zinc-600'}`}>
+                      <button className={`px-2 py-1 transition-colors text-[9px] font-medium capitalize ${theme === 'dark' ? 'hover:bg-zinc-700/50 text-zinc-400' : 'hover:bg-zinc-200 text-zinc-600'}`}>
                         {appMode}
                       </button>
                       <button 
                         onClick={() => setIsModeMenuOpen(!isModeMenuOpen)}
-                        className={`p-1.5 transition-colors border-l ${theme === 'dark' ? 'hover:bg-zinc-700/50 text-zinc-400 border-zinc-700/30' : 'hover:bg-zinc-200 text-zinc-500 border-zinc-300'}`}
+                        className={`p-1 transition-colors border-l ${theme === 'dark' ? 'hover:bg-zinc-700/50 text-zinc-400 border-zinc-700/30' : 'hover:bg-zinc-200 text-zinc-500 border-zinc-300'}`}
                       >
-                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isModeMenuOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-2.5 h-2.5 transition-transform ${isModeMenuOpen ? 'rotate-180' : ''}`} />
                       </button>
                     </div>
 
@@ -1605,9 +1606,9 @@ export default function App() {
 
                     <button 
                       onClick={toggleRecording}
-                      className={`p-2 rounded-full transition-colors ${isRecording ? 'bg-red-500/20 text-red-500 animate-pulse' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500')}`}
+                      className={`p-1.5 rounded-full transition-colors ${isRecording ? 'bg-red-500/20 text-red-500 animate-pulse' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500')}`}
                     >
-                      <Mic className="w-4 h-4" />
+                      <Mic className="w-3.5 h-3.5" />
                     </button>
                     <button 
                       id="send-prompt-btn"
@@ -1619,7 +1620,7 @@ export default function App() {
                           : (theme === 'dark' ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border-zinc-700/50' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed border-zinc-300')
                       }`}
                     >
-                      {isBuilding ? <Loader2 className="w-4 h-4 animate-spin text-blue-400" /> : <ArrowUp className="w-4 h-4" />}
+                      {isBuilding ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" /> : <ArrowUp className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 </div>
