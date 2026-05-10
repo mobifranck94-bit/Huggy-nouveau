@@ -72,6 +72,8 @@ import { supabase, type Build } from './lib/supabase';
 import LandingPage from './pages/LandingPage';
 import OnboardingTour from './components/OnboardingTour';
 import FeedbackWidget from './components/FeedbackWidget';
+import { BuildFeedback } from './components/BuildFeedback';
+import { BuildHistoryDrawer } from './components/BuildHistoryDrawer';
 import { useAnalytics, usePageTracking, useSessionTracking } from './lib/useAnalytics';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -299,6 +301,9 @@ export default function App() {
   // Live stream of the Builder Agent output for the VibeCodingOverlay
   const [liveStream, setLiveStream] = useState<string>('');
   const [activeAgentName, setActiveAgentName] = useState<string>('');
+
+  // Build history drawer
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Build preview server-side (esbuild) whenever generated files change
   useEffect(() => {
@@ -958,10 +963,11 @@ export default function App() {
             >
               <PanelLeft className="w-4 h-4" />
             </button>
-            <button 
-              onClick={() => setIsFileExplorerOpen(!isFileExplorerOpen)}
-              className={`p-1.5 rounded-md transition-colors ${isFileExplorerOpen ? 'bg-blue-600/20 text-blue-400' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-400')}`}
-              title="Toggle History"
+            <button
+              onClick={() => setIsHistoryOpen(true)}
+              className={`p-1.5 rounded-md transition-colors ${isHistoryOpen ? 'bg-blue-600/20 text-blue-400' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-400')}`}
+              title="Historique des versions"
+              aria-label="Historique des versions"
             >
               <History className="w-4 h-4" />
             </button>
@@ -1549,6 +1555,16 @@ export default function App() {
                                 </span>
                               </div>
                             </motion.div>
+                          )}
+
+                          {/* Inline thumbs up/down feedback */}
+                          {bm.isComplete && !bm.isStreaming && !bm.chatOnly && safeFiles.length > 0 && (
+                            <BuildFeedback
+                              userId={user?.id}
+                              buildId={bm.id}
+                              projectId={currentProject?.id}
+                              prompt={bm.userPrompt}
+                            />
                           )}
 
                           {/* Loading pulse when pipeline just started */}
@@ -2347,6 +2363,19 @@ export default function App() {
       
       {/* Feedback Widget */}
       <FeedbackWidget />
+      <BuildHistoryDrawer
+        open={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        projectId={currentProject?.id}
+        getBuilds={getBuilds}
+        onRestore={(b) => {
+          const restoredFiles = Array.isArray(b.files) ? b.files as FileEntry[] : [];
+          if (restoredFiles.length === 0) return;
+          setGeneratedFiles(restoredFiles);
+          setActiveFilePath(restoredFiles[0].path);
+          setIsHistoryOpen(false);
+        }}
+      />
     </div>
   );
 }

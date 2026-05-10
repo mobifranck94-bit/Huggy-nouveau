@@ -421,6 +421,31 @@ app.post('/api/send-email', generalLimiter, async (req, res) => {
   }
 });
 
+// ─── Build-level Feedback API (👍/👎 inline on each generated app) ───────────
+app.post('/api/build-feedback', generalLimiter, async (req, res) => {
+  const { userId, buildId, projectId, prompt, sentiment, comment } = req.body || {};
+
+  if (!userId || !sentiment || !['up', 'down'].includes(sentiment)) {
+    return res.status(400).json({ error: 'userId and sentiment ("up"|"down") are required' });
+  }
+
+  try {
+    const { supabase } = await import('./lib/supabase.mjs');
+    await supabase.from('build_feedback').insert({
+      user_id: userId,
+      build_id: buildId || null,
+      project_id: projectId || null,
+      prompt: prompt || null,
+      sentiment,
+      comment: comment || null,
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[BuildFeedback] Failed:', err.message);
+    res.status(500).json({ error: 'Failed to record feedback' });
+  }
+});
+
 // ─── Feedback API ────────────────────────────────────────────────────────────
 app.post('/api/feedback', generalLimiter, async (req, res) => {
   const { userId, type, message, rating, page } = req.body;
