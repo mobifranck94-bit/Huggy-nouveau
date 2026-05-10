@@ -653,13 +653,13 @@ export default function App() {
     <div className={`flex flex-col h-screen overflow-hidden select-none font-sans transition-colors duration-300 ${
       theme === 'dark' 
         ? 'bg-[#0a0a0b] text-zinc-400' 
-        : 'bg-[#F8F9FA] text-zinc-500'
+        : 'bg-white text-zinc-600'
     }`}>
       {/* Top Header */}
       <header className={`flex items-center px-4 py-2 border-b h-14 shrink-0 z-10 transition-colors duration-300 ${
         theme === 'dark'
           ? 'border-zinc-800 bg-[#141415]'
-          : 'border-zinc-200 bg-white'
+          : 'border-zinc-100 bg-white shadow-sm'
       }`}>
         <div className="flex items-center gap-2 w-auto shrink-0">
           <div className="flex items-center gap-2 pl-1">
@@ -683,12 +683,12 @@ export default function App() {
             <div className="flex items-center gap-2.5 ml-1 relative">
               <div 
                 onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
-                className="w-8 h-8 rounded-lg border border-zinc-200 flex items-center justify-center hover:bg-zinc-50 transition-all cursor-pointer group"
+                className={`w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-zinc-50 transition-all cursor-pointer group ${theme === 'dark' ? 'border-zinc-700' : 'border-zinc-200'}`}
               >
                 <Home className={`w-4 h-4 transition-colors ${isHeaderMenuOpen ? 'text-blue-500' : 'text-zinc-400 group-hover:text-zinc-600'}`} />
               </div>
-              <span className="text-[13px] font-medium text-zinc-500">Home</span>
-              <span className="text-zinc-300 text-sm">/</span>
+              <span className={`text-[13px] font-medium ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>Home</span>
+              <span className={`text-sm ${theme === 'dark' ? 'text-zinc-600' : 'text-zinc-300'}`}>/</span>
 
               <AnimatePresence>
                 {isHeaderMenuOpen && (
@@ -772,26 +772,26 @@ export default function App() {
 
             <div className="flex flex-col relative ml-1">
               <div 
-                className="bg-white border border-zinc-200 rounded-[14px] px-4 py-2 flex items-center gap-3 shadow-sm"
+                className={`rounded-[14px] px-4 py-2 flex items-center gap-3 shadow-sm border ${theme === 'dark' ? 'bg-zinc-900/60 border-zinc-700/60' : 'bg-white border-zinc-200'}`}
               >
-                <span className="font-display font-bold text-huggy-dark text-[13px] tracking-tight leading-none">{currentProject?.name || 'New Project'}</span>
+                <span className={`font-display font-bold text-[13px] tracking-tight leading-none ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`}>{currentProject?.name || 'New Project'}</span>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-1 ml-auto">
-            <button className="p-1.5 hover:bg-zinc-800 rounded-md transition-colors">
-              <Clock className="w-4 h-4 text-zinc-400" />
+            <button className={`p-1.5 rounded-md transition-colors text-zinc-400 ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'}`}>
+              <Clock className="w-4 h-4" />
             </button>
             <button 
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className={`p-1.5 rounded-md transition-colors ${isSidebarCollapsed ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-zinc-800 text-zinc-400'}`}
+              className={`p-1.5 rounded-md transition-colors ${isSidebarCollapsed ? 'bg-blue-600/20 text-blue-400' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-400')}`}
               title="Toggle Chat"
             >
               <PanelLeft className="w-4 h-4" />
             </button>
             <button 
               onClick={() => setIsFileExplorerOpen(!isFileExplorerOpen)}
-              className={`p-1.5 rounded-md transition-colors ${isFileExplorerOpen ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-zinc-800 text-zinc-400'}`}
+              className={`p-1.5 rounded-md transition-colors ${isFileExplorerOpen ? 'bg-blue-600/20 text-blue-400' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-400')}`}
               title="Toggle History"
             >
               <History className="w-4 h-4" />
@@ -799,44 +799,44 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-zinc-200 ml-8 shadow-sm">
+        <div className={`flex items-center gap-1 p-1 rounded-lg border ml-8 shadow-sm ${theme === 'dark' ? 'bg-zinc-900/60 border-zinc-800' : 'bg-white border-zinc-200'}`}>
           <button 
             onClick={() => setViewMode('preview')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'preview' ? 'bg-zinc-100 text-huggy-blue shadow-sm border border-zinc-200' : 'text-zinc-400 hover:bg-zinc-50'}`}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'preview' ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400 shadow-sm border border-zinc-700' : 'bg-zinc-100 text-blue-600 shadow-sm border border-zinc-200') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/80' : 'text-zinc-500 hover:bg-zinc-100')}`}
           >
             <Globe className="w-3.5 h-3.5" />
             Preview
           </button>
           <button 
             onClick={() => setViewMode('code')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'code' ? 'bg-zinc-800/80 text-blue-400 shadow-sm border border-zinc-700/30' : 'text-zinc-400 hover:bg-zinc-800/80'}`}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'code' ? (theme === 'dark' ? 'bg-zinc-800/80 text-blue-400 shadow-sm border border-zinc-700/30' : 'bg-zinc-100 text-blue-600 shadow-sm border border-zinc-200') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/80' : 'text-zinc-500 hover:bg-zinc-100')}`}
           >
             <Code2 className="w-3.5 h-3.5" />
             Code
           </button>
           <button 
             onClick={() => setViewMode('visual')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'visual' ? 'bg-zinc-800/80 text-purple-400 shadow-sm border border-zinc-700/30' : 'text-zinc-400 hover:bg-zinc-800/80'}`}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'visual' ? (theme === 'dark' ? 'bg-zinc-800/80 text-purple-400 shadow-sm border border-zinc-700/30' : 'bg-zinc-100 text-purple-600 shadow-sm border border-zinc-200') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/80' : 'text-zinc-500 hover:bg-zinc-100')}`}
           >
             <Wand2 className="w-3.5 h-3.5" />
             Visual
           </button>
           <button 
             onClick={() => setViewMode('analytics')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'analytics' ? 'bg-zinc-800/80 text-blue-400 shadow-sm border border-zinc-700/30' : 'text-zinc-400 hover:bg-zinc-800/80'}`}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'analytics' ? (theme === 'dark' ? 'bg-zinc-800/80 text-blue-400 shadow-sm border border-zinc-700/30' : 'bg-zinc-100 text-blue-600 shadow-sm border border-zinc-200') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/80' : 'text-zinc-500 hover:bg-zinc-100')}`}
           >
             <BarChart3 className="w-3.5 h-3.5" />
             Analytics
           </button>
-          <button className="p-1.5 hover:bg-zinc-800/80 rounded-md transition-colors text-zinc-400">
+          <button className={`p-1.5 rounded-md transition-colors text-zinc-400 ${theme === 'dark' ? 'hover:bg-zinc-800/80' : 'hover:bg-zinc-100'}`}>
             <Cloud className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <div className="flex items-center gap-1 bg-zinc-900/40 p-1 rounded-lg border border-zinc-800/50 ml-2 mr-auto relative">
+        <div className={`flex items-center gap-1 p-1 rounded-lg border ml-2 mr-auto relative ${theme === 'dark' ? 'bg-zinc-900/40 border-zinc-800/50' : 'bg-zinc-50 border-zinc-200'}`}>
           <button 
             onClick={() => setIsDeviceMenuOpen(!isDeviceMenuOpen)}
-            className="p-1.5 bg-zinc-800/80 text-blue-400 rounded-md transition-colors border border-zinc-700/30 hover:bg-zinc-700/50 flex items-center gap-1"
+            className={`p-1.5 rounded-md transition-colors border flex items-center gap-1 ${theme === 'dark' ? 'bg-zinc-800/80 text-blue-400 border-zinc-700/30 hover:bg-zinc-700/50' : 'bg-white text-blue-600 border-zinc-200 hover:bg-zinc-50'}`}
           >
             <CurrentIcon className="w-3.5 h-3.5" />
             <span className="text-[10px] ml-1 text-zinc-500 font-bold">/</span>
@@ -889,7 +889,7 @@ export default function App() {
                   alert('Lien de preview copié ! Partagez-le avec vos clients.');
                 }
               }}
-              className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors flex items-center gap-2 text-xs"
+              className={`p-1.5 rounded-lg transition-colors flex items-center gap-2 text-xs text-zinc-400 ${theme === 'dark' ? 'hover:bg-zinc-800 hover:text-zinc-200' : 'hover:bg-zinc-100 hover:text-zinc-600'}`}
             >
               <Share2 className="w-3.5 h-3.5" />
               Share
@@ -947,7 +947,7 @@ export default function App() {
               className="flex flex-col gap-2 shrink-0 h-full overflow-hidden"
             >
               {/* Conversation/History Area */}
-              <div className="flex-1 bg-[#161617] rounded-2xl border border-zinc-800/50 overflow-hidden shadow-inner flex flex-col p-4 overflow-y-auto scrollbar-hide">
+              <div className={`flex-1 rounded-2xl border overflow-hidden shadow-inner flex flex-col p-4 overflow-y-auto scrollbar-hide ${theme === 'dark' ? 'bg-[#161617] border-zinc-800/50' : 'bg-zinc-50 border-zinc-200'}`}>
                 {messages.length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center text-center p-6 opacity-30">
                     <Clock className="w-8 h-8 mb-3" />
@@ -1379,7 +1379,7 @@ export default function App() {
               </div>
 
               {/* Chat Input Area */}
-              <div className="bg-[#161617] rounded-2xl border border-zinc-800/50 p-4 shadow-lg flex flex-col relative transition-all duration-200 shrink-0">
+              <div className={`rounded-2xl border p-4 shadow-lg flex flex-col relative transition-all duration-200 shrink-0 ${theme === 'dark' ? 'bg-[#161617] border-zinc-800/50' : 'bg-white border-zinc-200'}`}>
                 <textarea 
                   ref={chatInputRef}
                   value={chatInput}
@@ -1392,12 +1392,12 @@ export default function App() {
                   }}
                   placeholder="Décris ton application..."
                   rows={1}
-                  className="w-full bg-transparent border-none text-zinc-200 text-sm font-medium resize-none focus:outline-none placeholder:text-zinc-500 mb-2 max-h-[160px] scrollbar-hide overflow-y-auto"
+                  className={`w-full bg-transparent border-none text-sm font-medium resize-none focus:outline-none placeholder:text-zinc-400 mb-2 max-h-[160px] scrollbar-hide overflow-y-auto ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`}
                 />
                 
                 <div className="flex items-center justify-between mt-auto">
                   <div className="flex items-center gap-2">
-                    <button className="p-2 hover:bg-zinc-800 rounded-full border border-zinc-800/80 transition-colors text-zinc-500">
+                    <button className={`p-2 rounded-full border transition-colors text-zinc-500 ${theme === 'dark' ? 'hover:bg-zinc-800 border-zinc-800/80' : 'hover:bg-zinc-100 border-zinc-200'}`}>
                       <Plus className="w-4 h-4" />
                     </button>
                     <button 
@@ -1522,7 +1522,7 @@ export default function App() {
         <motion.div 
           initial={{ opacity: 0, scale: 0.99 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="flex-1 bg-[#0d0d0e] rounded-2xl border border-zinc-800/50 shadow-2xl relative overflow-hidden flex"
+          className={`flex-1 rounded-2xl border shadow-2xl relative overflow-hidden flex ${theme === 'dark' ? 'bg-[#0d0d0e] border-zinc-800/50' : 'bg-zinc-50 border-zinc-200'}`}
         >
           {/* File Explorer Sidebar */}
           <AnimatePresence>
@@ -1531,10 +1531,10 @@ export default function App() {
                 initial={{ width: 0, opacity: 0 }}
                 animate={{ width: 240, opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
-                className="h-full border-r border-zinc-800/50 bg-[#0d0d0e] flex flex-col shrink-0 overflow-hidden"
+                className={`h-full border-r flex flex-col shrink-0 overflow-hidden ${theme === 'dark' ? 'border-zinc-800/50 bg-[#0d0d0e]' : 'border-zinc-200 bg-white'}`}
               >
-                <div className="p-4 flex items-center justify-between border-b border-zinc-800/30">
-                  <span className="text-xs font-bold text-zinc-200 uppercase tracking-widest">Version History</span>
+                <div className={`p-4 flex items-center justify-between border-b ${theme === 'dark' ? 'border-zinc-800/30' : 'border-zinc-200'}`}>
+                  <span className={`text-xs font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700'}`}>Version History</span>
                   <History className="w-3.5 h-3.5 text-zinc-500" />
                 </div>
                 <div className="flex-1 overflow-y-auto py-2">
@@ -1542,7 +1542,7 @@ export default function App() {
                     <div 
                       key={build.id} 
                       onClick={() => setGeneratedFiles(build.files as any)}
-                      className="group px-3 py-2 hover:bg-zinc-800/50 cursor-pointer border-b border-zinc-800/20 transition-all"
+                      className={`group px-3 py-2 cursor-pointer border-b transition-all ${theme === 'dark' ? 'hover:bg-zinc-800/50 border-zinc-800/20' : 'hover:bg-zinc-50 border-zinc-100'}`}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[10px] font-bold text-zinc-400">v{buildHistory.length - idx}</span>
@@ -1552,8 +1552,8 @@ export default function App() {
                     </div>
                   ))}
                   
-                  <div className="p-4 mt-4 border-t border-zinc-800/30">
-                    <span className="text-xs font-bold text-zinc-200 uppercase tracking-widest block mb-4">Files</span>
+                  <div className={`p-4 mt-4 border-t ${theme === 'dark' ? 'border-zinc-800/30' : 'border-zinc-200'}`}>
+                    <span className={`text-xs font-bold uppercase tracking-widest block mb-4 ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700'}`}>Files</span>
                     {generatedFiles.length > 0 ? (
                       generatedFiles.map((file, idx) => (
                         <div 
