@@ -664,23 +664,31 @@ export default function App() {
         <div className="flex items-center gap-2 w-auto shrink-0">
           <div className="flex items-center gap-2 pl-1">
             {/* Logo Icon */}
-            <div className="flex items-center cursor-pointer h-14 px-1" onClick={() => navigate('/')}>
-               <img 
-                 src={`/assets/huggy-logo-text.png?v=${Date.now()}`}
-                 className="h-9 md:h-11 w-auto object-contain max-w-[160px]"
-                 alt="Huggy Logo"
-                 loading="eager"
-                 onError={(e) => {
-                   e.currentTarget.style.display = 'none';
-                   const existing = e.currentTarget.parentElement?.querySelector('.huggy-fallback');
-                   if (!existing) {
-                     const span = document.createElement('span');
-                     span.className = 'huggy-fallback font-black text-blue-500 text-xl tracking-tighter';
-                     span.innerText = 'huggy';
-                     e.currentTarget.parentElement?.appendChild(span);
-                   }
-                 }}
-               />
+            <div className="flex items-center cursor-pointer h-14 px-1 gap-2" onClick={() => navigate('/')}>
+              {/* Mascotte SVG inline */}
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Corps bleu arrondi */}
+                <rect x="3" y="7" width="26" height="22" rx="11" fill="#3B82F6"/>
+                {/* Oreilles / antennes */}
+                <ellipse cx="12" cy="6" rx="3" ry="4" fill="#2563EB" transform="rotate(-15 12 6)"/>
+                <ellipse cx="20" cy="5.5" rx="3" ry="4" fill="#2563EB" transform="rotate(15 20 5.5)"/>
+                {/* Visage blanc */}
+                <ellipse cx="16" cy="19" rx="9" ry="8" fill="white"/>
+                {/* Oeil gauche */}
+                <circle cx="13" cy="17" r="2" fill="#1E3A5F"/>
+                <circle cx="13.7" cy="16.3" r="0.7" fill="white"/>
+                {/* Oeil droit clin d'oeil */}
+                <path d="M17.5 16.5 Q19 15.5 20.5 16.5" stroke="#1E3A5F" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                {/* Joues roses */}
+                <ellipse cx="11" cy="19.5" rx="2" ry="1.2" fill="#FCA5A5" opacity="0.6"/>
+                <ellipse cx="21" cy="19.5" rx="2" ry="1.2" fill="#FCA5A5" opacity="0.6"/>
+                {/* Bouche */}
+                <path d="M13 21 Q16 23.5 19 21" stroke="#1E3A5F" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+              </svg>
+              {/* Texte huggy */}
+              <span className="font-black text-[18px] tracking-tight leading-none" style={{ color: '#3B82F6', fontFamily: 'system-ui, sans-serif' }}>
+                huggy
+              </span>
             </div>
             
             {/* Home Link Section */}
