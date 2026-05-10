@@ -59,6 +59,7 @@ import Editor from '@monaco-editor/react';
 import axios from 'axios';
 import { startBuildPipeline, checkServerHealth } from './lib/api';
 import { VisualBuilder } from './components/visual';
+import { VibeCodingOverlay } from './components/VibeCodingOverlay';
 import { useAuth } from './lib/useAuth';
 import { useProjects } from './lib/useProjects';
 import { supabase, type Build } from './lib/supabase';
@@ -1580,6 +1581,12 @@ export default function App() {
             {/* Subtle grid pattern background */}
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
                  style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
+            />
+
+            {/* ── Vibe Coding Animation (during build) ── */}
+            <VibeCodingOverlay
+              isBuilding={isBuilding}
+              buildMessages={messages.filter(m => m.type === 'build') as any}
             />
 
             {/* Preview loading spinner */}
