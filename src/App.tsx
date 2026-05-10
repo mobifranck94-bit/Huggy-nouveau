@@ -109,10 +109,12 @@ interface BuildMessage {
   filesVisible: number;
   isComplete: boolean;
   isStreaming: boolean;
+  chatOnly?: boolean;
   meta?: {
     securityScore?: number;
     qaScore?: number;
     complexity?: string;
+    chatOnly?: boolean;
   };
 }
 
@@ -545,10 +547,12 @@ export default function App() {
               filesVisible: 0,
               isComplete: true,
               isStreaming: true,
+              chatOnly: !!event.meta?.chatOnly,
               meta: {
                 securityScore: event.meta?.securityScore,
                 qaScore: event.meta?.qaScore,
                 complexity: event.meta?.complexity,
+                chatOnly: event.meta?.chatOnly,
               },
             };
           }));
@@ -1090,6 +1094,26 @@ export default function App() {
 
                       // ── Build message ─────────────────────────────────────
                       const bm = entry as BuildMessage;
+
+                      if (bm.chatOnly || bm.meta?.chatOnly) {
+                        const text = bm.replyVisible || bm.reply || '';
+                        return (
+                          <div key={bm.id} className="flex justify-start">
+                            <div className={`max-w-[85%] rounded-2xl rounded-tl-sm px-3.5 py-2.5 border ${theme === 'dark' ? 'bg-zinc-900/60 border-zinc-800/60 text-zinc-200' : 'bg-white border-zinc-200 text-zinc-800'}`}>
+                              <p className="text-xs leading-relaxed whitespace-pre-wrap">
+                                {text}
+                                {bm.isStreaming && text.length < (bm.reply || '').length && (
+                                  <span className="windsurf-cursor animate-windsurf-cursor inline-block ml-0.5" />
+                                )}
+                              </p>
+                              <span className="text-[9px] text-zinc-600 mt-1 block">
+                                {new Date(bm.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      }
+
                       const safeAgents = Array.isArray(bm.agents) ? bm.agents : [];
                       const safeThinkingLines = Array.isArray(bm.thinkingLines) ? bm.thinkingLines : [];
                       const safeFiles = Array.isArray(bm.files) ? bm.files : [];
