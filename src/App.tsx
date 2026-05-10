@@ -53,8 +53,7 @@ import {
   Sun,
   Moon,
   Wand2,
-  Edit3,
-  FolderOpen
+  Edit3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Editor from '@monaco-editor/react';
