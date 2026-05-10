@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTyping } from './hooks/useTyping';
-import { AdaptiveButton } from './components/AdaptiveButton';
 
 type Theme = 'dark' | 'light';
 import {
@@ -150,10 +149,6 @@ export default function App() {
   const [isPreviewOnly, setIsPreviewOnly] = useState(false);
   const [isBuilding, setIsBuilding] = useState(false);
 
-  // Adaptive Windsurf states
-  const [adaptiveMode, setAdaptiveMode] = useState<'agent' | 'chat'>('chat');
-  const [adaptiveModel, setAdaptiveModel] = useState('anthropic/claude-3.5-sonnet');
-
   // Theme state - synced with LandingPage via localStorage
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
@@ -175,21 +170,6 @@ export default function App() {
 
   const toggleTheme = useCallback(() => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-  }, []);
-
-  // Adaptive Windsurf handler
-  const handleAdaptivePrompt = useCallback(async (prompt: string, mode: 'agent' | 'chat', model: string) => {
-    console.log(`[Adaptive ${mode}] Prompt: ${prompt}, Model: ${model}`);
-    
-    // In Agent mode: trigger build automatically
-    if (mode === 'agent') {
-      setChatInput(prompt);
-      await startBuildPipeline();
-    } else {
-      // In Chat mode: just add to messages for now
-      // (can be extended for conversational mode)
-      setChatInput(prompt);
-    }
   }, []);
 
   // Analytics hooks
@@ -841,16 +821,6 @@ export default function App() {
           <button className="p-1.5 hover:bg-zinc-800/80 rounded-md transition-colors text-zinc-400">
             <Cloud className="w-3.5 h-3.5" />
           </button>
-        </div>
-
-        {/* Adaptive Windsurf Button */}
-        <div className="flex items-center gap-2 ml-4">
-          <AdaptiveButton 
-            onModeChange={(mode) => setAdaptiveMode(mode)}
-            onModelChange={(model) => setAdaptiveModel(model)}
-            onPromptSubmit={(prompt, mode, model) => handleAdaptivePrompt(prompt, mode, model)}
-            currentMode={adaptiveMode}
-          />
         </div>
 
         <div className="flex items-center gap-1 bg-zinc-900/40 p-1 rounded-lg border border-zinc-800/50 ml-2 mr-auto relative">
