@@ -54,7 +54,10 @@ import {
   Moon,
   Wand2,
   Edit3,
-  Paperclip
+  Paperclip,
+  AlertCircle,
+  Copy,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Editor from '@monaco-editor/react';
@@ -150,6 +153,11 @@ export default function App() {
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'preview' | 'code' | 'visual' | 'analytics'>('preview');
   const [isCustomDomainModalOpen, setIsCustomDomainModalOpen] = useState(false);
+  const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
+  const [deployStep, setDeployStep] = useState<'confirm' | 'deploying' | 'success' | 'error'>('confirm');
+  const [deployResultUrl, setDeployResultUrl] = useState<string | null>(null);
+  const [deployError, setDeployError] = useState<string | null>(null);
+  const [deployCopied, setDeployCopied] = useState(false);
   const [customDomain, setCustomDomain] = useState('');
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
   const [selectedElement, setSelectedElement] = useState<{ selector: string, text: string } | null>(null);
@@ -996,12 +1004,12 @@ export default function App() {
             Upgrade
           </button>
           <button
-            onClick={handleDeploy}
-            disabled={isDeploying || generatedFiles.length === 0}
-            className={`px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2 ${isDeploying ? 'opacity-70 cursor-not-allowed' : ''}`}
+            onClick={() => { setDeployStep('confirm'); setDeployResultUrl(null); setDeployError(null); setIsDeployModalOpen(true); }}
+            disabled={generatedFiles.length === 0}
+            className={`px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2 ${generatedFiles.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            {isDeploying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Cloud className="w-3.5 h-3.5" />}
-            {isDeploying ? 'Deploying...' : 'Deploy'}
+            <Cloud className="w-3.5 h-3.5" />
+            Deploy
           </button>
           {generatedFiles.length > 0 && (
             <button 
@@ -2030,6 +2038,170 @@ export default function App() {
         </motion.div>
       </main>
       
+      {/* ── Deploy Modal ── */}
+      <AnimatePresence>
+        {isDeployModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => { if (deployStep !== 'deploying') setIsDeployModalOpen(false); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 20 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              onClick={e => e.stopPropagation()}
+              className={`w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden ${theme === 'dark' ? 'bg-[#1a1a1b] border-zinc-800' : 'bg-white border-zinc-200'}`}
+            >
+              {/* Header */}
+              <div className={`flex items-center justify-between px-6 py-4 border-b ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'}`}>
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2 rounded-lg ${deployStep === 'success' ? 'bg-green-500/15' : deployStep === 'error' ? 'bg-red-500/15' : 'bg-blue-500/15'}`}>
+                    {deployStep === 'success' ? <CheckCircle2 className="w-4 h-4 text-green-400" /> :
+                     deployStep === 'error' ? <AlertCircle className="w-4 h-4 text-red-400" /> :
+                     deployStep === 'deploying' ? <Loader2 className="w-4 h-4 text-blue-400 animate-spin" /> :
+                     <Cloud className="w-4 h-4 text-blue-400" />}
+                  </div>
+                  <div>
+                    <h3 className={`text-sm font-bold ${theme === 'dark' ? 'text-zinc-100' : 'text-zinc-800'}`}>
+                      {deployStep === 'confirm' && 'Deploy your app'}
+                      {deployStep === 'deploying' && 'Deploying…'}
+                      {deployStep === 'success' && 'Deployed successfully!'}
+                      {deployStep === 'error' && 'Deployment failed'}
+                    </h3>
+                    <p className="text-[11px] text-zinc-500">{currentProject?.name || 'New Project'}</p>
+                  </div>
+                </div>
+                {deployStep !== 'deploying' && (
+                  <button onClick={() => setIsDeployModalOpen(false)} className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-5">
+                {deployStep === 'confirm' && (
+                  <div className="space-y-4">
+                    <div className={`rounded-xl border p-4 space-y-2.5 ${theme === 'dark' ? 'bg-zinc-900/50 border-zinc-800' : 'bg-zinc-50 border-zinc-200'}`}>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-xs ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>Files</span>
+                        <span className={`text-xs font-bold ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700'}`}>{generatedFiles.length} files</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-xs ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>Provider</span>
+                        <span className="text-xs font-bold text-blue-400 flex items-center gap-1"><Zap className="w-3 h-3" /> Vercel</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-xs ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>Project</span>
+                        <span className={`text-xs font-bold ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700'}`}>{currentProject?.name || 'huggy-app'}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={() => setIsDeployModalOpen(false)} className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors ${theme === 'dark' ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}>
+                        Cancel
+                      </button>
+                      <button
+                        onClick={async () => {
+                          setDeployStep('deploying');
+                          try {
+                            const response = await axios.post('/api/deploy', {
+                              projectId: currentProject?.id,
+                              projectName: currentProject?.name || 'huggy-app',
+                              files: generatedFiles,
+                            });
+                            const url = response.data.url as string;
+                            setDeployResultUrl(url);
+                            setDeployUrl(url);
+                            trackDeploy(currentProject?.id || 'unknown', 'completed', { url, filesCount: generatedFiles.length });
+                            setDeployStep('success');
+                          } catch (e: any) {
+                            setDeployError(e?.response?.data?.error || e.message || 'Unknown error');
+                            setDeployStep('error');
+                          }
+                        }}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Cloud className="w-4 h-4" /> Deploy now
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {deployStep === 'deploying' && (
+                  <div className="py-6 flex flex-col items-center gap-4">
+                    <div className="relative w-16 h-16">
+                      <div className="absolute inset-0 rounded-full border-4 border-blue-500/20" />
+                      <div className="absolute inset-0 rounded-full border-4 border-t-blue-500 animate-spin" />
+                      <Cloud className="absolute inset-0 m-auto w-6 h-6 text-blue-400" />
+                    </div>
+                    <div className="text-center space-y-1">
+                      <p className={`text-sm font-medium ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700'}`}>Building & uploading…</p>
+                      <p className="text-xs text-zinc-500">This may take a few seconds</p>
+                    </div>
+                    {[
+                      { label: 'Bundling files', done: true },
+                      { label: 'Uploading to Vercel', done: false },
+                      { label: 'Assigning domain', done: false },
+                    ].map((s, i) => (
+                      <div key={i} className="flex items-center gap-2 w-full">
+                        {s.done
+                          ? <CheckCircle2 className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                          : <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1, repeat: Infinity, delay: i * 0.3 }} className="w-3.5 h-3.5 rounded-full border-2 border-blue-400 shrink-0" />}
+                        <span className={`text-xs ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-600'}`}>{s.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {deployStep === 'success' && deployResultUrl && (
+                  <div className="space-y-4">
+                    <div className="flex flex-col items-center py-4 gap-2">
+                      <div className="w-14 h-14 rounded-full bg-green-500/15 flex items-center justify-center mb-1">
+                        <CheckCircle2 className="w-7 h-7 text-green-400" />
+                      </div>
+                      <p className={`text-sm font-bold ${theme === 'dark' ? 'text-zinc-100' : 'text-zinc-800'}`}>Your app is live!</p>
+                    </div>
+                    <div className={`flex items-center gap-2 rounded-xl border p-3 ${theme === 'dark' ? 'bg-zinc-900/50 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}>
+                      <Globe2 className="w-4 h-4 text-blue-400 shrink-0" />
+                      <a href={deployResultUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline truncate flex-1">{deployResultUrl}</a>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(deployResultUrl); setDeployCopied(true); setTimeout(() => setDeployCopied(false), 2000); }}
+                        className={`shrink-0 p-1.5 rounded-lg transition-colors ${deployCopied ? 'text-green-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                      >
+                        {deployCopied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                    <button onClick={() => setIsDeployModalOpen(false)} className="w-full py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors">
+                      Done
+                    </button>
+                  </div>
+                )}
+
+                {deployStep === 'error' && (
+                  <div className="space-y-4">
+                    <div className="flex flex-col items-center py-4 gap-2">
+                      <div className="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center mb-1">
+                        <AlertCircle className="w-7 h-7 text-red-400" />
+                      </div>
+                      <p className={`text-sm font-bold ${theme === 'dark' ? 'text-zinc-100' : 'text-zinc-800'}`}>Deployment failed</p>
+                      <p className="text-xs text-zinc-500 text-center">{deployError}</p>
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={() => setIsDeployModalOpen(false)} className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors ${theme === 'dark' ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}>Close</button>
+                      <button onClick={() => setDeployStep('confirm')} className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors">Try again</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Onboarding Tour for Builder */}
       <OnboardingTour isBuilder={true} />
       
