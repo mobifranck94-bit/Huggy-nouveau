@@ -52,7 +52,9 @@ import {
   History,
   Sun,
   Moon,
-  Wand2
+  Wand2,
+  Edit3,
+  FolderOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Editor from '@monaco-editor/react';
@@ -152,6 +154,9 @@ export default function App() {
   const [buildHistory, setBuildHistory] = useState<Build[]>([]);
   const [isPreviewOnly, setIsPreviewOnly] = useState(false);
   const [isBuilding, setIsBuilding] = useState(false);
+  const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
+  const [isRenamingProject, setIsRenamingProject] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
 
   // Theme state - synced with LandingPage via localStorage
   const [theme, setTheme] = useState<Theme>(() => {
@@ -758,11 +763,94 @@ export default function App() {
             </div>
 
             <div className="flex flex-col relative ml-1">
-              <div 
-                className={`rounded-[14px] px-4 py-2 flex items-center gap-3 shadow-sm border ${theme === 'dark' ? 'bg-zinc-900/60 border-zinc-700/60' : 'bg-white border-zinc-200'}`}
+              <button
+                onClick={() => setIsProjectMenuOpen(!isProjectMenuOpen)}
+                className={`rounded-[14px] px-4 py-2 flex items-center gap-2 shadow-sm border transition-all ${theme === 'dark' ? 'bg-zinc-900/60 border-zinc-700/60 hover:bg-zinc-800/80' : 'bg-white border-zinc-200 hover:bg-zinc-50'}`}
               >
                 <span className={`font-display font-bold text-[13px] tracking-tight leading-none ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`}>{currentProject?.name || 'New Project'}</span>
-              </div>
+                <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${isProjectMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {isProjectMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => { setIsProjectMenuOpen(false); setIsRenamingProject(false); }} />
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                      className={`absolute top-full left-0 mt-2 w-64 rounded-xl shadow-2xl z-50 py-2 border overflow-hidden ${ theme === 'dark' ? 'bg-[#1c1c1d] border-zinc-800' : 'bg-white border-zinc-200 shadow-lg'}`}
+                    >
+                      {/* Current project header */}
+                      <div className={`px-4 py-2.5 border-b text-[10px] font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-zinc-500 border-zinc-800/50' : 'text-zinc-400 border-zinc-100'}`}>
+                        Current Project
+                      </div>
+
+                      {/* Rename */}
+                      {isRenamingProject ? (
+                        <div className="px-3 py-2">
+                          <input
+                            autoFocus
+                            value={renameValue}
+                            onChange={e => setRenameValue(e.target.value)}
+                            onKeyDown={async e => {
+                              if (e.key === 'Enter' && renameValue.trim() && currentProject) {
+                                await createProject(renameValue.trim());
+                                setIsRenamingProject(false);
+                                setIsProjectMenuOpen(false);
+                              }
+                              if (e.key === 'Escape') setIsRenamingProject(false);
+                            }}
+                            className={`w-full text-sm px-3 py-1.5 rounded-lg border outline-none focus:ring-1 focus:ring-blue-500 ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-zinc-50 border-zinc-300 text-zinc-800'}`}
+                            placeholder="Project name…"
+                          />
+                          <p className="text-[10px] text-zinc-500 mt-1 px-1">Press Enter to confirm</p>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setRenameValue(currentProject?.name || ''); setIsRenamingProject(true); }}
+                          className={`w-full flex items-center gap-2.5 px-4 py-2 text-left text-xs transition-colors ${theme === 'dark' ? 'text-zinc-300 hover:bg-zinc-800/60' : 'text-zinc-600 hover:bg-zinc-50'}`}
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-zinc-400" />
+                          Rename project
+                        </button>
+                      )}
+
+                      {/* Switch project */}
+                      {projects && projects.length > 1 && (
+                        <>
+                          <div className={`px-4 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-zinc-600' : 'text-zinc-400'}`}>Switch to</div>
+                          {projects.filter(p => p.id !== currentProject?.id).slice(0, 4).map(proj => (
+                            <button
+                              key={proj.id}
+                              onClick={() => { setCurrentProject(proj); setIsProjectMenuOpen(false); }}
+                              className={`w-full flex items-center gap-2.5 px-4 py-2 text-left text-xs transition-colors ${theme === 'dark' ? 'text-zinc-300 hover:bg-zinc-800/60' : 'text-zinc-600 hover:bg-zinc-50'}`}
+                            >
+                              <FolderOpen className="w-3.5 h-3.5 text-zinc-400" />
+                              {proj.name}
+                            </button>
+                          ))}
+                        </>
+                      )}
+
+                      {/* Separator + New project */}
+                      <div className={`border-t mt-1 pt-1 ${theme === 'dark' ? 'border-zinc-800/50' : 'border-zinc-100'}`}>
+                        <button
+                          onClick={async () => {
+                            const name = `Project ${(projects?.length || 0) + 1}`;
+                            await createProject(name);
+                            setIsProjectMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2.5 px-4 py-2 text-left text-xs font-medium transition-colors text-blue-400 ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-blue-50'}`}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          New Project
+                        </button>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
           </div>
           <div className="flex items-center gap-1 ml-6">
