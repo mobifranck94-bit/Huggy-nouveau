@@ -984,7 +984,7 @@ export default function App() {
                             const activeAgent = activeIdx >= 0 ? AGENTS_DEF[activeIdx] : null;
                             const pct = Math.round((finished / 8) * 100);
                             return (
-                              <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-xl p-2.5 mb-1">
+                              <div className={`rounded-xl p-2.5 mb-1 border ${theme === 'dark' ? 'bg-zinc-900/40 border-zinc-800/50' : 'bg-zinc-100/80 border-zinc-200'}`}>
                                 <div className="flex items-center justify-between mb-1.5">
                                   <div className="flex items-center gap-1.5">
                                     {bm.isComplete ? (
@@ -1002,7 +1002,7 @@ export default function App() {
                                   </div>
                                   <span className="text-[9px] font-mono text-zinc-500">{finished}/8 · {pct}%</span>
                                 </div>
-                                <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                <div className={`h-1 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-200'}`}>
                                   <motion.div
                                     className="h-full bg-gradient-to-r from-violet-500 via-blue-500 to-cyan-400"
                                     initial={{ width: 0 }}
@@ -1017,7 +1017,7 @@ export default function App() {
                           {/* Windsurf-style Agent Pipeline */}
                           <div className="flex items-center gap-2">
                             {/* Progress line background */}
-                            <div className="flex-1 h-0.5 bg-zinc-800 rounded-full overflow-hidden relative">
+                            <div className={`flex-1 h-0.5 rounded-full overflow-hidden relative ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-200'}`}>
                               <motion.div
                                 className="absolute inset-y-0 left-0 bg-gradient-to-r from-violet-500 via-blue-500 to-cyan-400"
                                 initial={{ width: '0%' }}
@@ -1405,17 +1405,17 @@ export default function App() {
                       className={`p-2 rounded-full border transition-all duration-200 ${
                         isEditMode 
                           ? 'bg-blue-600/20 border-blue-500/50 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]' 
-                          : 'hover:bg-zinc-800 border-zinc-800/80 text-zinc-500'
+                          : (theme === 'dark' ? 'hover:bg-zinc-800 border-zinc-800/80 text-zinc-500' : 'hover:bg-zinc-100 border-zinc-200 text-zinc-500')
                       }`}
                     >
                       <Target className="w-4 h-4" />
                     </button>
                   </div>
                   <div className="flex items-center gap-2 relative">
-                    <div className="flex items-center bg-zinc-800/50 rounded-lg overflow-hidden border border-zinc-700/30">
+                    <div className={`flex items-center rounded-lg overflow-hidden border ${theme === 'dark' ? 'bg-zinc-800/50 border-zinc-700/30' : 'bg-zinc-100 border-zinc-200'}`}>
                       <button 
                         onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
-                        className="px-3 py-1.5 hover:bg-zinc-700/50 transition-colors text-zinc-400 text-[10px] font-bold flex items-center gap-1.5"
+                        className={`px-3 py-1.5 transition-colors text-[10px] font-bold flex items-center gap-1.5 ${theme === 'dark' ? 'hover:bg-zinc-700/50 text-zinc-400' : 'hover:bg-zinc-200 text-zinc-600'}`}
                       >
                         <Brain className="w-3 h-3 text-violet-400" />
                         {selectedModel.includes('sonnet') ? 'ELITE' : 'FAST'}
@@ -1431,18 +1431,18 @@ export default function App() {
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
-                            className="absolute bottom-full right-32 mb-2 w-48 bg-[#1c1c1d] border border-zinc-800 rounded-xl shadow-2xl z-20 py-1 overflow-hidden"
+                            className={`absolute bottom-full right-32 mb-2 w-48 rounded-xl shadow-2xl z-20 py-1 overflow-hidden border ${theme === 'dark' ? 'bg-[#1c1c1d] border-zinc-800' : 'bg-white border-zinc-200 shadow-lg'}`}
                           >
                             <button 
                               onClick={() => { setSelectedModel('claude-3-5-sonnet-20241022'); setIsModelMenuOpen(false); }}
-                              className={`w-full px-3 py-2 text-left text-[11px] font-medium flex items-center gap-2 transition-colors ${selectedModel.includes('sonnet') ? 'bg-zinc-800 text-blue-400' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+                              className={`w-full px-3 py-2 text-left text-[11px] font-medium flex items-center gap-2 transition-colors ${selectedModel.includes('sonnet') ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400' : 'bg-blue-50 text-blue-600') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200' : 'text-zinc-600 hover:bg-zinc-50')}`}
                             >
                               <Zap className="w-3.5 h-3.5 text-violet-400" />
                               Claude 3.5 Sonnet (Elite)
                             </button>
                             <button 
                               onClick={() => { setSelectedModel('claude-3-haiku-20240307'); setIsModelMenuOpen(false); }}
-                              className={`w-full px-3 py-2 text-left text-[11px] font-medium flex items-center gap-2 transition-colors ${selectedModel.includes('haiku') ? 'bg-zinc-800 text-blue-400' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+                              className={`w-full px-3 py-2 text-left text-[11px] font-medium flex items-center gap-2 transition-colors ${selectedModel.includes('haiku') ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400' : 'bg-blue-50 text-blue-600') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200' : 'text-zinc-600 hover:bg-zinc-50')}`}
                             >
                               <Activity className="w-3.5 h-3.5 text-green-400" />
                               Claude 3 Haiku (Fast)
@@ -1452,13 +1452,13 @@ export default function App() {
                       )}
                     </AnimatePresence>
 
-                    <div className="flex items-center bg-zinc-800/50 rounded-lg overflow-hidden border border-zinc-700/30">
-                      <button className="px-3 py-1.5 hover:bg-zinc-700/50 transition-colors text-zinc-400 text-xs font-medium capitalize">
+                    <div className={`flex items-center rounded-lg overflow-hidden border ${theme === 'dark' ? 'bg-zinc-800/50 border-zinc-700/30' : 'bg-zinc-100 border-zinc-200'}`}>
+                      <button className={`px-3 py-1.5 transition-colors text-xs font-medium capitalize ${theme === 'dark' ? 'hover:bg-zinc-700/50 text-zinc-400' : 'hover:bg-zinc-200 text-zinc-600'}`}>
                         {appMode}
                       </button>
                       <button 
                         onClick={() => setIsModeMenuOpen(!isModeMenuOpen)}
-                        className="p-1.5 hover:bg-zinc-700/50 transition-colors text-zinc-400 border-l border-zinc-700/30"
+                        className={`p-1.5 transition-colors border-l ${theme === 'dark' ? 'hover:bg-zinc-700/50 text-zinc-400 border-zinc-700/30' : 'hover:bg-zinc-200 text-zinc-500 border-zinc-300'}`}
                       >
                         <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isModeMenuOpen ? 'rotate-180' : ''}`} />
                       </button>
@@ -1472,18 +1472,18 @@ export default function App() {
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
-                            className="absolute bottom-full right-0 mb-2 w-32 bg-[#1c1c1d] border border-zinc-800 rounded-xl shadow-2xl z-20 py-1 overflow-hidden"
+                            className={`absolute bottom-full right-0 mb-2 w-32 rounded-xl shadow-2xl z-20 py-1 overflow-hidden border ${theme === 'dark' ? 'bg-[#1c1c1d] border-zinc-800' : 'bg-white border-zinc-200 shadow-lg'}`}
                           >
                             <button 
                               onClick={() => { setAppMode('build'); setIsModeMenuOpen(false); }}
-                              className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center gap-2 transition-colors ${appMode === 'build' ? 'bg-zinc-800 text-blue-400' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+                              className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center gap-2 transition-colors ${appMode === 'build' ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400' : 'bg-blue-50 text-blue-600') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200' : 'text-zinc-600 hover:bg-zinc-50')}`}
                             >
                               <Zap className="w-3.5 h-3.5" />
                               Build
                             </button>
                             <button 
                               onClick={() => { setAppMode('plan'); setIsModeMenuOpen(false); }}
-                              className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center gap-2 transition-colors ${appMode === 'plan' ? 'bg-zinc-800 text-blue-400' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+                              className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center gap-2 transition-colors ${appMode === 'plan' ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400' : 'bg-blue-50 text-blue-600') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200' : 'text-zinc-600 hover:bg-zinc-50')}`}
                             >
                               <Layout className="w-3.5 h-3.5" />
                               Plan
@@ -1495,7 +1495,7 @@ export default function App() {
 
                     <button 
                       onClick={toggleRecording}
-                      className={`p-2 rounded-full transition-colors ${isRecording ? 'bg-red-500/20 text-red-500 animate-pulse' : 'hover:bg-zinc-800 text-zinc-400'}`}
+                      className={`p-2 rounded-full transition-colors ${isRecording ? 'bg-red-500/20 text-red-500 animate-pulse' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500')}`}
                     >
                       <Mic className="w-4 h-4" />
                     </button>
@@ -1503,10 +1503,10 @@ export default function App() {
                       id="send-prompt-btn"
                       disabled={!chatInput.trim() || isBuilding}
                       onClick={startBuild}
-                      className={`p-2 rounded-full transition-colors border border-zinc-700/50 ${
+                      className={`p-2 rounded-full transition-colors border ${
                         chatInput.trim() && !isBuilding 
-                          ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-600/20' 
-                          : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                          ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-600/20 border-blue-600' 
+                          : (theme === 'dark' ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border-zinc-700/50' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed border-zinc-300')
                       }`}
                     >
                       {isBuilding ? <Loader2 className="w-4 h-4 animate-spin text-blue-400" /> : <ArrowUp className="w-4 h-4" />}
