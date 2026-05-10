@@ -1059,6 +1059,8 @@ export default function App() {
                       const safeThinkingLines = Array.isArray(bm.thinkingLines) ? bm.thinkingLines : [];
                       const safeFiles = Array.isArray(bm.files) ? bm.files : [];
                       const safeFilesVisible = typeof bm.filesVisible === 'number' ? bm.filesVisible : 0;
+                      const finishedCount = safeAgents.filter(a => a.status === 'completed' || a.status === 'skipped').length;
+                      const pct = Math.round((finishedCount / 8) * 100);
                       return (
                         <div key={bm.id} className="flex flex-col gap-2.5">
 
