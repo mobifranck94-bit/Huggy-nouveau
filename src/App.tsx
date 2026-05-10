@@ -687,9 +687,6 @@ export default function App() {
               >
                 <Home className={`w-4 h-4 transition-colors ${isHeaderMenuOpen ? 'text-blue-500' : 'text-zinc-400 group-hover:text-zinc-600'}`} />
               </div>
-              <span className={`text-[13px] font-medium ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>Home</span>
-              <span className={`text-sm ${theme === 'dark' ? 'text-zinc-600' : 'text-zinc-300'}`}>/</span>
-
               <AnimatePresence>
                 {isHeaderMenuOpen && (
                   <>
@@ -779,9 +776,6 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-1 ml-auto">
-            <button className={`p-1.5 rounded-md transition-colors text-zinc-400 ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'}`}>
-              <Clock className="w-4 h-4" />
-            </button>
             <button 
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               className={`p-1.5 rounded-md transition-colors ${isSidebarCollapsed ? 'bg-blue-600/20 text-blue-400' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-400')}`}
@@ -827,9 +821,6 @@ export default function App() {
           >
             <BarChart3 className="w-3.5 h-3.5" />
             Analytics
-          </button>
-          <button className={`p-1.5 rounded-md transition-colors text-zinc-400 ${theme === 'dark' ? 'hover:bg-zinc-800/80' : 'hover:bg-zinc-100'}`}>
-            <Cloud className="w-3.5 h-3.5" />
           </button>
         </div>
 
@@ -895,8 +886,6 @@ export default function App() {
               Share
             </button>
           )}
-          <Github className="w-4 h-4 text-zinc-400 hover:text-zinc-200 cursor-pointer transition-colors" />
-          
           {/* Theme Toggle Button */}
           <button
             onClick={toggleTheme}
