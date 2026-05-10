@@ -280,6 +280,10 @@ export default function App() {
   const [isPreviewBuilding, setIsPreviewBuilding] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
+  // Live stream of the Builder Agent output for the VibeCodingOverlay
+  const [liveStream, setLiveStream] = useState<string>('');
+  const [activeAgentName, setActiveAgentName] = useState<string>('');
+
   // Build preview server-side (esbuild) whenever generated files change
   useEffect(() => {
     if (generatedFiles.length === 0) { setPreviewUrl(null); setPreviewError(null); return; }
@@ -463,6 +467,8 @@ export default function App() {
 
     setIsBuilding(true);
     setChatInput('');
+    setLiveStream('');
+    setActiveAgentName('');
 
     // Track silencieusement (ne bloque pas)
     try { trackBuild(currentProject?.id || 'unknown', 'started', { promptLength: prompt.length, model: selectedModel }); } catch {}
@@ -515,6 +521,11 @@ export default function App() {
         if (event.type === 'reply') {
           const chunk = event.replyChunk || event.reply || '';
           if (chunk) {
+            // Accumulate Builder/Repair stream for visual overlay
+            if (event.agent === 'Builder Agent' || event.agent === 'Repair Agent') {
+              setLiveStream(prev => (prev + chunk).slice(-8000));
+              setActiveAgentName(event.agent);
+            }
             setMessages(prev => prev.map(m => {
               if (m.id !== buildId || m.type !== 'build') return m;
               const bm = m as BuildMessage;
@@ -1793,6 +1804,8 @@ export default function App() {
             <VibeCodingOverlay
               isBuilding={isBuilding}
               buildMessages={messages.filter(m => m.type === 'build') as any}
+              liveStream={liveStream}
+              activeAgentName={activeAgentName}
             />
 
             {/* Preview loading spinner */}

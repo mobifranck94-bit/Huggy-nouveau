@@ -25,6 +25,10 @@ interface BuildMessage {
 interface VibeCodingOverlayProps {
   isBuilding: boolean;
   buildMessages?: BuildMessage[];
+  /** Real LLM output streamed from Builder/Repair agents (raw markdown with ```file: blocks) */
+  liveStream?: string;
+  /** Currently active agent name for label */
+  activeAgentName?: string;
 }
 
 // ─── Fake code snippets for streaming ────────────────────────────────────────
@@ -151,13 +155,47 @@ function StatSkeleton({ delay = 0 }: { delay?: number }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export function VibeCodingOverlay({ isBuilding, buildMessages = [] }: VibeCodingOverlayProps) {
+// Extract the last file:path from the streamed markdown (most recent file being generated)
+function extractCurrentFilePath(stream: string): string {
+  const matches = Array.from(stream.matchAll(/```(?:[a-z]+\s+)?file:([^\n`]+)/gi));
+  if (matches.length === 0) return 'App.tsx';
+  const last = matches[matches.length - 1][1].trim();
+  return last.split('/').slice(-1)[0] || 'App.tsx';
+}
+
+// Strip markdown fences and keep only the code that's being generated
+function extractStreamingCode(stream: string): string {
+  if (!stream) return '';
+  // Find the LAST opening fence and take everything after it
+  const lastFenceIdx = stream.lastIndexOf('```');
+  if (lastFenceIdx === -1) return stream;
+  // Check if there's an even earlier fence opening this block
+  const before = stream.slice(0, lastFenceIdx);
+  const prevFenceIdx = before.lastIndexOf('```');
+  if (prevFenceIdx === -1) {
+    // Single fence opened but not closed yet
+    const afterFence = stream.slice(lastFenceIdx + 3);
+    const newlineIdx = afterFence.indexOf('\n');
+    return newlineIdx >= 0 ? afterFence.slice(newlineIdx + 1) : afterFence;
+  }
+  // Pair found: prev=open, last=close → code between them
+  const between = stream.slice(prevFenceIdx + 3, lastFenceIdx);
+  const newlineIdx = between.indexOf('\n');
+  return newlineIdx >= 0 ? between.slice(newlineIdx + 1) : between;
+}
+
+export function VibeCodingOverlay({ isBuilding, buildMessages = [], liveStream = '', activeAgentName = '' }: VibeCodingOverlayProps) {
   const [visibleLines, setVisibleLines] = useState<string[]>([]);
   const [lineIndex, setLineIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('Initializing...');
   const [cursorVisible, setCursorVisible] = useState(true);
   const codeRef = useRef<HTMLDivElement>(null);
+
+  // Extract real code + filename from liveStream
+  const hasLiveStream = liveStream && liveStream.length > 50;
+  const currentFileName = hasLiveStream ? extractCurrentFilePath(liveStream) : 'App.tsx';
+  const realCode = hasLiveStream ? extractStreamingCode(liveStream) : '';
 
   // Compute real progress from agents
   const latestBuild = buildMessages[buildMessages.length - 1];
@@ -194,26 +232,36 @@ export function VibeCodingOverlay({ isBuilding, buildMessages = [] }: VibeCoding
     }
   }, [activeAgent, completedAgents, totalAgents, isBuilding]);
 
-  // Fake code streaming
+  // Real code streaming when liveStream is present, fallback to fake otherwise
   useEffect(() => {
     if (!isBuilding) {
       setVisibleLines([]);
       setLineIndex(0);
       return;
     }
+    if (hasLiveStream) {
+      // Show the last 18 lines of real code
+      const lines = realCode.split('\n');
+      const tail = lines.slice(-18);
+      setVisibleLines(tail);
+      setLineIndex(lines.length);
+      return;
+    }
+    // Fallback: fake code loop before first chunk arrives
     const timer = setInterval(() => {
       setLineIndex(prev => {
         const next = prev + 1;
-        if (next >= CODE_LINES.length) return 0; // loop
+        if (next >= CODE_LINES.length) return 0;
         return next;
       });
     }, 180);
     return () => clearInterval(timer);
-  }, [isBuilding]);
+  }, [isBuilding, hasLiveStream, realCode]);
 
   useEffect(() => {
+    if (hasLiveStream) return;
     setVisibleLines(CODE_LINES.slice(Math.max(0, lineIndex - 14), lineIndex));
-  }, [lineIndex]);
+  }, [lineIndex, hasLiveStream]);
 
   // Auto-scroll code
   useEffect(() => {
@@ -329,7 +377,13 @@ export function VibeCodingOverlay({ isBuilding, buildMessages = [] }: VibeCoding
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
                 <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/70" />
                 <div className="w-2.5 h-2.5 rounded-full bg-green-500/70" />
-                <span className="ml-2 text-zinc-500 text-[10px]">App.tsx</span>
+                <span className="ml-2 text-zinc-500 text-[10px]">{currentFileName}</span>
+                {hasLiveStream && (
+                  <span className="ml-auto text-[10px] text-blue-400 flex items-center gap-1">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                    {activeAgentName || 'AI'} streaming
+                  </span>
+                )}
               </div>
 
               {/* Code lines */}
