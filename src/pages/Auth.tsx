@@ -7,6 +7,7 @@ import {
   Chrome
 } from 'lucide-react';
 import { useAuth } from '../lib/useAuth';
+import { HuggyLogo } from '../components/HuggyLogo';
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -53,13 +54,10 @@ export default function Auth() {
         
         {/* Logo */}
         <div 
-          className="flex items-center justify-center gap-3 mb-10 cursor-pointer group"
+          className="flex items-center justify-center mb-10 cursor-pointer group hover:scale-105 transition-transform"
           onClick={() => navigate('/')}
         >
-          <div className="w-12 h-12 bg-huggy-blue rounded-2xl flex items-center justify-center shadow-xl shadow-huggy-blue/20 group-hover:scale-110 transition-transform">
-             <Heart className="w-6 h-6 text-white fill-white" />
-          </div>
-          <span className="text-3xl font-display font-black tracking-tighter text-huggy-dark">Huggy</span>
+          <HuggyLogo size="xl" />
         </div>
 
         <motion.div

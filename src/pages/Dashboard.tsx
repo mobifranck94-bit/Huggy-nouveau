@@ -9,6 +9,7 @@ import { motion } from 'motion/react';
 import { useEffect } from 'react';
 
 import { useAuth } from '../lib/useAuth';
+import { HuggyLogo, HuggyMascot } from '../components/HuggyLogo';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -43,10 +44,7 @@ export default function Dashboard() {
       {/* ── Sidebar ───────────────────────────────────────────────────────── */}
       <aside className="fixed left-0 top-0 bottom-0 w-64 border-r border-zinc-100 bg-white hidden lg:flex flex-col p-6 shadow-sm">
         <div className="flex items-center gap-3 mb-10 px-2 cursor-pointer" onClick={() => navigate('/')}>
-          <div className="w-10 h-10 bg-huggy-blue rounded-xl flex items-center justify-center shadow-lg shadow-huggy-blue/20 overflow-hidden">
-             <img src="/assets/huggy-mascot.png" className="w-full h-full object-cover" />
-          </div>
-          <span className="text-xl font-display font-bold tracking-tight text-huggy-dark">Huggy</span>
+          <HuggyLogo size="md" />
         </div>
 
         <nav className="space-y-1 mb-10">
@@ -139,8 +137,8 @@ export default function Dashboard() {
               animate={{ opacity: 1, y: 0 }}
               className="flex flex-col items-center justify-center py-32 bg-white border border-zinc-100 rounded-[48px] text-center px-6 shadow-sm"
             >
-              <div className="w-24 h-24 bg-huggy-blue/5 rounded-[32px] flex items-center justify-center mb-8">
-                <img src="/assets/huggy-mascot.png" className="w-16 h-16 animate-floating" />
+              <div className="w-24 h-24 bg-blue-50 rounded-[32px] flex items-center justify-center mb-8">
+                <HuggyMascot size={64} />
               </div>
               <h3 className="text-2xl font-display font-black text-huggy-dark mb-3">No projects yet</h3>
               <p className="text-zinc-400 text-sm max-w-sm mb-10 font-medium leading-relaxed uppercase tracking-widest">Describe your idea to Huggy and watch the magic happen.</p>
