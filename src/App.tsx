@@ -793,7 +793,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className={`flex items-center gap-1 p-1 rounded-lg border ml-8 shadow-sm ${theme === 'dark' ? 'bg-zinc-900/60 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+        <div className={`flex items-center gap-1 p-1 rounded-lg border ml-16 shadow-sm ${theme === 'dark' ? 'bg-zinc-900/60 border-zinc-800' : 'bg-white border-zinc-200'}`}>
           <button 
             onClick={() => setViewMode('preview')}
             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'preview' ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400 shadow-sm border border-zinc-700' : 'bg-zinc-100 text-blue-600 shadow-sm border border-zinc-200') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/80' : 'text-zinc-500 hover:bg-zinc-100')}`}
