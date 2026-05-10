@@ -966,17 +966,29 @@ export default function App() {
               Share
             </button>
           )}
-          {/* Theme Toggle Button */}
+          {/* Theme Toggle Switch */}
           <button
             onClick={toggleTheme}
-            className={`p-1.5 rounded-lg transition-colors ${
-              theme === 'dark'
-                ? 'hover:bg-zinc-800 text-zinc-400 hover:text-yellow-400'
-                : 'hover:bg-zinc-100 text-zinc-500 hover:text-orange-500'
-            }`}
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            className={`relative flex items-center w-14 h-7 rounded-full border transition-all duration-300 shrink-0 ${
+              theme === 'dark'
+                ? 'bg-zinc-800 border-zinc-700'
+                : 'bg-blue-100 border-blue-200'
+            }`}
           >
-            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {/* Track icons */}
+            <Sun className={`absolute left-1.5 w-3.5 h-3.5 transition-opacity duration-200 ${theme === 'light' ? 'text-yellow-500 opacity-100' : 'text-zinc-600 opacity-40'}`} />
+            <Moon className={`absolute right-1.5 w-3.5 h-3.5 transition-opacity duration-200 ${theme === 'dark' ? 'text-blue-400 opacity-100' : 'text-zinc-400 opacity-40'}`} />
+            {/* Thumb */}
+            <motion.div
+              layout
+              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+              className={`absolute w-5 h-5 rounded-full shadow-md flex items-center justify-center transition-colors duration-300 ${
+                theme === 'dark'
+                  ? 'left-[26px] bg-zinc-200'
+                  : 'left-[3px] bg-white'
+              }`}
+            />
           </button>
           
           <button className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-bold rounded-lg hover:opacity-90 transition-opacity">
