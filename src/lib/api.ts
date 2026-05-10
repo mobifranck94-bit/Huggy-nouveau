@@ -20,6 +20,7 @@ export interface PipelineEvent {
     qaApproved?: boolean;
     complexity?: string;
     projectName?: string;
+    chatOnly?: boolean;
   };
 }
 

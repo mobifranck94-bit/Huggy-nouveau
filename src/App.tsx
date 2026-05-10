@@ -564,22 +564,22 @@ export default function App() {
             }));
             if (charIndex >= fullReply.length) {
               clearInterval(typeInterval);
-              // Stagger file appearances
-              finalFiles.forEach((_, fileIdx) => {
-                setTimeout(() => {
-                  setMessages(prev => prev.map(m => {
-                    if (m.id !== buildId || m.type !== 'build') return m;
-                    return { ...(m as BuildMessage), filesVisible: fileIdx + 1 };
-                  }));
-                }, fileIdx * 180);
-              });
-              // Mark streaming done after all files revealed
+              if (finalFiles.length > 0) {
+                finalFiles.forEach((_, fileIdx) => {
+                  setTimeout(() => {
+                    setMessages(prev => prev.map(m => {
+                      if (m.id !== buildId || m.type !== 'build') return m;
+                      return { ...(m as BuildMessage), filesVisible: fileIdx + 1 };
+                    }));
+                  }, fileIdx * 180);
+                });
+              }
               setTimeout(() => {
                 setMessages(prev => prev.map(m => {
                   if (m.id !== buildId || m.type !== 'build') return m;
                   return { ...(m as BuildMessage), isStreaming: false };
                 }));
-              }, finalFiles.length * 180 + 300);
+              }, finalFiles.length > 0 ? finalFiles.length * 180 + 300 : 100);
             }
           }, 16);
 

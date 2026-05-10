@@ -219,7 +219,7 @@ app.post('/api/build', buildLimiter, async (req, res) => {
       return;
     }
 
-    if (!Array.isArray(result.files) || result.files.length === 0) {
+    if (!result.meta?.chatOnly && (!Array.isArray(result.files) || result.files.length === 0)) {
       sendEvent({ type: 'error', message: 'Pipeline completed but no files were generated.' });
       return;
     }
@@ -236,6 +236,7 @@ app.post('/api/build', buildLimiter, async (req, res) => {
         qaApproved: result.meta?.review?.approved,
         complexity: result.meta?.pmPlan?.complexity,
         projectName: result.meta?.pmPlan?.projectName,
+        chatOnly: result.meta?.chatOnly,
       },
     });
 
