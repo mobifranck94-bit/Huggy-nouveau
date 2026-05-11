@@ -983,19 +983,21 @@ export default function App() {
           </div>
         </div>
 
-        <div className={`flex items-center gap-1 p-1 rounded-lg border ml-16 shadow-sm ${theme === 'dark' ? 'bg-zinc-900/60 border-zinc-800' : 'bg-white border-zinc-200'}`}>
-          <button 
+        <div className={`flex items-center gap-0.5 p-0.5 rounded-md border ml-16 ${theme === 'dark' ? 'bg-zinc-900/40 border-zinc-800/50' : 'bg-zinc-50 border-zinc-200'}`}>
+          <button
             onClick={() => setViewMode('preview')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'preview' ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400 shadow-sm border border-zinc-700' : 'bg-zinc-100 text-blue-600 shadow-sm border border-zinc-200') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/80' : 'text-zinc-500 hover:bg-zinc-100')}`}
+            aria-label="Preview mode"
+            className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold transition-colors ${viewMode === 'preview' ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400' : 'bg-white text-blue-600 shadow-sm') : 'text-zinc-500 hover:text-zinc-300'}`}
           >
-            <Globe className="w-3.5 h-3.5" />
+            <Globe className="w-3 h-3" />
             Preview
           </button>
-          <button 
+          <button
             onClick={() => setViewMode('code')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'code' ? (theme === 'dark' ? 'bg-zinc-800/80 text-blue-400 shadow-sm border border-zinc-700/30' : 'bg-zinc-100 text-blue-600 shadow-sm border border-zinc-200') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/80' : 'text-zinc-500 hover:bg-zinc-100')}`}
+            aria-label="Code mode"
+            className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold transition-colors ${viewMode === 'code' ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400' : 'bg-white text-blue-600 shadow-sm') : 'text-zinc-500 hover:text-zinc-300'}`}
           >
-            <Code2 className="w-3.5 h-3.5" />
+            <Code2 className="w-3 h-3" />
             Code
           </button>
         </div>
