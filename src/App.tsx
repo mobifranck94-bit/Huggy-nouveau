@@ -994,20 +994,6 @@ export default function App() {
             <Code2 className="w-3.5 h-3.5" />
             Code
           </button>
-          <button 
-            onClick={() => setViewMode('visual')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'visual' ? (theme === 'dark' ? 'bg-zinc-800/80 text-purple-400 shadow-sm border border-zinc-700/30' : 'bg-zinc-100 text-purple-600 shadow-sm border border-zinc-200') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/80' : 'text-zinc-500 hover:bg-zinc-100')}`}
-          >
-            <Wand2 className="w-3.5 h-3.5" />
-            Visual
-          </button>
-          <button 
-            onClick={() => setViewMode('analytics')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all text-xs font-bold ${viewMode === 'analytics' ? (theme === 'dark' ? 'bg-zinc-800/80 text-blue-400 shadow-sm border border-zinc-700/30' : 'bg-zinc-100 text-blue-600 shadow-sm border border-zinc-200') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/80' : 'text-zinc-500 hover:bg-zinc-100')}`}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            Analytics
-          </button>
         </div>
 
         {/* Preview engine toggle */}
@@ -1087,22 +1073,6 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2">
-          {generatedFiles.length > 0 && (
-            <button 
-              onClick={() => {
-                const latestBuild = buildHistory[0];
-                if (latestBuild) {
-                  const url = `${window.location.origin}/preview/${latestBuild.id}`;
-                  navigator.clipboard.writeText(url);
-                  alert('Lien de preview copié ! Partagez-le avec vos clients.');
-                }
-              }}
-              className={`p-1.5 rounded-lg transition-colors flex items-center gap-2 text-xs text-zinc-400 ${theme === 'dark' ? 'hover:bg-zinc-800 hover:text-zinc-200' : 'hover:bg-zinc-100 hover:text-zinc-600'}`}
-            >
-              <Share2 className="w-3.5 h-3.5" />
-              Share
-            </button>
-          )}
           {/* Theme Toggle Switch */}
           <button
             onClick={toggleTheme}
@@ -1128,10 +1098,6 @@ export default function App() {
             />
           </button>
           
-          <button className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-bold rounded-lg hover:opacity-90 transition-opacity">
-            <Zap className="w-3.5 h-3.5 fill-white" />
-            Upgrade
-          </button>
           <button
             onClick={() => { setDeployStep('confirm'); setDeployResultUrl(null); setDeployError(null); setIsDeployModalOpen(true); }}
             disabled={generatedFiles.length === 0}
@@ -1140,15 +1106,6 @@ export default function App() {
             <Cloud className="w-3.5 h-3.5" />
             Deploy
           </button>
-          {generatedFiles.length > 0 && (
-            <button 
-              onClick={() => setIsCustomDomainModalOpen(true)}
-              className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors flex items-center gap-2 text-xs border border-zinc-800"
-            >
-              <Globe2 className="w-3.5 h-3.5" />
-              Domain
-            </button>
-          )}
         </div>
       </header>
 
