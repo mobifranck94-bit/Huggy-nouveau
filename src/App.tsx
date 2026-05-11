@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
+﻿import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useTyping } from './hooks/useTyping';
 
 type Theme = 'dark' | 'light';
@@ -74,12 +74,22 @@ import OnboardingTour from './components/OnboardingTour';
 import FeedbackWidget from './components/FeedbackWidget';
 import { BuildFeedback } from './components/BuildFeedback';
 import { BuildHistoryDrawer } from './components/BuildHistoryDrawer';
+import {
+  AIBubble,
+  AgentTimeline,
+  ToolBlock,
+  LiveCodeStream,
+  MetricsBadges,
+  type AgentNode,
+  type PipelinePhase,
+  type AgentStepStatus,
+} from './components/streaming';
 // Sandpack is heavy (~600kB) - lazy-load only when the user toggles to it
 const SandpackPreview = lazy(() => import('./components/SandpackPreview'));
 import { useAnalytics, usePageTracking, useSessionTracking } from './lib/useAnalytics';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-// ─── Streaming Chat Types ─────────────────────────────────────────────────────
+// â”€â”€â”€ Streaming Chat Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type AgentStatus = 'idle' | 'active' | 'completed' | 'skipped';
 
 // Remove markdown code blocks (```...```) and file:path markers from text shown in chat.
@@ -140,7 +150,7 @@ interface BuildMessage {
 
 type ChatEntry = UserMessage | BuildMessage;
 
-// ─── Agent Definitions ────────────────────────────────────────────────────────
+// â”€â”€â”€ Agent Definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const AGENTS_DEF = [
   { name: 'Intent Parser',     Icon: ClipboardList, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/30' },
   { name: 'Builder Agent',     Icon: Code2,         color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/30'   },
@@ -219,12 +229,12 @@ export default function App() {
     const state = location.state as { initialPrompt?: string };
     if (state?.initialPrompt && !isBuilding) {
       setChatInput(state.initialPrompt);
-      // On donne un petit délai pour que le state se mette à jour avant de lancer le build
+      // On donne un petit dÃ©lai pour que le state se mette Ã  jour avant de lancer le build
       setTimeout(() => {
         const btn = document.getElementById('send-prompt-btn');
         if (btn) btn.click();
       }, 500);
-      // Nettoyer le state pour éviter de relancer au refresh
+      // Nettoyer le state pour Ã©viter de relancer au refresh
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location, isBuilding, navigate]);
@@ -424,8 +434,8 @@ export default function App() {
     const deployMsgId = `deploy-${Date.now()}`;
     setMessages(prev => [...prev, {
       id: deployMsgId, type: 'build', timestamp: Date.now(),
-      userPrompt: 'Déploiement',
-      agents: [], thinkingLines: ['🚀 Build en cours...', '📦 Upload vers Vercel...'],
+      userPrompt: 'DÃ©ploiement',
+      agents: [], thinkingLines: ['ðŸš€ Build en cours...', 'ðŸ“¦ Upload vers Vercel...'],
       reply: '', replyVisible: '', files: [], filesVisible: 0, isComplete: false, isStreaming: true,
     }]);
     try {
@@ -443,13 +453,13 @@ export default function App() {
         filesCount: generatedFiles.length 
       });
       
-      const msg = `✅ Application déployée !\n\n🔗 **URL:** [${url}](${url})`;
+      const msg = `âœ… Application dÃ©ployÃ©e !\n\nðŸ”— **URL:** [${url}](${url})`;
       setMessages(prev => prev.map(m => {
         if (m.id !== deployMsgId || m.type !== 'build') return m;
         return { ...(m as BuildMessage), reply: msg, replyVisible: msg, isComplete: true, isStreaming: false };
       }));
     } catch (e: any) {
-      const errMsg = `❌ Déploiement échoué : ${e?.response?.data?.error || e.message}`;
+      const errMsg = `âŒ DÃ©ploiement Ã©chouÃ© : ${e?.response?.data?.error || e.message}`;
       
       // Track deploy failure
       trackDeploy(currentProject?.id || 'unknown', 'failed', { 
@@ -466,7 +476,7 @@ export default function App() {
   };
 
 
-  // ─── Streaming Build Pipeline ───────────────────────────────────────────────
+  // â”€â”€â”€ Streaming Build Pipeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const startBuild = async () => {
     if (!chatInput.trim() || isBuilding) return;
 
@@ -474,7 +484,7 @@ export default function App() {
     const buildId = `build-${Date.now()}`;
     const userId = `user-${Date.now()}`;
 
-    // Initial agents state — all idle
+    // Initial agents state â€” all idle
     const initialAgents: AgentInfo[] = AGENTS_DEF.map(a => ({
       name: a.name, status: 'idle' as AgentStatus, description: '',
     }));
@@ -511,7 +521,7 @@ export default function App() {
       await startBuildPipeline(prompt, async (event) => {
 
 
-        // ── Agent progress ──────────────────────────────────────────────────
+        // â”€â”€ Agent progress â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (event.type === 'agent') {
           setMessages(prev => prev.map(m => {
             if (m.id !== buildId || m.type !== 'build') return m;
@@ -562,10 +572,10 @@ export default function App() {
           }
         }
 
-        // ── Pipeline complete ───────────────────────────────────────────────
+        // â”€â”€ Pipeline complete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (event.type === 'complete') {
           const finalFiles: FileEntry[] = event.files || [];
-          const fullReply = event.reply || '✅ Application générée avec succès.';
+          const fullReply = event.reply || 'âœ… Application gÃ©nÃ©rÃ©e avec succÃ¨s.';
 
           // Store files for preview
               if (finalFiles.length) {
@@ -638,7 +648,7 @@ export default function App() {
           }
         }
 
-        // ── Early meta (e.g., chatOnly flag) ──────────────────────────────
+        // â”€â”€ Early meta (e.g., chatOnly flag) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (event.type === 'meta' && event.meta) {
           const isChatOnly = !!event.meta.chatOnly;
           if (isChatOnly) {
@@ -650,19 +660,19 @@ export default function App() {
           }
         }
 
-        // ── Partial files (progressive display) ────────────────────────────
+        // â”€â”€ Partial files (progressive display) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (event.type === 'files_partial' && Array.isArray(event.files) && event.files.length > 0) {
           setGeneratedFiles(event.files as FileEntry[]);
           if (!activeFilePath) setActiveFilePath(event.files[0].path);
         }
 
-        // ── Error ───────────────────────────────────────────────────────────
+        // â”€â”€ Error â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (event.type === 'error') {
           setIsBuilding(false);
           setMessages(prev => prev.map(m => {
             if (m.id !== buildId || m.type !== 'build') return m;
             const bm = m as BuildMessage;
-            const errReply = `❌ Erreur pipeline: ${event.message}`;
+            const errReply = `âŒ Erreur pipeline: ${event.message}`;
             return { ...bm, reply: errReply, replyVisible: errReply, isComplete: true, isStreaming: false };
           }));
         }
@@ -681,7 +691,7 @@ export default function App() {
       );
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      const errReply = `❌ Connexion échouée: ${errMsg}`;
+      const errReply = `âŒ Connexion Ã©chouÃ©e: ${errMsg}`;
       setMessages(prev => prev.map(m => {
         if (m.id !== buildId || m.type !== 'build') return m;
         return { ...(m as BuildMessage), reply: errReply, replyVisible: errReply, isComplete: true, isStreaming: false };
@@ -744,7 +754,7 @@ export default function App() {
       <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-12 h-12 border-4 border-huggy-blue border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-zinc-500 font-medium">Loading Huggy…</p>
+          <p className="text-sm text-zinc-500 font-medium">Loading Huggyâ€¦</p>
         </div>
       </div>
     );
@@ -913,7 +923,7 @@ export default function App() {
                               if (e.key === 'Escape') setIsRenamingProject(false);
                             }}
                             className={`w-full text-sm px-3 py-1.5 rounded-lg border outline-none focus:ring-1 focus:ring-blue-500 ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-zinc-50 border-zinc-300 text-zinc-800'}`}
-                            placeholder="Project name…"
+                            placeholder="Project nameâ€¦"
                           />
                           <p className="text-[10px] text-zinc-500 mt-1 px-1">Press Enter to confirm</p>
                         </div>
@@ -1139,7 +1149,7 @@ export default function App() {
                   <div className="flex flex-col gap-5">
                     {messages.map((entry) => {
 
-                      // ── User message ──────────────────────────────────────
+                      // â”€â”€ User message â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                       if (entry.type === 'user') {
                         return (
                           <div key={entry.id} className="flex justify-end">
@@ -1153,7 +1163,7 @@ export default function App() {
                         );
                       }
 
-                      // ── Build message ─────────────────────────────────────
+                      // â”€â”€ Build message â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                       const bm = entry as BuildMessage;
 
                       if (bm.chatOnly || bm.meta?.chatOnly) {
@@ -1176,350 +1186,117 @@ export default function App() {
                       }
 
                       const safeAgents = Array.isArray(bm.agents) ? bm.agents : [];
-                      const safeThinkingLines = Array.isArray(bm.thinkingLines) ? bm.thinkingLines : [];
                       const safeFiles = Array.isArray(bm.files) ? bm.files : [];
                       const safeFilesVisible = typeof bm.filesVisible === 'number' ? bm.filesVisible : 0;
-                      const finishedCount = safeAgents.filter(a => a.status === 'completed' || a.status === 'skipped').length;
-                      const totalAgentCount = AGENTS_DEF.length;
-                      const pct = Math.round((finishedCount / totalAgentCount) * 100);
-                      return (
-                        <div key={bm.id} className="flex flex-col gap-2.5">
 
-                          {/* Windsurf-style Agent Pipeline */}
-                          <div className="flex items-center gap-2">
-                            {/* Progress line background */}
-                            <div className={`flex-1 h-0.5 rounded-full overflow-hidden relative ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-200'}`}>
-                              <motion.div
-                                className="absolute inset-y-0 left-0 bg-gradient-to-r from-violet-500 via-blue-500 to-cyan-400"
-                                initial={{ width: '0%' }}
-                                animate={{ width: `${pct}%` }}
-                                transition={{ duration: 0.6, ease: 'easeOut' }}
+                      // â”€â”€ Derive UI state from raw agent events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                      const activeAgent = safeAgents.find(a => a.status === 'active');
+                      const allDone = safeAgents.length > 0 && safeAgents.every(a => a.status === 'completed' || a.status === 'skipped');
+
+                      // Map agent name â†’ pipeline phase for the StatusPill
+                      let phase: PipelinePhase = 'thinking';
+                      if (bm.isComplete || allDone) phase = 'done';
+                      else if (activeAgent?.name === 'Intent Parser') phase = 'thinking';
+                      else if (activeAgent?.name === 'Builder Agent') phase = 'building';
+                      else if (activeAgent?.name === 'Preview Compiler') phase = 'compiling';
+                      else if (activeAgent?.name === 'Repair Agent') phase = 'repairing';
+
+                      // Build the AgentNode[] for the timeline
+                      const timelineAgents: AgentNode[] = AGENTS_DEF.map((def, idx) => {
+                        const a = safeAgents[idx];
+                        return {
+                          name: def.name,
+                          status: (a?.status || 'idle') as AgentStepStatus,
+                          description: a?.description,
+                        };
+                      });
+
+                      // Tool blocks (one per generated file) nested under Builder Agent
+                      const visibleFiles = safeFiles.slice(0, Math.max(safeFilesVisible, safeFiles.length));
+                      const builderAgentIdx = AGENTS_DEF.findIndex(a => a.name === 'Builder Agent');
+                      const builderAgentState = safeAgents[builderAgentIdx];
+                      const isBuilderActive = builderAgentState?.status === 'active';
+                      const toolBlocksNode = visibleFiles.length > 0 ? (
+                        <>
+                          {visibleFiles.map((file, fi) => {
+                            const lineCount = (file.content?.match(/\n/g)?.length || 0) + 1;
+                            const isLastWhileStreaming = isBuilderActive && fi === visibleFiles.length - 1 && bm.isStreaming;
+                            return (
+                              <ToolBlock
+                                key={`${bm.id}-${file.path}-${fi}`}
+                                kind="write"
+                                label={file.path}
+                                detail={`${lineCount} ${lineCount > 1 ? 'lines' : 'line'}`}
+                                status={isLastWhileStreaming ? 'active' : 'completed'}
                               />
-                            </div>
-                            
-                            {/* Agent dots */}
-                            <div className="flex items-center gap-1.5">
-                              {AGENTS_DEF.map((def, idx) => {
-                                const agent = safeAgents[idx];
-                                const status = agent?.status || 'idle';
-                                const isActive = status === 'active';
-                                const isDone = status === 'completed';
-                                const isSkipped = status === 'skipped';
-                                
-                                return (
-                                  <div key={def.name} className="relative">
-                                    <motion.div
-                                      initial={{ opacity: 0, scale: 0 }}
-                                      animate={{ 
-                                        opacity: 1, 
-                                        scale: isActive ? 1.2 : 1,
-                                      }}
-                                      transition={{ delay: idx * 0.08, type: 'spring', stiffness: 300 }}
-                                      className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                                        isDone
-                                          ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'
-                                          : isActive
-                                          ? 'bg-blue-500 shadow-[0_0_12px_rgba(20,136,252,0.6)]'
-                                          : isSkipped
-                                          ? 'bg-zinc-700'
-                                          : 'bg-zinc-600'
-                                      }`}
-                                    >
-                                      {/* Pulse effect for active agent */}
-                                      {isActive && (
-                                        <motion.div
-                                          className="absolute inset-0 rounded-full bg-blue-500"
-                                          animate={{ scale: [1, 1.8, 1], opacity: [0.6, 0, 0.6] }}
-                                          transition={{ duration: 1.5, repeat: Infinity }}
-                                        />
-                                      )}
-                                    </motion.div>
-                                    
-                                    {/* Tooltip on hover */}
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
-                                      <span className="text-[8px] bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded whitespace-nowrap">
-                                        {def.name}
-                                      </span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            
-                            {/* 3-dot pulse animation when streaming */}
-                            {bm.isStreaming && !bm.isComplete && (
-                              <div className="flex items-center gap-0.5 ml-2">
-                                <motion.div
-                                  className="w-1 h-1 rounded-full bg-blue-400"
-                                  animate={{ opacity: [0.3, 1, 0.3] }}
-                                  transition={{ duration: 1.2, repeat: Infinity, delay: 0 }}
-                                />
-                                <motion.div
-                                  className="w-1 h-1 rounded-full bg-blue-400"
-                                  animate={{ opacity: [0.3, 1, 0.3] }}
-                                  transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }}
-                                />
-                                <motion.div
-                                  className="w-1 h-1 rounded-full bg-blue-400"
-                                  animate={{ opacity: [0.3, 1, 0.3] }}
-                                  transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }}
-                                />
-                              </div>
-                            )}
-                          </div>
+                            );
+                          })}
+                          {isBuilderActive && visibleFiles.length === 0 && (
+                            <ToolBlock kind="write" label="Preparing files..." status="active" />
+                          )}
+                        </>
+                      ) : isBuilderActive ? (
+                        <ToolBlock kind="write" label="Generating React app..." status="active" />
+                      ) : null;
 
-                          {/* Windsurf-style Thinking Block - Terminal */}
-                          {safeThinkingLines.length > 0 && (
-                            <motion.div
-                              initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
-                              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                              transition={{ duration: 0.4, ease: 'easeOut' }}
-                              className="bg-[#0d0d0d] border border-[#1a1a1a] rounded-lg overflow-hidden"
-                            >
-                              {/* Header */}
-                              <div className="flex items-center justify-between px-3 py-2 bg-[#111111] border-b border-[#1a1a1a]">
-                                <div className="flex items-center gap-2">
-                                  <div className="flex items-center gap-1">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
-                                    <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
-                                    <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
-                                  </div>
-                                  <span className="text-[10px] text-zinc-500 font-medium ml-2">thinking</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  {bm.isStreaming && !bm.isComplete && (
-                                    <>
-                                      <motion.div
-                                        className="w-1 h-1 rounded-full bg-green-400"
-                                        animate={{ opacity: [0.4, 1, 0.4] }}
-                                        transition={{ duration: 1.4, repeat: Infinity, delay: 0 }}
-                                      />
-                                      <motion.div
-                                        className="w-1 h-1 rounded-full bg-green-400"
-                                        animate={{ opacity: [0.4, 1, 0.4] }}
-                                        transition={{ duration: 1.4, repeat: Infinity, delay: 0.15 }}
-                                      />
-                                      <motion.div
-                                        className="w-1 h-1 rounded-full bg-green-400"
-                                        animate={{ opacity: [0.4, 1, 0.4] }}
-                                        transition={{ duration: 1.4, repeat: Infinity, delay: 0.3 }}
-                                      />
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                              
-                              {/* Terminal content */}
-                              <div className="p-3 windsurf-scrollbar max-h-32 overflow-y-auto">
-                                <div className="space-y-1">
-                                  {safeThinkingLines.map((line, i) => (
-                                    <motion.div
-                                      key={i}
-                                      initial={{ opacity: 0, x: -8 }}
-                                      animate={{ opacity: 1, x: 0 }}
-                                      transition={{ delay: i * 0.05, duration: 0.3 }}
-                                      className="flex items-start gap-2"
-                                    >
-                                      <span className="text-[9px] text-zinc-600 font-mono shrink-0">
-                                        {(i + 1).toString().padStart(2, '0')}
-                                      </span>
-                                      <span className={`text-[10px] font-mono leading-relaxed ${
-                                        line.includes('✓') || line.includes('✅') 
-                                          ? 'text-green-400' 
-                                          : line.includes('⚠️') || line.includes('⚠')
-                                          ? 'text-amber-400'
-                                          : line.includes('✗') || line.includes('❌')
-                                          ? 'text-red-400'
-                                          : 'text-zinc-400'
-                                      }`}>
-                                        {line}
-                                      </span>
-                                    </motion.div>
-                                  ))}
-                                  {/* Cursor at end when streaming */}
-                                  {bm.isStreaming && !bm.isComplete && (
-                                    <motion.div
-                                      initial={{ opacity: 0 }}
-                                      animate={{ opacity: 1 }}
-                                      className="flex items-center gap-2"
-                                    >
-                                      <span className="text-[9px] text-zinc-600 font-mono shrink-0">
-                                        {(safeThinkingLines.length + 1).toString().padStart(2, '0')}
-                                      </span>
-                                      <span className="windsurf-cursor animate-windsurf-cursor" />
-                                    </motion.div>
-                                  )}
-                                </div>
-                              </div>
-                            </motion.div>
+                      const childrenByAgent: Record<string, React.ReactNode> = {};
+                      if (toolBlocksNode) childrenByAgent['Builder Agent'] = toolBlocksNode;
+
+                      // Detect a "currently writing" path from the live stream global state
+                      const isThisBuildStreaming = bm.isStreaming && !bm.isComplete && phase === 'building';
+                      const livePathMatch = isThisBuildStreaming ? liveStream.match(/```(?:[a-z]+\s+)?file:([^\n`]+)/i) : null;
+                      const showLiveCode = isThisBuildStreaming && liveStream.trim().length > 0;
+                      const livePath = livePathMatch?.[1]?.trim() || (visibleFiles[visibleFiles.length - 1]?.path) || 'generating...';
+                      // Strip file: markers from liveStream for cleaner inline display
+                      const liveCodeContent = liveStream
+                        .replace(/```(?:[a-z]+\s+)?file:[^\n]+\n?/gi, '')
+                        .replace(/```/g, '')
+                        .slice(-1200); // last ~1200 chars to keep the panel snappy
+
+                      const replyText = stripCodeBlocks(bm.replyVisible || '');
+                      const showReply = replyText.length > 0;
+
+                      return (
+                        <AIBubble
+                          key={bm.id}
+                          phase={phase}
+                          timestamp={bm.timestamp}
+                        >
+                          {/* Agent timeline with nested tool blocks */}
+                          <AgentTimeline agents={timelineAgents} childrenByAgent={childrenByAgent} />
+
+                          {/* Live code stream (inline mini-editor) */}
+                          {showLiveCode && (
+                            <LiveCodeStream
+                              path={livePath}
+                              content={liveCodeContent}
+                              isStreaming={isThisBuildStreaming}
+                              maxHeight={180}
+                            />
                           )}
 
-                          {/* Windsurf-style Streaming Reply - Word by word */}
-                          {(bm.replyVisible || bm.isStreaming) && (
-                            <motion.div
-                              initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
-                              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                              transition={{ duration: 0.4, ease: 'easeOut' }}
-                              className="flex gap-3 items-start"
-                            >
-                              {/* Avatar */}
-                              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shrink-0 mt-0.5 shadow-[0_0_12px_rgba(20,136,252,0.3)]">
-                                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                </svg>
-                              </div>
-                              
-                              <div className="flex-1 min-w-0">
-                                {/* Header */}
-                                <div className="flex items-center gap-2 mb-1.5">
-                                  <span className="text-[11px] font-semibold text-zinc-300">Huggy AI</span>
-                                  <span className="text-[9px] text-zinc-500">
-                                    {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                </div>
-                                
-                                {/* Content with Windsurf typing */}
-                                <div className="text-xs text-zinc-200 leading-relaxed space-y-2">
-                                  <p className="whitespace-pre-wrap">
-                                    {stripCodeBlocks(bm.replyVisible || '')}
-                                    {bm.isStreaming && (bm.replyVisible || '').length < (bm.reply || '').length && (
-                                      <span className="windsurf-cursor animate-windsurf-cursor inline-block ml-0.5" />
-                                    )}
-                                  </p>
-                                </div>
-                              </div>
-                            </motion.div>
+                          {/* Reply text (typewriter) */}
+                          {showReply && (
+                            <p className="text-xs leading-relaxed text-zinc-200 whitespace-pre-wrap">
+                              {replyText}
+                              {bm.isStreaming && replyText.length < (bm.reply || '').length && (
+                                <span className="windsurf-cursor animate-windsurf-cursor inline-block ml-0.5" />
+                              )}
+                            </p>
                           )}
 
-                          {/* Windsurf-style Files Section - Stagger cascade */}
-                          {safeFilesVisible > 0 && (
-                            <motion.div
-                              initial={{ opacity: 0, y: 8 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.4 }}
-                              className="ml-10"
-                            >
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Generated files</span>
-                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                  {safeFilesVisible}
-                                </span>
-                              </div>
-                              
-                              <div className="flex flex-col gap-1.5">
-                                {safeFiles.slice(0, safeFilesVisible).map((file, fi) => {
-                                  const ext = file.path.split('.').pop() || '';
-                                  const iconColor =
-                                    ext === 'tsx' || ext === 'ts' ? 'text-blue-400' :
-                                    ext === 'css' || ext === 'scss' ? 'text-violet-400' :
-                                    ext === 'json' ? 'text-amber-400' :
-                                    ext === 'html' ? 'text-orange-400' :
-                                    ext === 'js' ? 'text-yellow-400' :
-                                    'text-zinc-400';
-                                  const bgColor =
-                                    ext === 'tsx' || ext === 'ts' ? 'bg-blue-500/5' :
-                                    ext === 'css' || ext === 'scss' ? 'bg-violet-500/5' :
-                                    ext === 'json' ? 'bg-amber-500/5' :
-                                    'bg-zinc-500/5';
-                                  const FileIconComp =
-                                    ext === 'tsx' || ext === 'ts' ? FileCode :
-                                    ext === 'css' || ext === 'scss' ? Hash :
-                                    ext === 'json' ? FileJson : FileText;
-                                  
-                                  return (
-                                    <motion.div
-                                      key={fi}
-                                      initial={{ opacity: 0, x: -12, filter: 'blur(4px)' }}
-                                      animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-                                      transition={{ 
-                                        delay: fi * 0.08, 
-                                        duration: 0.3,
-                                        ease: 'easeOut'
-                                      }}
-                                      className={`flex items-center gap-2.5 px-3 py-2 ${bgColor} border border-zinc-800/40 rounded-md hover:border-zinc-700/60 transition-colors group`}
-                                    >
-                                      <FileIconComp className={`w-4 h-4 shrink-0 ${iconColor} group-hover:scale-110 transition-transform`} />
-                                      <span className="text-[11px] font-mono text-zinc-300 truncate flex-1">{file.path}</span>
-                                      <motion.span 
-                                        initial={{ opacity: 0, scale: 0 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        transition={{ delay: fi * 0.08 + 0.15 }}
-                                        className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/10 border border-green-500/20 text-green-400 shrink-0"
-                                      >
-                                        created
-                                      </motion.span>
-                                    </motion.div>
-                                  );
-                                })}
-                              </div>
-                            </motion.div>
-                          )}
-
-                          {/* Windsurf-style Score badges after complete */}
+                          {/* Metrics footer (after complete) */}
                           {bm.isComplete && !bm.isStreaming && bm.meta && (
-                            <motion.div
-                              initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
-                              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                              transition={{ duration: 0.4, delay: 0.2 }}
-                              className="ml-10"
-                            >
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Build metrics</span>
-                                <motion.div
-                                  initial={{ scale: 0 }}
-                                  animate={{ scale: 1 }}
-                                  transition={{ type: 'spring', stiffness: 500, damping: 15 }}
-                                  className="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center"
-                                >
-                                  <CheckCircle2 className="w-3 h-3 text-green-400" />
-                                </motion.div>
-                              </div>
-                              
-                              <div className="flex items-center gap-2 flex-wrap">
-                                {bm.meta.securityScore !== undefined && (
-                                  <motion.span 
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: 0.3 }}
-                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#1a1a1a] border border-[#2a2a2a] hover:border-red-500/30 transition-colors"
-                                  >
-                                    <Shield className="w-3 h-3 text-red-400" />
-                                    <span className="text-[10px] text-zinc-300 font-medium">Security</span>
-                                    <span className="text-[10px] text-red-400 font-bold">{bm.meta.securityScore}%</span>
-                                  </motion.span>
-                                )}
-                                {bm.meta.qaScore !== undefined && (
-                                  <motion.span 
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: 0.35 }}
-                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#1a1a1a] border border-[#2a2a2a] hover:border-green-500/30 transition-colors"
-                                  >
-                                    <CheckCircle2 className="w-3 h-3 text-green-400" />
-                                    <span className="text-[10px] text-zinc-300 font-medium">QA</span>
-                                    <span className="text-[10px] text-green-400 font-bold">{bm.meta.qaScore}%</span>
-                                  </motion.span>
-                                )}
-                                {bm.meta.complexity && (
-                                  <motion.span 
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: 0.4 }}
-                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#1a1a1a] border border-[#2a2a2a] hover:border-blue-500/30 transition-colors"
-                                  >
-                                    <Zap className="w-3 h-3 text-blue-400" />
-                                    <span className="text-[10px] text-zinc-300 font-medium">Complexity</span>
-                                    <span className="text-[10px] text-blue-400 font-bold">{bm.meta.complexity}</span>
-                                  </motion.span>
-                                )}
-                                <span className="text-[9px] text-zinc-600 ml-auto">
-                                  {new Date(bm.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              </div>
-                            </motion.div>
+                            <MetricsBadges
+                              securityScore={bm.meta.securityScore}
+                              qaScore={bm.meta.qaScore}
+                              complexity={bm.meta.complexity}
+                              filesCount={safeFiles.length}
+                              timestamp={bm.timestamp}
+                            />
                           )}
 
-                          {/* Inline thumbs up/down feedback */}
+                          {/* Inline ðŸ‘ / ðŸ‘Ž feedback */}
                           {bm.isComplete && !bm.isStreaming && !bm.chatOnly && safeFiles.length > 0 && (
                             <BuildFeedback
                               userId={user?.id}
@@ -1528,21 +1305,7 @@ export default function App() {
                               prompt={bm.userPrompt}
                             />
                           )}
-
-                          {/* Loading pulse when pipeline just started */}
-                          {!bm.isComplete && safeThinkingLines.length === 0 && (
-                            <div className="flex items-center gap-2 ml-2">
-                              {[0,1,2].map(i => (
-                                <motion.div
-                                  key={i}
-                                  className="w-1.5 h-1.5 rounded-full bg-zinc-600"
-                                  animate={{ opacity: [0.3, 1, 0.3] }}
-                                  transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                        </AIBubble>
                       );
                     })}
 
@@ -1571,7 +1334,7 @@ export default function App() {
                       startBuild();
                     }
                   }}
-                  placeholder="Décris ton application..."
+                  placeholder="DÃ©cris ton application..."
                   rows={1}
                   className={`w-full bg-transparent border-none text-sm font-medium resize-none focus:outline-none placeholder:text-zinc-400 mb-2 max-h-[160px] scrollbar-hide overflow-y-auto ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`}
                 />
@@ -1583,7 +1346,7 @@ export default function App() {
                       <div key={i} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-medium border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-300' : 'bg-zinc-100 border-zinc-200 text-zinc-600'}`}>
                         <Paperclip className="w-3 h-3" />
                         <span className="max-w-[120px] truncate">{f.name}</span>
-                        <button onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))} className="text-zinc-500 hover:text-red-400 ml-0.5">×</button>
+                        <button onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))} className="text-zinc-500 hover:text-red-400 ml-0.5">Ã—</button>
                       </div>
                     ))}
                   </div>
@@ -1806,7 +1569,7 @@ export default function App() {
                  style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
             />
 
-            {/* ── Vibe Coding Animation (during build) ── */}
+            {/* â”€â”€ Vibe Coding Animation (during build) â”€â”€ */}
             <VibeCodingOverlay
               isBuilding={isBuilding}
               buildMessages={messages.filter(m => m.type === 'build') as any}
@@ -1819,7 +1582,7 @@ export default function App() {
               <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0a0a0b]">
                 <div className="flex flex-col items-center gap-3">
                   <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
-                  <span className="text-xs text-zinc-500">Compilation en cours…</span>
+                  <span className="text-xs text-zinc-500">Compilation en coursâ€¦</span>
                 </div>
               </div>
             )}
@@ -2166,7 +1929,7 @@ export default function App() {
         </motion.div>
       </main>
       
-      {/* ── Deploy Modal ── */}
+      {/* â”€â”€ Deploy Modal â”€â”€ */}
       <AnimatePresence>
         {isDeployModalOpen && (
           <motion.div
@@ -2196,7 +1959,7 @@ export default function App() {
                   <div>
                     <h3 className={`text-sm font-bold ${theme === 'dark' ? 'text-zinc-100' : 'text-zinc-800'}`}>
                       {deployStep === 'confirm' && 'Deploy your app'}
-                      {deployStep === 'deploying' && 'Deploying…'}
+                      {deployStep === 'deploying' && 'Deployingâ€¦'}
                       {deployStep === 'success' && 'Deployed successfully!'}
                       {deployStep === 'error' && 'Deployment failed'}
                     </h3>
@@ -2267,7 +2030,7 @@ export default function App() {
                       <Cloud className="absolute inset-0 m-auto w-6 h-6 text-blue-400" />
                     </div>
                     <div className="text-center space-y-1">
-                      <p className={`text-sm font-medium ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700'}`}>Building & uploading…</p>
+                      <p className={`text-sm font-medium ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700'}`}>Building & uploadingâ€¦</p>
                       <p className="text-xs text-zinc-500">This may take a few seconds</p>
                     </div>
                     {[
