@@ -21,6 +21,24 @@ export interface PipelineEvent {
     complexity?: string;
     projectName?: string;
     chatOnly?: boolean;
+    capabilityPlan?: {
+      needsBackend?: boolean;
+      backendReason?: string;
+      needsDatabase?: boolean;
+      databaseTables?: string[];
+      needsAuth?: boolean;
+      needsStorage?: boolean;
+      needsPayments?: boolean;
+      needsEmail?: boolean;
+      needsExternalApi?: boolean;
+      externalApis?: Array<{ name?: string; requiresKey?: boolean; envVar?: string; reason?: string; secretPlacement?: 'server' | 'client' }>;
+      envVars?: string[];
+      needsWebSearch?: boolean;
+      webSearchQueries?: string[];
+      webResearchUsed?: boolean;
+      supabaseArtifacts?: string[];
+      setupChecklist?: string[];
+    };
   };
   // Tool events emitted by the Builder Agent as it writes files in stream
   kind?: 'start' | 'progress' | 'complete';

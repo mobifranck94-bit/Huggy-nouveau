@@ -80,9 +80,11 @@ import {
   ToolBlock,
   LiveCodeStream,
   MetricsBadges,
+  CapabilityBlock,
   type AgentNode,
   type PipelinePhase,
   type AgentStepStatus,
+  type CapabilityPlan,
 } from './components/streaming';
 // Sandpack is heavy (~600kB) - lazy-load only when the user toggles to it
 const SandpackPreview = lazy(() => import('./components/SandpackPreview'));
@@ -154,6 +156,7 @@ interface BuildMessage {
     qaScore?: number;
     complexity?: string;
     chatOnly?: boolean;
+    capabilityPlan?: CapabilityPlan;
   };
 }
 
@@ -657,14 +660,18 @@ export default function App() {
           }
         }
 
-        // ── Early meta (e.g., chatOnly flag) ──────────────────────────────
+        // ── Early meta (e.g., chatOnly flag, capabilityPlan) ─────────────
         if (event.type === 'meta' && event.meta) {
           const isChatOnly = !!event.meta.chatOnly;
-          if (isChatOnly) {
+          const capPlan = event.meta.capabilityPlan;
+          if (isChatOnly || capPlan) {
             setMessages(prev => prev.map(m => {
               if (m.id !== buildId || m.type !== 'build') return m;
               const bm = m as BuildMessage;
-              return { ...bm, chatOnly: true, meta: { ...(bm.meta || {}), chatOnly: true } };
+              const nextMeta = { ...(bm.meta || {}) };
+              if (isChatOnly) nextMeta.chatOnly = true;
+              if (capPlan) nextMeta.capabilityPlan = capPlan as CapabilityPlan;
+              return { ...bm, chatOnly: isChatOnly || bm.chatOnly, meta: nextMeta };
             }));
           }
         }
@@ -1313,6 +1320,9 @@ export default function App() {
                         >
                           {/* Agent timeline with nested tool blocks */}
                           <AgentTimeline agents={timelineAgents} childrenByAgent={childrenByAgent} />
+
+                          {/* Capability decisions (backend, API, env) */}
+                          <CapabilityBlock plan={bm.meta?.capabilityPlan} />
 
                           {/* Live code stream (inline mini-editor) */}
                           {showLiveCode && (
