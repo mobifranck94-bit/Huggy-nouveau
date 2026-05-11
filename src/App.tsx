@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useTyping } from './hooks/useTyping';
 
 type Theme = 'dark' | 'light';
@@ -74,6 +74,8 @@ import OnboardingTour from './components/OnboardingTour';
 import FeedbackWidget from './components/FeedbackWidget';
 import { BuildFeedback } from './components/BuildFeedback';
 import { BuildHistoryDrawer } from './components/BuildHistoryDrawer';
+// Sandpack is heavy (~600kB) - lazy-load only when the user toggles to it
+const SandpackPreview = lazy(() => import('./components/SandpackPreview'));
 import { useAnalytics, usePageTracking, useSessionTracking } from './lib/useAnalytics';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -304,6 +306,9 @@ export default function App() {
 
   // Build history drawer
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  // Preview engine: 'iframe' (esbuild server-side, default) or 'sandpack' (in-browser hot reload)
+  const [previewEngine, setPreviewEngine] = useState<'iframe' | 'sandpack'>('iframe');
 
   // Build preview server-side (esbuild) whenever generated files change
   useEffect(() => {
@@ -1004,6 +1009,37 @@ export default function App() {
             Analytics
           </button>
         </div>
+
+        {/* Preview engine toggle */}
+        {viewMode === 'preview' && (
+          <div
+            className={`flex items-center gap-0.5 ml-2 p-0.5 rounded-md border ${theme === 'dark' ? 'bg-zinc-900/40 border-zinc-800/50' : 'bg-zinc-50 border-zinc-200'}`}
+            title="Moteur de preview"
+          >
+            <button
+              onClick={() => setPreviewEngine('iframe')}
+              aria-label="Preview iframe (esbuild)"
+              className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${
+                previewEngine === 'iframe'
+                  ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400' : 'bg-white text-blue-600 shadow-sm')
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              Iframe
+            </button>
+            <button
+              onClick={() => setPreviewEngine('sandpack')}
+              aria-label="Preview Sandpack (hot reload)"
+              className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${
+                previewEngine === 'sandpack'
+                  ? (theme === 'dark' ? 'bg-zinc-800 text-violet-400' : 'bg-white text-violet-600 shadow-sm')
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              Sandpack
+            </button>
+          </div>
+        )}
 
         <div className={`flex items-center gap-1 p-1 rounded-lg border ml-2 mr-auto relative ${theme === 'dark' ? 'bg-zinc-900/40 border-zinc-800/50' : 'bg-zinc-50 border-zinc-200'}`}>
           <button 
@@ -1887,15 +1923,25 @@ export default function App() {
             )}
 
             {/* Generated App Live Preview / Code Editor / Analytics */}
-            {previewUrl && !isBuilding && !isEditMode && (
+            {(previewUrl || (previewEngine === 'sandpack' && generatedFiles.length > 0)) && !isBuilding && !isEditMode && (
               <div className="absolute inset-0 z-10 bg-[#0a0a0b]">
                 {viewMode === 'preview' ? (
-                  <iframe
-                    title="Live Preview"
-                    src={previewUrl}
-                    className="w-full h-full border-0"
-                    sandbox="allow-scripts allow-same-origin allow-forms"
-                  />
+                  previewEngine === 'sandpack' ? (
+                    <Suspense fallback={
+                      <div className="w-full h-full flex items-center justify-center bg-[#0a0a0b] text-zinc-400 text-sm">
+                        Chargement de Sandpack...
+                      </div>
+                    }>
+                      <SandpackPreview files={generatedFiles} fullHeight />
+                    </Suspense>
+                  ) : (
+                    <iframe
+                      title="Live Preview"
+                      src={previewUrl || 'about:blank'}
+                      className="w-full h-full border-0"
+                      sandbox="allow-scripts allow-same-origin allow-forms"
+                    />
+                  )
                 ) : viewMode === 'visual' ? (
                   (() => {
                     const targetFile = generatedFiles.find(f => 
