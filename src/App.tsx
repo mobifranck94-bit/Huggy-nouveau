@@ -1179,43 +1179,6 @@ export default function App() {
                       return (
                         <div key={bm.id} className="flex flex-col gap-2.5">
 
-                          {/* Pipeline progress header — global bar + ETA */}
-                          {(() => {
-                            const finished = safeAgents.filter(a => a.status === 'completed' || a.status === 'skipped').length;
-                            const activeIdx = safeAgents.findIndex(a => a.status === 'active');
-                            const activeAgent = activeIdx >= 0 ? AGENTS_DEF[activeIdx] : null;
-                            const pct = Math.round((finished / totalAgentCount) * 100);
-                            return (
-                              <div className={`rounded-xl p-2.5 mb-1 border ${theme === 'dark' ? 'bg-zinc-900/40 border-zinc-800/50' : 'bg-zinc-100/80 border-zinc-200'}`}>
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <div className="flex items-center gap-1.5">
-                                    {bm.isComplete ? (
-                                      <CheckCircle2 className="w-3 h-3 text-green-400" />
-                                    ) : (
-                                      <motion.div
-                                        className="w-2 h-2 rounded-full bg-violet-400"
-                                        animate={{ opacity: [1, 0.3, 1] }}
-                                        transition={{ duration: 0.9, repeat: Infinity }}
-                                      />
-                                    )}
-                                    <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">
-                                      {bm.isComplete ? 'Pipeline complete' : (activeAgent ? activeAgent.name : 'Starting...')}
-                                    </span>
-                                  </div>
-                                  <span className="text-[9px] font-mono text-zinc-500">{finished}/{safeAgents.length || totalAgentCount} · {pct}%</span>
-                                </div>
-                                <div className={`h-1 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-200'}`}>
-                                  <motion.div
-                                    className="h-full bg-gradient-to-r from-violet-500 via-blue-500 to-cyan-400"
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${pct}%` }}
-                                    transition={{ duration: 0.4, ease: 'easeOut' }}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })()}
-
                           {/* Windsurf-style Agent Pipeline */}
                           <div className="flex items-center gap-2">
                             {/* Progress line background */}
