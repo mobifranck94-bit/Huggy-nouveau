@@ -576,20 +576,24 @@ export default function App() {
           // Set reply + files (hidden), mark complete
           setMessages(prev => prev.map(m => {
             if (m.id !== buildId || m.type !== 'build') return m;
+            const bm = m as BuildMessage;
+            // Preserve chatOnly if previously set by an early meta event,
+            // OR auto-detect when the build returned no files (pure conversation/clarification).
+            const isChatOnly = event.meta?.chatOnly ?? bm.chatOnly ?? (finalFiles.length === 0);
             return {
-              ...(m as BuildMessage),
+              ...bm,
               reply: fullReply,
               replyVisible: '',
               files: finalFiles,
               filesVisible: 0,
               isComplete: true,
               isStreaming: true,
-              chatOnly: !!event.meta?.chatOnly,
+              chatOnly: isChatOnly,
               meta: {
                 securityScore: event.meta?.securityScore,
                 qaScore: event.meta?.qaScore,
                 complexity: event.meta?.complexity,
-                chatOnly: event.meta?.chatOnly,
+                chatOnly: isChatOnly,
               },
             };
           }));
