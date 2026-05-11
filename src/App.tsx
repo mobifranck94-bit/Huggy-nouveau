@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useTyping } from './hooks/useTyping';
 
 type Theme = 'dark' | 'light';
@@ -89,7 +89,7 @@ const SandpackPreview = lazy(() => import('./components/SandpackPreview'));
 import { useAnalytics, usePageTracking, useSessionTracking } from './lib/useAnalytics';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-// â”€â”€â”€ Streaming Chat Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Streaming Chat Types ─────────────────────────────────────────────────────
 type AgentStatus = 'idle' | 'active' | 'completed' | 'skipped';
 
 // Remove markdown code blocks (```...```) and file:path markers from text shown in chat.
@@ -159,7 +159,7 @@ interface BuildMessage {
 
 type ChatEntry = UserMessage | BuildMessage;
 
-// â”€â”€â”€ Agent Definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Agent Definitions ────────────────────────────────────────────────────────
 const AGENTS_DEF = [
   { name: 'Intent Parser',     Icon: ClipboardList, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/30' },
   { name: 'Builder Agent',     Icon: Code2,         color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/30'   },
@@ -238,12 +238,12 @@ export default function App() {
     const state = location.state as { initialPrompt?: string };
     if (state?.initialPrompt && !isBuilding) {
       setChatInput(state.initialPrompt);
-      // On donne un petit dÃ©lai pour que le state se mette Ã  jour avant de lancer le build
+      // On donne un petit délai pour que le state se mette à jour avant de lancer le build
       setTimeout(() => {
         const btn = document.getElementById('send-prompt-btn');
         if (btn) btn.click();
       }, 500);
-      // Nettoyer le state pour Ã©viter de relancer au refresh
+      // Nettoyer le state pour éviter de relancer au refresh
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location, isBuilding, navigate]);
@@ -443,8 +443,8 @@ export default function App() {
     const deployMsgId = `deploy-${Date.now()}`;
     setMessages(prev => [...prev, {
       id: deployMsgId, type: 'build', timestamp: Date.now(),
-      userPrompt: 'DÃ©ploiement',
-      agents: [], thinkingLines: ['ðŸš€ Build en cours...', 'ðŸ“¦ Upload vers Vercel...'],
+      userPrompt: 'Déploiement',
+      agents: [], thinkingLines: ['🚀 Build en cours...', '📦 Upload vers Vercel...'],
       reply: '', replyVisible: '', files: [], filesVisible: 0, isComplete: false, isStreaming: true,
     }]);
     try {
@@ -462,13 +462,13 @@ export default function App() {
         filesCount: generatedFiles.length 
       });
       
-      const msg = `âœ… Application dÃ©ployÃ©e !\n\nðŸ”— **URL:** [${url}](${url})`;
+      const msg = `✅ Application déployée !\n\n🔗 **URL:** [${url}](${url})`;
       setMessages(prev => prev.map(m => {
         if (m.id !== deployMsgId || m.type !== 'build') return m;
         return { ...(m as BuildMessage), reply: msg, replyVisible: msg, isComplete: true, isStreaming: false };
       }));
     } catch (e: any) {
-      const errMsg = `âŒ DÃ©ploiement Ã©chouÃ© : ${e?.response?.data?.error || e.message}`;
+      const errMsg = `❌ Déploiement échoué : ${e?.response?.data?.error || e.message}`;
       
       // Track deploy failure
       trackDeploy(currentProject?.id || 'unknown', 'failed', { 
@@ -485,7 +485,7 @@ export default function App() {
   };
 
 
-  // â”€â”€â”€ Streaming Build Pipeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Streaming Build Pipeline ───────────────────────────────────────────────
   const startBuild = async () => {
     if (!chatInput.trim() || isBuilding) return;
 
@@ -493,7 +493,7 @@ export default function App() {
     const buildId = `build-${Date.now()}`;
     const userId = `user-${Date.now()}`;
 
-    // Initial agents state â€” all idle
+    // Initial agents state — all idle
     const initialAgents: AgentInfo[] = AGENTS_DEF.map(a => ({
       name: a.name, status: 'idle' as AgentStatus, description: '',
     }));
@@ -530,7 +530,7 @@ export default function App() {
       await startBuildPipeline(prompt, async (event) => {
 
 
-        // â”€â”€ Agent progress â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Agent progress ──────────────────────────────────────────────────
         if (event.type === 'agent') {
           setMessages(prev => prev.map(m => {
             if (m.id !== buildId || m.type !== 'build') return m;
@@ -581,10 +581,10 @@ export default function App() {
           }
         }
 
-        // â”€â”€ Pipeline complete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Pipeline complete ───────────────────────────────────────────────
         if (event.type === 'complete') {
           const finalFiles: FileEntry[] = event.files || [];
-          const fullReply = event.reply || 'âœ… Application gÃ©nÃ©rÃ©e avec succÃ¨s.';
+          const fullReply = event.reply || '✅ Application générée avec succès.';
 
           // Store files for preview
               if (finalFiles.length) {
@@ -657,7 +657,7 @@ export default function App() {
           }
         }
 
-        // â”€â”€ Early meta (e.g., chatOnly flag) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Early meta (e.g., chatOnly flag) ──────────────────────────────
         if (event.type === 'meta' && event.meta) {
           const isChatOnly = !!event.meta.chatOnly;
           if (isChatOnly) {
@@ -669,13 +669,13 @@ export default function App() {
           }
         }
 
-        // â”€â”€ Partial files (progressive display) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Partial files (progressive display) ────────────────────────────
         if (event.type === 'files_partial' && Array.isArray(event.files) && event.files.length > 0) {
           setGeneratedFiles(event.files as FileEntry[]);
           if (!activeFilePath) setActiveFilePath(event.files[0].path);
         }
 
-        // ── Granular tool events (per-file start / progress / complete) ────
+        // -- Granular tool events (per-file start / progress / complete) ----
         if (event.type === 'tool' && event.kind && event.path) {
           const path = event.path;
           const kind = event.kind as 'start' | 'progress' | 'complete';
@@ -700,13 +700,13 @@ export default function App() {
           }));
         }
 
-        // â”€â”€ Error â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Error ───────────────────────────────────────────────────────────
         if (event.type === 'error') {
           setIsBuilding(false);
           setMessages(prev => prev.map(m => {
             if (m.id !== buildId || m.type !== 'build') return m;
             const bm = m as BuildMessage;
-            const errReply = `âŒ Erreur pipeline: ${event.message}`;
+            const errReply = `❌ Erreur pipeline: ${event.message}`;
             return { ...bm, reply: errReply, replyVisible: errReply, isComplete: true, isStreaming: false };
           }));
         }
@@ -725,7 +725,7 @@ export default function App() {
       );
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      const errReply = `âŒ Connexion Ã©chouÃ©e: ${errMsg}`;
+      const errReply = `❌ Connexion échouée: ${errMsg}`;
       setMessages(prev => prev.map(m => {
         if (m.id !== buildId || m.type !== 'build') return m;
         return { ...(m as BuildMessage), reply: errReply, replyVisible: errReply, isComplete: true, isStreaming: false };
@@ -788,7 +788,7 @@ export default function App() {
       <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-12 h-12 border-4 border-huggy-blue border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-zinc-500 font-medium">Loading Huggyâ€¦</p>
+          <p className="text-sm text-zinc-500 font-medium">Loading Huggy…</p>
         </div>
       </div>
     );
@@ -957,7 +957,7 @@ export default function App() {
                               if (e.key === 'Escape') setIsRenamingProject(false);
                             }}
                             className={`w-full text-sm px-3 py-1.5 rounded-lg border outline-none focus:ring-1 focus:ring-blue-500 ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-zinc-50 border-zinc-300 text-zinc-800'}`}
-                            placeholder="Project nameâ€¦"
+                            placeholder="Project name…"
                           />
                           <p className="text-[10px] text-zinc-500 mt-1 px-1">Press Enter to confirm</p>
                         </div>
@@ -1183,7 +1183,7 @@ export default function App() {
                   <div className="flex flex-col gap-5">
                     {messages.map((entry) => {
 
-                      // â”€â”€ User message â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                      // ── User message ──────────────────────────────────────
                       if (entry.type === 'user') {
                         return (
                           <div key={entry.id} className="flex justify-end">
@@ -1197,7 +1197,7 @@ export default function App() {
                         );
                       }
 
-                      // â”€â”€ Build message â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                      // ── Build message ─────────────────────────────────────
                       const bm = entry as BuildMessage;
 
                       if (bm.chatOnly || bm.meta?.chatOnly) {
@@ -1223,11 +1223,11 @@ export default function App() {
                       const safeFiles = Array.isArray(bm.files) ? bm.files : [];
                       const safeFilesVisible = typeof bm.filesVisible === 'number' ? bm.filesVisible : 0;
 
-                      // â”€â”€ Derive UI state from raw agent events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                      // ── Derive UI state from raw agent events ────────────
                       const activeAgent = safeAgents.find(a => a.status === 'active');
                       const allDone = safeAgents.length > 0 && safeAgents.every(a => a.status === 'completed' || a.status === 'skipped');
 
-                      // Map agent name â†’ pipeline phase for the StatusPill
+                      // Map agent name → pipeline phase for the StatusPill
                       let phase: PipelinePhase = 'thinking';
                       if (bm.isComplete || allDone) phase = 'done';
                       else if (activeAgent?.name === 'Intent Parser') phase = 'thinking';
@@ -1345,7 +1345,7 @@ export default function App() {
                             />
                           )}
 
-                          {/* Inline ðŸ‘ / ðŸ‘Ž feedback */}
+                          {/* Inline 👍 / 👎 feedback */}
                           {bm.isComplete && !bm.isStreaming && !bm.chatOnly && safeFiles.length > 0 && (
                             <BuildFeedback
                               userId={user?.id}
@@ -1383,7 +1383,7 @@ export default function App() {
                       startBuild();
                     }
                   }}
-                  placeholder="DÃ©cris ton application..."
+                  placeholder="Décris ton application..."
                   rows={1}
                   className={`w-full bg-transparent border-none text-sm font-medium resize-none focus:outline-none placeholder:text-zinc-400 mb-2 max-h-[160px] scrollbar-hide overflow-y-auto ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`}
                 />
@@ -1395,7 +1395,7 @@ export default function App() {
                       <div key={i} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-medium border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-300' : 'bg-zinc-100 border-zinc-200 text-zinc-600'}`}>
                         <Paperclip className="w-3 h-3" />
                         <span className="max-w-[120px] truncate">{f.name}</span>
-                        <button onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))} className="text-zinc-500 hover:text-red-400 ml-0.5">Ã—</button>
+                        <button onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))} className="text-zinc-500 hover:text-red-400 ml-0.5">×</button>
                       </div>
                     ))}
                   </div>
@@ -1613,12 +1613,21 @@ export default function App() {
 
 
           <div className="flex-1 relative">
-            {/* Subtle grid pattern background */}
-            <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
-                 style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
-            />
+            {/* Empty State - Template Carousel (shown when no preview active) */}
+            {!(previewUrl || (previewEngine === 'sandpack' && generatedFiles.length > 0)) && !isBuilding && (
+              <TemplateCarousel 
+                onSelect={(template: Template) => {
+                  setInput(template.prompt);
+                  // Auto-submit after a brief delay to let the user see what was selected
+                  setTimeout(() => {
+                    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+                    handleSubmit(fakeEvent);
+                  }, 100);
+                }} 
+              />
+            )}
 
-            {/* â”€â”€ Vibe Coding Animation (during build) â”€â”€ */}
+            {/* ── Vibe Coding Animation (during build) ── */}
             <VibeCodingOverlay
               isBuilding={isBuilding}
               buildMessages={messages.filter(m => m.type === 'build') as any}
@@ -1631,7 +1640,7 @@ export default function App() {
               <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0a0a0b]">
                 <div className="flex flex-col items-center gap-3">
                   <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
-                  <span className="text-xs text-zinc-500">Compilation en coursâ€¦</span>
+                  <span className="text-xs text-zinc-500">Compilation en cours…</span>
                 </div>
               </div>
             )}
@@ -1978,7 +1987,7 @@ export default function App() {
         </motion.div>
       </main>
       
-      {/* â”€â”€ Deploy Modal â”€â”€ */}
+      {/* ── Deploy Modal ── */}
       <AnimatePresence>
         {isDeployModalOpen && (
           <motion.div
@@ -2008,7 +2017,7 @@ export default function App() {
                   <div>
                     <h3 className={`text-sm font-bold ${theme === 'dark' ? 'text-zinc-100' : 'text-zinc-800'}`}>
                       {deployStep === 'confirm' && 'Deploy your app'}
-                      {deployStep === 'deploying' && 'Deployingâ€¦'}
+                      {deployStep === 'deploying' && 'Deploying…'}
                       {deployStep === 'success' && 'Deployed successfully!'}
                       {deployStep === 'error' && 'Deployment failed'}
                     </h3>
@@ -2079,7 +2088,7 @@ export default function App() {
                       <Cloud className="absolute inset-0 m-auto w-6 h-6 text-blue-400" />
                     </div>
                     <div className="text-center space-y-1">
-                      <p className={`text-sm font-medium ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700'}`}>Building & uploadingâ€¦</p>
+                      <p className={`text-sm font-medium ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700'}`}>Building & uploading…</p>
                       <p className="text-xs text-zinc-500">This may take a few seconds</p>
                     </div>
                     {[
