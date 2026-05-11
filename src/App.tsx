@@ -126,6 +126,14 @@ interface UserMessage {
   timestamp: number;
 }
 
+interface ToolEvent {
+  id: string;            // stable per (path) - last status wins
+  kind: 'write';         // currently we only emit writes
+  path: string;
+  lines?: number;
+  status: 'active' | 'completed';
+}
+
 interface BuildMessage {
   id: string;
   type: 'build';
@@ -140,6 +148,7 @@ interface BuildMessage {
   isComplete: boolean;
   isStreaming: boolean;
   chatOnly?: boolean;
+  toolEvents?: ToolEvent[];
   meta?: {
     securityScore?: number;
     qaScore?: number;
@@ -664,6 +673,31 @@ export default function App() {
         if (event.type === 'files_partial' && Array.isArray(event.files) && event.files.length > 0) {
           setGeneratedFiles(event.files as FileEntry[]);
           if (!activeFilePath) setActiveFilePath(event.files[0].path);
+        }
+
+        // ── Granular tool events (per-file start / progress / complete) ────
+        if (event.type === 'tool' && event.kind && event.path) {
+          const path = event.path;
+          const kind = event.kind as 'start' | 'progress' | 'complete';
+          const lines = typeof event.lines === 'number' ? event.lines : undefined;
+          setMessages(prev => prev.map(m => {
+            if (m.id !== buildId || m.type !== 'build') return m;
+            const bm = m as BuildMessage;
+            const existing = bm.toolEvents || [];
+            const idx = existing.findIndex(e => e.path === path);
+            const nextStatus: 'active' | 'completed' = kind === 'complete' ? 'completed' : 'active';
+            const nextEntry: ToolEvent = {
+              id: path,
+              kind: 'write',
+              path,
+              lines: lines ?? existing[idx]?.lines,
+              status: nextStatus,
+            };
+            const toolEvents = idx >= 0
+              ? existing.map((e, i) => (i === idx ? nextEntry : e))
+              : [...existing, nextEntry];
+            return { ...bm, toolEvents };
+          }));
         }
 
         // â”€â”€ Error â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1211,12 +1245,27 @@ export default function App() {
                         };
                       });
 
-                      // Tool blocks (one per generated file) nested under Builder Agent
+                      // Tool blocks under Builder Agent. Prefer real-time toolEvents from
+                      // the SSE stream; fall back to deriving from files (backwards-compat).
                       const visibleFiles = safeFiles.slice(0, Math.max(safeFilesVisible, safeFiles.length));
                       const builderAgentIdx = AGENTS_DEF.findIndex(a => a.name === 'Builder Agent');
                       const builderAgentState = safeAgents[builderAgentIdx];
                       const isBuilderActive = builderAgentState?.status === 'active';
-                      const toolBlocksNode = visibleFiles.length > 0 ? (
+                      const liveToolEvents = bm.toolEvents || [];
+
+                      const toolBlocksNode = liveToolEvents.length > 0 ? (
+                        <>
+                          {liveToolEvents.map((te) => (
+                            <ToolBlock
+                              key={`${bm.id}-${te.path}`}
+                              kind="write"
+                              label={te.path}
+                              detail={typeof te.lines === 'number' ? `${te.lines} ${te.lines > 1 ? 'lines' : 'line'}` : undefined}
+                              status={te.status}
+                            />
+                          ))}
+                        </>
+                      ) : visibleFiles.length > 0 ? (
                         <>
                           {visibleFiles.map((file, fi) => {
                             const lineCount = (file.content?.match(/\n/g)?.length || 0) + 1;

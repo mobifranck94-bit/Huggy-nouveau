@@ -2,7 +2,7 @@
 // Connects to the Express backend and streams real-time agent progress events.
 
 export interface PipelineEvent {
-  type?: 'connected' | 'agent' | 'thinking' | 'reply' | 'complete' | 'error' | 'files_partial' | 'meta';
+  type?: 'connected' | 'agent' | 'thinking' | 'reply' | 'complete' | 'error' | 'files_partial' | 'meta' | 'tool';
   agent?: string;
   status?: 'active' | 'completed';
   index?: number;
@@ -22,6 +22,10 @@ export interface PipelineEvent {
     projectName?: string;
     chatOnly?: boolean;
   };
+  // Tool events emitted by the Builder Agent as it writes files in stream
+  kind?: 'start' | 'progress' | 'complete';
+  path?: string;
+  lines?: number;
 }
 
 /**

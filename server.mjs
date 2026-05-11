@@ -224,6 +224,11 @@ app.post('/api/build', buildLimiter, async (req, res) => {
               sendEvent({ type: 'meta', meta: event.meta });
               return;
             }
+            // Forward per-file tool events ({ type:'tool', kind:'start'|'progress'|'complete', path, lines })
+            if (event.type === 'tool') {
+              sendEvent({ type: 'tool', kind: event.kind, path: event.path, lines: event.lines });
+              return;
+            }
             const legacyEvent = transformToLegacyEvent(event);
             sendEvent(legacyEvent);
           },

@@ -17,6 +17,7 @@ interface AIBubbleProps {
 }
 
 export function AIBubble({ phase, elapsed, timestamp, children }: AIBubbleProps) {
+  const isStreaming = phase !== 'done' && phase !== 'error';
   return (
     <motion.div
       layout
@@ -24,6 +25,9 @@ export function AIBubble({ phase, elapsed, timestamp, children }: AIBubbleProps)
       animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
       className="flex gap-3 items-start"
+      role="article"
+      aria-live={isStreaming ? 'polite' : 'off'}
+      aria-busy={isStreaming}
     >
       {/* Avatar */}
       <div className="relative shrink-0 mt-0.5">
