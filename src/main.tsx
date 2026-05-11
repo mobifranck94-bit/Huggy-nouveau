@@ -5,6 +5,7 @@ import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import Auth from './pages/Auth';
 import Help from './pages/Help';
+import Admin from './pages/Admin';
 import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
@@ -21,6 +22,7 @@ function Root() {
           <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
           <Route path="/builder" element={<ErrorBoundary><App /></ErrorBoundary>} />
           <Route path="/help" element={<ErrorBoundary><Help /></ErrorBoundary>} />
+          <Route path="/admin" element={<ErrorBoundary><Admin /></ErrorBoundary>} />
           {/* Catch all route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -421,6 +421,50 @@ app.post('/api/send-email', generalLimiter, async (req, res) => {
   }
 });
 
+// ─── Admin stats (aggregated metrics) ────────────────────────────────────────
+// Restricted to users whose email is in ADMIN_EMAILS env (comma-separated)
+function isAdmin(email) {
+  if (!email) return false;
+  const allow = (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  return allow.includes(email.toLowerCase());
+}
+
+app.get('/api/admin/stats', generalLimiter, async (req, res) => {
+  const email = req.query.email;
+  if (!isAdmin(email)) {
+    return res.status(403).json({ error: 'Admin access only' });
+  }
+
+  try {
+    const { supabase } = await import('./lib/supabase.mjs');
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [{ count: buildsTotal }, { count: buildsLast30 }, { data: feedbackRows }, { data: recentBuilds }] = await Promise.all([
+      supabase.from('builds').select('*', { count: 'exact', head: true }),
+      supabase.from('builds').select('*', { count: 'exact', head: true }).gte('created_at', since),
+      supabase.from('build_feedback').select('sentiment').gte('created_at', since),
+      supabase.from('builds').select('id, prompt, status, qa_score, security_score, created_at').order('created_at', { ascending: false }).limit(20),
+    ]);
+
+    const up   = (feedbackRows || []).filter(r => r.sentiment === 'up').length;
+    const down = (feedbackRows || []).filter(r => r.sentiment === 'down').length;
+
+    res.json({
+      buildsTotal: buildsTotal ?? 0,
+      buildsLast30: buildsLast30 ?? 0,
+      feedback: {
+        up,
+        down,
+        ratio: (up + down) > 0 ? Math.round((up / (up + down)) * 100) : null,
+      },
+      recentBuilds: recentBuilds || [],
+    });
+  } catch (err) {
+    console.error('[AdminStats] Failed:', err.message);
+    res.status(500).json({ error: 'Failed to load stats' });
+  }
+});
+
 // ─── Build-level Feedback API (👍/👎 inline on each generated app) ───────────
 app.post('/api/build-feedback', generalLimiter, async (req, res) => {
   const { userId, buildId, projectId, prompt, sentiment, comment } = req.body || {};
