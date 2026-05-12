@@ -11,7 +11,6 @@ import {
   ArrowUp,
   ChevronDown,
   Shield,
-  Box,
   SlidersHorizontal,
   SquarePen,
   PanelRightClose,
@@ -26,7 +25,6 @@ export default function Dashboard() {
   const { projects } = useProjects(user?.id);
 
   const [prompt, setPrompt] = useState('');
-  const [activeProject] = useState<string>('New project');
   const [projectsExpanded, setProjectsExpanded] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -175,7 +173,7 @@ export default function Dashboard() {
         {/* Center content */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 -mt-12">
           <h1 className="text-[28px] font-normal text-zinc-200 mb-10 text-center">
-            Que devrions-nous créer dans <span className="text-zinc-200">{activeProject}</span>?
+            Que devrions-nous créer?
           </h1>
 
           {/* Input card */}
@@ -238,22 +236,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Row 2: project + environment + fallback */}
-          <div className="w-full max-w-[720px] mt-3 flex items-center gap-2 px-1">
-            <button className="flex items-center gap-1.5 px-2.5 py-1 text-[12px] text-zinc-400 hover:text-zinc-200 rounded-md transition-colors">
-              <Box className="w-3.5 h-3.5" strokeWidth={1.75} />
-              <span>{activeProject}</span>
-              <ChevronDown className="w-3 h-3" strokeWidth={2} />
-            </button>
-            <button className="flex items-center gap-1.5 px-2.5 py-1 text-[12px] text-zinc-400 hover:text-zinc-200 rounded-md transition-colors">
-              <span>Aucun environnement</span>
-              <ChevronDown className="w-3 h-3" strokeWidth={2} />
-            </button>
-            <button className="flex items-center gap-1.5 px-2.5 py-1 text-[12px] text-zinc-400 hover:text-zinc-200 rounded-md transition-colors">
-              <span>Aucun</span>
-              <ChevronDown className="w-3 h-3" strokeWidth={2} />
-            </button>
-          </div>
         </div>
       </main>
     </div>
