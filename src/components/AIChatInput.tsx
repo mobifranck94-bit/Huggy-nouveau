@@ -1,7 +1,9 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
-import { Plus, Target, ArrowUp, Paperclip, Image, FileCode, ChevronDown, Zap } from 'lucide-react'
+import { Plus, Target, ArrowUp, ChevronDown, Zap } from 'lucide-react'
+
+export type Theme = 'dark' | 'light'
 
 interface AIChatInputProps {
   value: string
@@ -12,13 +14,37 @@ interface AIChatInputProps {
   className?: string
   showModelSelector?: boolean
   submitLabel?: string
+  theme?: Theme
 }
 
 const models = [
-  { id: 'sonnet-4.5', name: 'Sonnet 4.5', description: 'Fast & intelligent', icon: <Zap className="w-3.5 h-3.5 text-blue-400" /> },
-  { id: 'opus-4.5', name: 'Opus 4.5', description: 'Most capable', icon: <Zap className="w-3.5 h-3.5 text-purple-400" /> },
-  { id: 'haiku-4.5', name: 'Haiku 4.5', description: 'Lightning fast', icon: <Zap className="w-3.5 h-3.5 text-emerald-400" /> },
+  { id: 'sonnet-4.5', name: 'Sonnet 4.5', description: 'Fast & intelligent', icon: <Zap className="w-3.5 h-3.5 text-blue-500" /> },
+  { id: 'opus-4.5', name: 'Opus 4.5', description: 'Most capable', icon: <Zap className="w-3.5 h-3.5 text-purple-500" /> },
+  { id: 'haiku-4.5', name: 'Haiku 4.5', description: 'Lightning fast', icon: <Zap className="w-3.5 h-3.5 text-emerald-500" /> },
 ]
+
+const themeStyles = {
+  dark: {
+    container: 'bg-[#161617] border-zinc-800/50',
+    textarea: 'text-zinc-200 placeholder:text-zinc-500',
+    button: 'text-zinc-500 hover:bg-zinc-800 border-zinc-800/80',
+    modelButton: 'bg-zinc-800/50 border-zinc-700/30 text-zinc-400 hover:text-zinc-200',
+    modelDropdown: 'bg-[#1a1a1b] border-zinc-700/50',
+    modelItem: 'text-zinc-300 hover:bg-zinc-800/50',
+    submitActive: 'bg-white text-zinc-900 hover:bg-zinc-200',
+    submitDisabled: 'bg-zinc-800 text-zinc-500',
+  },
+  light: {
+    container: 'bg-white border-zinc-200 shadow-zinc-200/50',
+    textarea: 'text-zinc-800 placeholder:text-zinc-400',
+    button: 'text-zinc-500 hover:bg-zinc-100 border-zinc-200',
+    modelButton: 'bg-zinc-100 border-zinc-200 text-zinc-600 hover:text-zinc-900',
+    modelDropdown: 'bg-white border-zinc-200 shadow-xl',
+    modelItem: 'text-zinc-700 hover:bg-zinc-50',
+    submitActive: 'bg-zinc-900 text-white hover:bg-zinc-800',
+    submitDisabled: 'bg-zinc-200 text-zinc-400',
+  }
+}
 
 export function AIChatInput({
   value,
@@ -28,11 +54,13 @@ export function AIChatInput({
   disabled = false,
   className = "",
   showModelSelector = true,
-  submitLabel = "Générer"
+  submitLabel = "Générer",
+  theme = 'dark'
 }: AIChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [isModelOpen, setIsModelOpen] = useState(false)
   const [selectedModel, setSelectedModel] = useState(models[0])
+  const styles = themeStyles[theme]
 
   // Auto-resize textarea
   useEffect(() => {
@@ -52,7 +80,7 @@ export function AIChatInput({
   }
 
   return (
-    <div className={`rounded-2xl border shadow-lg flex flex-col relative transition-all duration-200 shrink-0 bg-[#161617] border-zinc-800/50 ${className}`}>
+    <div className={`rounded-2xl border shadow-lg flex flex-col relative transition-all duration-200 shrink-0 ${styles.container} ${className}`}>
       {/* Textarea */}
       <textarea
         ref={textareaRef}
@@ -62,7 +90,7 @@ export function AIChatInput({
         placeholder={placeholder}
         rows={1}
         disabled={disabled}
-        className="w-full bg-transparent border-none text-sm font-medium resize-none focus:outline-none placeholder:text-zinc-400 mb-2 max-h-[160px] scrollbar-hide overflow-y-auto text-zinc-200 px-4 pt-4"
+        className={`w-full bg-transparent border-none text-sm font-medium resize-none focus:outline-none mb-2 max-h-[160px] scrollbar-hide overflow-y-auto px-4 pt-4 ${styles.textarea}`}
         style={{ height: '20px' }}
       />
 
@@ -79,14 +107,14 @@ export function AIChatInput({
           />
           <button
             onClick={() => document.getElementById('file-upload')?.click()}
-            className="p-1.5 rounded-full border transition-colors text-zinc-500 hover:bg-zinc-800 border-zinc-800/80"
+            className={`p-1.5 rounded-full border transition-colors ${styles.button}`}
             title="Attach file"
             type="button"
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
           <button
-            className="p-1.5 rounded-full border transition-all duration-200 hover:bg-zinc-800 border-zinc-800/80 text-zinc-500"
+            className={`p-1.5 rounded-full border transition-all duration-200 ${styles.button}`}
             title="Edit mode"
             type="button"
           >
@@ -101,7 +129,7 @@ export function AIChatInput({
             <div className="relative">
               <button
                 onClick={() => setIsModelOpen(!isModelOpen)}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-lg border bg-zinc-800/50 border-zinc-700/30 text-[10px] font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[10px] font-medium transition-colors ${styles.modelButton}`}
                 type="button"
               >
                 {selectedModel.icon}
@@ -110,7 +138,7 @@ export function AIChatInput({
               </button>
 
               {isModelOpen && (
-                <div className="absolute bottom-full right-0 mb-2 w-48 bg-[#1a1a1b] border border-zinc-700/50 rounded-xl shadow-xl z-50 py-1">
+                <div className={`absolute bottom-full right-0 mb-2 w-48 rounded-xl z-50 py-1 border ${styles.modelDropdown}`}>
                   {models.map((model) => (
                     <button
                       key={model.id}
@@ -118,7 +146,7 @@ export function AIChatInput({
                         setSelectedModel(model)
                         setIsModelOpen(false)
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800/50 transition-colors text-left"
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors text-left ${styles.modelItem}`}
                       type="button"
                     >
                       {model.icon}
@@ -138,9 +166,7 @@ export function AIChatInput({
             onClick={onSubmit}
             disabled={!value.trim() || disabled}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
-              value.trim() && !disabled
-                ? 'bg-white text-zinc-900 hover:bg-zinc-200'
-                : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+              value.trim() && !disabled ? styles.submitActive : styles.submitDisabled
             }`}
             type="button"
           >

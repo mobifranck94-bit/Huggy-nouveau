@@ -139,14 +139,14 @@ function ChatInput({ onSend, placeholder = "What do you want to build?", theme =
   }
 
   return (
-    <div className="w-full max-w-[680px] mx-auto">
+    <div className="w-full max-w-[750px] mx-auto">
       <AIChatInput
         value={message}
         onChange={setMessage}
         onSubmit={handleSubmit}
         placeholder={placeholder}
         submitLabel="Build now"
-        className={theme === 'light' ? 'bg-white border-zinc-200' : ''}
+        theme={theme}
       />
     </div>
   )
@@ -494,8 +494,8 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Chat input */}
-          <div className="w-full max-w-[700px] mb-6 sm:mb-8 mt-2">
+          {/* Chat input - centered and slightly larger */}
+          <div className="w-full max-w-[800px] mb-6 sm:mb-8 mt-2 flex justify-center">
             <ChatInput placeholder="What do you want to build?" onSend={handleSend} theme={theme} />
           </div>
 
