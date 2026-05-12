@@ -65,7 +65,6 @@ import axios from 'axios';
 import { startBuildPipeline, checkServerHealth, type ChatHistoryEntry } from './lib/api';
 import { VisualBuilder } from './components/visual';
 import { HuggyLogo } from './components/HuggyLogo';
-import { VibeCodingOverlay } from './components/VibeCodingOverlay';
 import { useAuth } from './lib/useAuth';
 import { useProjects } from './lib/useProjects';
 import { supabase, type Build } from './lib/supabase';
@@ -1162,9 +1161,14 @@ export default function App() {
           </button>
           
           <button
-            onClick={() => { setDeployStep('confirm'); setDeployResultUrl(null); setDeployError(null); setIsDeployModalOpen(true); }}
-            disabled={generatedFiles.length === 0}
-            className={`px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2 ${generatedFiles.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => { 
+              if (generatedFiles.length === 0) {
+                alert('Veuillez d\'abord générer des fichiers avant de déployer.');
+                return;
+              }
+              setDeployStep('confirm'); setDeployResultUrl(null); setDeployError(null); setIsDeployModalOpen(true); 
+            }}
+            className="px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2"
           >
             <Cloud className="w-3.5 h-3.5" />
             Deploy
@@ -1194,19 +1198,25 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-5">
-                    {messages.map((entry) => {
+                    {messages.map((entry, index) => {
 
                       // ── User message ──────────────────────────────────────
                       if (entry.type === 'user') {
                         return (
-                          <div key={entry.id} className="flex justify-end">
+                          <motion.div 
+                            key={entry.id} 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
+                            className="flex justify-end"
+                          >
                             <div className="max-w-[85%] bg-indigo-600/20 border border-indigo-500/30 rounded-2xl rounded-tr-sm px-3.5 py-2.5">
                               <p className="text-xs text-zinc-200 leading-relaxed">{entry.content}</p>
                               <span className="text-[9px] text-zinc-600 mt-1 block text-right">
                                 {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
-                          </div>
+                          </motion.div>
                         );
                       }
 
@@ -1216,7 +1226,13 @@ export default function App() {
                       if (bm.chatOnly || bm.meta?.chatOnly) {
                         const text = stripCodeBlocks(bm.replyVisible || bm.reply || '');
                         return (
-                          <div key={bm.id} className="flex justify-start">
+                          <motion.div 
+                            key={bm.id} 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
+                            className="flex justify-start"
+                          >
                             <div className={`max-w-[85%] rounded-2xl rounded-tl-sm px-3.5 py-2.5 border ${theme === 'dark' ? 'bg-zinc-900/60 border-zinc-800/60 text-zinc-200' : 'bg-white border-zinc-200 text-zinc-800'}`}>
                               <p className="text-xs leading-relaxed whitespace-pre-wrap">
                                 {text}
@@ -1228,7 +1244,7 @@ export default function App() {
                                 {new Date(bm.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
-                          </div>
+                          </motion.div>
                         );
                       }
 
@@ -1641,14 +1657,6 @@ export default function App() {
                 }} 
               />
             )}
-
-            {/* ── Vibe Coding Animation (during build) ── */}
-            <VibeCodingOverlay
-              isBuilding={isBuilding}
-              buildMessages={messages.filter(m => m.type === 'build') as any}
-              liveStream={liveStream}
-              activeAgentName={activeAgentName}
-            />
 
             {/* Preview loading spinner */}
             {isPreviewBuilding && !isBuilding && (

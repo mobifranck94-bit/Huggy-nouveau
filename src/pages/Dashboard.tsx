@@ -188,7 +188,7 @@ export default function Dashboard() {
           </div>
 
           {/* AI Chat Input - synchronized with LandingPage and Builder */}
-          <div className="w-full max-w-[720px]">
+          <div className="w-full max-w-[680px] -mt-8">
             <AIChatInput
               value={prompt}
               onChange={setPrompt}
@@ -197,6 +197,7 @@ export default function Dashboard() {
               submitLabel="Créer"
               showModelSelector={false}
               theme={theme}
+              className="min-h-[140px]"
             />
 
             {/* Suggestions */}

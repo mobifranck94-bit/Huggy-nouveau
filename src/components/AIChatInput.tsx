@@ -90,8 +90,8 @@ export function AIChatInput({
         placeholder={placeholder}
         rows={1}
         disabled={disabled}
-        className={`w-full bg-transparent border-none text-sm font-medium resize-none focus:outline-none mb-2 max-h-[160px] scrollbar-hide overflow-y-auto px-4 pt-4 ${styles.textarea}`}
-        style={{ height: '20px' }}
+        className={`w-full bg-transparent border-none text-sm font-medium resize-none focus:outline-none mb-2 max-h-[200px] scrollbar-hide overflow-y-auto px-4 pt-4 ${styles.textarea}`}
+        style={{ minHeight: '60px', height: 'auto' }}
       />
 
       {/* Actions bar */}

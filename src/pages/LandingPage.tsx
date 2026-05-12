@@ -124,10 +124,11 @@ function ModelSelector({ selectedModel = 'sonnet-4.5', onModelChange }: {
 }
 
 // ChatInput wrapper using AIChatInput component
-function ChatInput({ onSend, placeholder = "What do you want to build?", theme = 'dark' }: {
+function ChatInput({ onSend, placeholder = "What do you want to build?", theme = 'dark', className = '' }: {
   onSend?: (message: string) => void
   placeholder?: string
   theme?: Theme
+  className?: string
 }) {
   const [message, setMessage] = useState('')
 
@@ -139,7 +140,7 @@ function ChatInput({ onSend, placeholder = "What do you want to build?", theme =
   }
 
   return (
-    <div className="w-full max-w-[750px] mx-auto">
+    <div className={`w-full max-w-[680px] mx-auto ${className}`}>
       <AIChatInput
         value={message}
         onChange={setMessage}
@@ -478,9 +479,9 @@ export default function LandingPage() {
         </div>
 
         {/* Content container */}
-        <div className="absolute top-[70%] left-1/2 sm:top-[55%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-full h-full overflow-hidden px-4">
+        <div className="absolute top-[60%] left-1/2 sm:top-[50%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-full h-full overflow-hidden px-4">
           {/* Title section */}
-          <div className="text-center mb-6">
+          <div className="text-center mb-4">
             <h1 className={`text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-none transition-colors duration-300 ${theme === 'dark' ? 'text-white' : 'text-[#1a1a2e]'}`}>
               Build any <RotatingText words={['SaaS', 'app', 'website', 'dashboard', 'platform', 'tool', 'portal', 'system']} />
             </h1>
@@ -494,9 +495,9 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Chat input - centered and slightly larger */}
-          <div className="w-full max-w-[800px] mb-6 sm:mb-8 mt-2 flex justify-center">
-            <ChatInput placeholder="What do you want to build?" onSend={handleSend} theme={theme} />
+          {/* Chat input */}
+          <div className="w-full max-w-[700px] mb-6 sm:mb-8 mt-2">
+            <ChatInput placeholder="What do you want to build?" onSend={handleSend} theme={theme} className="min-h-[140px]" />
           </div>
 
           {/* Import buttons */}
