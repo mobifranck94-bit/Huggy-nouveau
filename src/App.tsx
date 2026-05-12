@@ -74,6 +74,7 @@ import OnboardingTour from './components/OnboardingTour';
 import FeedbackWidget from './components/FeedbackWidget';
 import { BuildFeedback } from './components/BuildFeedback';
 import { BuildHistoryDrawer } from './components/BuildHistoryDrawer';
+import { TemplateCarousel, type Template } from './components/TemplateCarousel';
 import {
   AIBubble,
   AgentTimeline,
@@ -1632,11 +1633,10 @@ export default function App() {
             {!(previewUrl || (previewEngine === 'sandpack' && generatedFiles.length > 0)) && !isBuilding && (
               <TemplateCarousel 
                 onSelect={(template: Template) => {
-                  setInput(template.prompt);
+                  setChatInput(template.prompt);
                   // Auto-submit after a brief delay to let the user see what was selected
                   setTimeout(() => {
-                    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-                    handleSubmit(fakeEvent);
+                    startBuild();
                   }, 100);
                 }} 
               />
