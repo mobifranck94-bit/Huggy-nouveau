@@ -329,7 +329,7 @@ app.post('/api/deploy', deployLimiter, async (req, res) => {
 
     // 2. Generate unique custom domain slug
     const slug = await generateUniqueSlug(projectName);
-    const customDomain = process.env.HUGGY_DOMAIN || 'huggy.dev';
+    const customDomain = process.env.HUGGY_DOMAIN || 'huggy.fun';
     const customUrl = generatePreviewUrl(slug, customDomain);
 
     // 3. Build the app with badge injection (for free tier branding)

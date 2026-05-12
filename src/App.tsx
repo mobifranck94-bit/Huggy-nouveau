@@ -2129,7 +2129,7 @@ export default function App() {
                       </div>
                       <p className={`text-sm font-bold ${theme === 'dark' ? 'text-zinc-100' : 'text-zinc-800'}`}>Your app is live!</p>
                       {deploySlug && (
-                        <p className="text-xs text-zinc-500">{deploySlug}.huggy.dev</p>
+                        <p className="text-xs text-zinc-500">{deploySlug}.huggy.fun</p>
                       )}
                     </div>
                     
