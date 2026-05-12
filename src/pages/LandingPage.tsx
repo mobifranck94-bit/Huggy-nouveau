@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from "../lib/useAuth"
 import { HuggyLogo } from '../components/HuggyLogo'
+import { AIChatInput } from '../components/AIChatInput'
 
 // TYPES
 interface Model {
@@ -122,31 +123,13 @@ function ModelSelector({ selectedModel = 'sonnet-4.5', onModelChange }: {
   )
 }
 
-// CHAT INPUT COMPONENT
+// ChatInput wrapper using AIChatInput component
 function ChatInput({ onSend, placeholder = "What do you want to build?", theme = 'dark' }: {
   onSend?: (message: string) => void
   placeholder?: string
   theme?: Theme
 }) {
   const [message, setMessage] = useState('')
-  const [showAttachMenu, setShowAttachMenu] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  
-  // Colors based on theme
-  const isDark = theme === 'dark'
-  const bgColor = isDark ? 'bg-[#1e1e22]' : 'bg-white'
-  const textColor = isDark ? 'text-white' : 'text-[#1a1a2e]'
-  const placeholderColor = isDark ? 'placeholder-[#5a5a5f]' : 'placeholder-[#9ca3af]'
-  const ringColor = isDark ? 'ring-white/[0.08]' : 'ring-black/[0.08]'
-  const shadowColor = isDark ? 'shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_2px_20px_rgba(0,0,0,0.4)]' : 'shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_2px_20px_rgba(0,0,0,0.1)]'
-
-  useEffect(() => {
-    const textarea = textareaRef.current
-    if (textarea) {
-      textarea.style.height = 'auto'
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px` 
-    }
-  }, [message])
 
   const handleSubmit = () => {
     if (message.trim()) {
@@ -155,81 +138,16 @@ function ChatInput({ onSend, placeholder = "What do you want to build?", theme =
     }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit()
-    }
-  }
-
   return (
-    <div className="relative w-full max-w-[680px] mx-auto">
-      <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-b from-white/[0.08] to-transparent pointer-events-none" />
-      <div className={`relative rounded-2xl ${bgColor} ring-1 ${ringColor} ${shadowColor} transition-colors duration-300`}>
-        <div className="relative">
-          <textarea
-            ref={textareaRef}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            className={`w-full resize-none bg-transparent text-[15px] ${textColor} ${placeholderColor} px-5 pt-5 pb-3 focus:outline-none min-h-[80px] max-h-[200px] transition-colors duration-300`}
-            style={{ height: '80px' }}
-          />
-        </div>
-
-        <div className="flex items-center justify-between px-3 pb-3 pt-1">
-          <div className="flex items-center gap-1">
-            <div className="relative">
-              <button
-                onClick={() => setShowAttachMenu(!showAttachMenu)}
-                className="flex items-center justify-center w-8 h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.12] text-[#8a8a8f] hover:text-white transition-all duration-200 active:scale-95"
-              >
-                <Plus className={`w-4 h-4 transition-transform duration-200 ${showAttachMenu ? 'rotate-45' : ''}`} />
-              </button>
-
-              {showAttachMenu && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowAttachMenu(false)} />
-                  <div className="absolute bottom-full left-0 mb-2 z-50 bg-[#1a1a1e]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl shadow-black/50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
-                    <div className="p-1.5 min-w-[180px]">
-                      {[
-                        { icon: <Paperclip className="w-4 h-4" />, label: 'Upload file' },
-                        { icon: <Image className="w-4 h-4" />, label: 'Add image' },
-                        { icon: <FileCode className="w-4 h-4" />, label: 'Import code' }
-                      ].map((item, i) => (
-                        <button key={i} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[#a0a0a5] hover:bg-white/5 hover:text-white transition-all duration-150">
-                          {item.icon}
-                          <span className="text-sm">{item.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-            <ModelSelector />
-          </div>
-
-          <div className="flex-1" />
-
-          <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium text-[#6a6a6f] hover:text-white hover:bg-white/5 transition-all duration-200">
-              <Lightbulb className="w-4 h-4" />
-              <span className="hidden sm:inline">Plan</span>
-            </button>
-
-            <button
-              onClick={handleSubmit}
-              disabled={!message.trim()}
-              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-[#1488fc] hover:bg-[#1a94ff] text-white transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 shadow-[0_0_20px_rgba(20,136,252,0.3)]"
-            >
-              <span className="hidden sm:inline">Build now</span>
-              <SendHorizontal className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="w-full max-w-[680px] mx-auto">
+      <AIChatInput
+        value={message}
+        onChange={setMessage}
+        onSubmit={handleSubmit}
+        placeholder={placeholder}
+        submitLabel="Build now"
+        className={theme === 'light' ? 'bg-white border-zinc-200' : ''}
+      />
     </div>
   )
 }

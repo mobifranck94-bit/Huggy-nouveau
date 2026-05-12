@@ -5,11 +5,11 @@ import {
   MessageSquare,
   FolderKanban,
   Settings,
-  ArrowUp,
   Sparkles,
 } from 'lucide-react';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../lib/useAuth';
+import { AIChatInput } from '../components/AIChatInput';
 
 /**
  * Dashboard vierge - Design system Huggy harmonisé
@@ -21,7 +21,6 @@ export default function Dashboard() {
   const { projects } = useProjects(user?.id);
 
   const [prompt, setPrompt] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auth guard
   useEffect(() => {
@@ -29,14 +28,6 @@ export default function Dashboard() {
       navigate('/auth');
     }
   }, [user, authLoading, navigate]);
-
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
-    }
-  }, [prompt]);
 
   const handleSubmit = () => {
     if (!prompt.trim()) return;
@@ -142,63 +133,23 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* Input card - Huggy design system */}
-          <div className="w-full max-w-[640px]">
-            <div className="bg-zinc-900/80 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden">
-              {/* Textarea */}
-              <div className="px-5 pt-4 pb-3">
-                <textarea
-                  ref={textareaRef}
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSubmit();
-                    }
-                  }}
-                  placeholder="Ex: Un tableau de bord de ventes avec graphiques, un blog avec authentification..."
-                  rows={1}
-                  className="w-full bg-transparent border-0 outline-none resize-none text-[15px] text-zinc-100 placeholder-zinc-600 leading-relaxed"
-                  style={{ minHeight: '28px' }}
-                />
-              </div>
-
-              {/* Actions bar */}
-              <div className="flex items-center justify-between px-3 py-3 border-t border-zinc-800/50">
-                <div className="flex items-center gap-1">
-                  <button
-                    title="Joindre un fichier"
-                    className="p-2 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 rounded-lg transition-all"
-                  >
-                    <Plus className="w-4 h-4" strokeWidth={2} />
-                  </button>
-                </div>
-
-                <button
-                  onClick={handleSubmit}
-                  disabled={!prompt.trim()}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium transition-all ${
-                    prompt.trim()
-                      ? 'bg-huggy-blue text-white hover:bg-huggy-blue/90 shadow-lg shadow-huggy-blue/20'
-                      : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-                  }`}
-                >
-                  <span>Créer</span>
-                  <ArrowUp className="w-4 h-4" strokeWidth={2} />
-                </button>
-              </div>
-            </div>
+          {/* AI Chat Input - synchronized with LandingPage and Builder */}
+          <div className="w-full max-w-[680px]">
+            <AIChatInput
+              value={prompt}
+              onChange={setPrompt}
+              onSubmit={handleSubmit}
+              placeholder="Ex: Un tableau de bord de ventes avec graphiques, un blog avec authentification..."
+              submitLabel="Créer"
+              showModelSelector={false}
+            />
 
             {/* Suggestions */}
             <div className="mt-6 flex flex-wrap justify-center gap-2">
               {['Site e-commerce', 'Dashboard analytics', 'App de réservation', 'Blog avec CMS', 'Portfolio 3D'].map((suggestion) => (
                 <button
                   key={suggestion}
-                  onClick={() => {
-                    setPrompt(suggestion);
-                    setTimeout(() => textareaRef.current?.focus(), 0);
-                  }}
+                  onClick={() => setPrompt(suggestion)}
                   className="px-3 py-1.5 rounded-full text-[12px] text-zinc-500 bg-zinc-900/50 border border-zinc-800 hover:text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/50 transition-all"
                 >
                   {suggestion}
