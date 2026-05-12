@@ -40,6 +40,7 @@ function transformToLegacyEvent(event) {
 import { buildPreviewHTML } from './lib/buildPreview.mjs';
 import { validateFiles } from './lib/security.mjs';
 import { sendEmail } from './lib/email.mjs';
+import { generateUniqueSlug, generatePreviewUrl, createDeploymentRecord } from './lib/customDomain.mjs';
 
 // Load environment variables (.env.local has priority, then .env)
 dotenv.config({ path: '.env.local' });
@@ -308,7 +309,7 @@ app.get('/api/preview/:id', (req, res) => {
 
 // ─── Deploy: build with esbuild then push to Vercel ──────────────────────────
 app.post('/api/deploy', deployLimiter, async (req, res) => {
-  const { files, projectName = 'huggy-app' } = req.body;
+  const { files, projectName = 'huggy-app', projectId = null, badgeEnabled = true } = req.body;
   if (!files?.length) return res.status(400).json({ error: 'No files to deploy' });
 
   const token = process.env.VERCEL_TOKEN;
@@ -326,12 +327,23 @@ app.post('/api/deploy', deployLimiter, async (req, res) => {
       });
     }
 
-    // 2. Build the app with esbuild
-    const html    = await buildPreviewHTML(files);
+    // 2. Generate unique custom domain slug
+    const slug = await generateUniqueSlug(projectName);
+    const customDomain = process.env.HUGGY_DOMAIN || 'huggy.dev';
+    const customUrl = generatePreviewUrl(slug, customDomain);
+
+    // 3. Build the app with badge injection (for free tier branding)
+    const html = await buildPreviewHTML(files, {
+      injectBadge: badgeEnabled !== false,
+      badgeOptions: {
+        badgeEnabled: true,
+        position: 'bottom-right',
+      },
+    });
     const content = Buffer.from(html, 'utf-8');
     const sha1    = crypto.createHash('sha1').update(content).digest('hex');
 
-    // 2. Upload file to Vercel blob store
+    // 4. Upload file to Vercel blob store
     const uploadRes = await fetch('https://api.vercel.com/v2/files', {
       method: 'POST',
       headers: {
@@ -347,10 +359,10 @@ app.post('/api/deploy', deployLimiter, async (req, res) => {
       throw new Error(`Vercel file upload failed (${uploadRes.status}): ${txt.slice(0, 200)}`);
     }
 
-    // 3. Create deployment
-    const slug       = projectName.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 48);
+    // 5. Create deployment with custom alias
+    const vercelSlug = slug.slice(0, 48); // Vercel project name limit
     const deployBody = {
-      name:            slug,
+      name:            vercelSlug,
       files:           [{ file: 'index.html', sha: sha1, size: content.length }],
       target:          'production',
       projectSettings: { framework: null, outputDirectory: '.' },
@@ -364,7 +376,23 @@ app.post('/api/deploy', deployLimiter, async (req, res) => {
     const deploy = await deployRes.json();
     if (!deployRes.ok) throw new Error(deploy.error?.message || `Deploy failed (${deployRes.status})`);
 
-    // 4. Poll until ready (max 90 s)
+    // 6. Store deployment record (optional, for custom domain routing)
+    try {
+      const deploymentRecord = createDeploymentRecord({
+        projectId,
+        projectName,
+        vercelDeploymentId: deploy.id,
+        slug,
+        domain: customDomain,
+        badgeEnabled: badgeEnabled !== false,
+      });
+      // TODO: Store in Supabase when table created
+      console.log('[Deploy] Record:', deploymentRecord.slug);
+    } catch (e) {
+      console.warn('[Deploy] Failed to store record:', e.message);
+    }
+
+    // 7. Poll until ready (max 90 s)
     const deployId = deploy.id;
     for (let i = 0; i < 45; i++) {
       await new Promise(r => setTimeout(r, 2000));
@@ -373,9 +401,15 @@ app.post('/api/deploy', deployLimiter, async (req, res) => {
       });
       const status = await statusRes.json();
       if (status.readyState === 'READY') {
-        const url = `https://${status.url}`;
-        console.log(`[Deploy] ✅ ${url}`);
-        return res.json({ success: true, url });
+        // Return custom domain URL instead of vercel.app URL
+        console.log(`[Deploy] ✅ ${customUrl} (Vercel: ${status.url})`);
+        return res.json({ 
+          success: true, 
+          url: customUrl,
+          vercelUrl: `https://${status.url}`,
+          slug,
+          badgeEnabled: badgeEnabled !== false,
+        });
       }
       if (status.readyState === 'ERROR') throw new Error('Vercel build errored out');
     }

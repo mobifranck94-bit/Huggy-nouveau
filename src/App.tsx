@@ -198,6 +198,8 @@ export default function App() {
   const [deployResultUrl, setDeployResultUrl] = useState<string | null>(null);
   const [deployError, setDeployError] = useState<string | null>(null);
   const [deployCopied, setDeployCopied] = useState(false);
+  const [deploySlug, setDeploySlug] = useState<string>('');
+  const [deployBadgeEnabled, setDeployBadgeEnabled] = useState<boolean>(true);
   const [customDomain, setCustomDomain] = useState('');
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
   const [selectedElement, setSelectedElement] = useState<{ selector: string, text: string } | null>(null);
@@ -455,9 +457,12 @@ export default function App() {
         projectId: currentProject?.id,
         projectName: currentProject?.name || 'huggy-app',
         files: generatedFiles,
+        badgeEnabled: true, // Free tier always has badge
       });
-      const url = response.data.url as string;
+      const { url, slug, badgeEnabled } = response.data;
       setDeployUrl(url);
+      setDeploySlug(slug || '');
+      setDeployBadgeEnabled(badgeEnabled !== false);
       
       // Track deploy success
       trackDeploy(currentProject?.id || 'unknown', 'completed', { 
@@ -2123,7 +2128,12 @@ export default function App() {
                         <CheckCircle2 className="w-7 h-7 text-green-400" />
                       </div>
                       <p className={`text-sm font-bold ${theme === 'dark' ? 'text-zinc-100' : 'text-zinc-800'}`}>Your app is live!</p>
+                      {deploySlug && (
+                        <p className="text-xs text-zinc-500">{deploySlug}.huggy.dev</p>
+                      )}
                     </div>
+                    
+                    {/* Custom Domain URL */}
                     <div className={`flex items-center gap-2 rounded-xl border p-3 ${theme === 'dark' ? 'bg-zinc-900/50 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}>
                       <Globe2 className="w-4 h-4 text-blue-400 shrink-0" />
                       <a href={deployResultUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline truncate flex-1">{deployResultUrl}</a>
@@ -2134,6 +2144,23 @@ export default function App() {
                         {deployCopied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                       </button>
                     </div>
+                    
+                    {/* Made with Huggy Badge Indicator */}
+                    {deployBadgeEnabled && (
+                      <div className={`flex items-center gap-2 rounded-lg border p-2.5 ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-200'}`}>
+                        <div className="w-5 h-5 rounded bg-blue-500 flex items-center justify-center shrink-0">
+                          <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-medium text-blue-400">Made with Huggy badge</p>
+                          <p className="text-[10px] text-zinc-500 truncate">Displayed on your live app (free tier)</p>
+                        </div>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 shrink-0">Free</span>
+                      </div>
+                    )}
+                    
                     <button onClick={() => setIsDeployModalOpen(false)} className="w-full py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors">
                       Done
                     </button>
