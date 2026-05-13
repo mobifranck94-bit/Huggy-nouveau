@@ -1005,12 +1005,13 @@ export default function App() {
         : 'bg-white text-zinc-600'
     }`}>
       {/* Top Header */}
-      <header className={`flex items-center px-4 py-2 border-b h-14 shrink-0 z-10 transition-colors duration-300 ${
+      <header className={`flex items-center justify-between px-4 border-b h-14 shrink-0 z-10 transition-colors duration-300 ${
         theme === 'dark'
-          ? 'border-zinc-800 bg-[#141415]'
+          ? 'border-zinc-800/60 bg-[#141415]'
           : 'border-zinc-100 bg-white shadow-sm'
       }`}>
-        <div className="flex items-center gap-2 w-auto shrink-0">
+        {/* ── LEFT ──────────────────────────────────────────── */}
+        <div className="flex items-center gap-1 shrink-0">
           <div className="flex items-center gap-2 pl-1">
             {/* Logo Icon */}
             <div className="flex items-center cursor-pointer h-14 px-1" onClick={() => navigate('/')}>
@@ -1196,125 +1197,133 @@ export default function App() {
               </AnimatePresence>
             </div>
           </div>
-          <div className="flex items-center gap-1 ml-6">
-            <button 
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className={`p-1.5 rounded-md transition-colors ${isSidebarCollapsed ? 'bg-blue-600/20 text-blue-400' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-400')}`}
-              title="Toggle Chat"
+            {/* Panel + history toggles */}
+            <div className={`flex items-center gap-0.5 ml-3 pl-3 border-l ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200'}`}>
+              <button
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                className={`p-1.5 rounded-md transition-colors ${isSidebarCollapsed ? 'bg-blue-600/20 text-blue-400' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300' : 'hover:bg-zinc-100 text-zinc-400')}`}
+                title="Toggle Chat"
+              >
+                <PanelLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setIsHistoryOpen(true)}
+                className={`p-1.5 rounded-md transition-colors ${isHistoryOpen ? 'bg-blue-600/20 text-blue-400' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300' : 'hover:bg-zinc-100 text-zinc-400')}`}
+                title="Historique des versions"
+              >
+                <History className="w-4 h-4" />
+              </button>
+            </div>
+        </div>
+
+        {/* ── CENTER ────────────────────────────────────────── */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1">
+          <div className={`flex items-center gap-0.5 p-0.5 rounded-lg border ${theme === 'dark' ? 'bg-zinc-900/60 border-zinc-800/60' : 'bg-zinc-50 border-zinc-200'}`}>
+            <button
+              onClick={() => setViewMode('preview')}
+              aria-label="Preview mode"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                viewMode === 'preview'
+                  ? (theme === 'dark' ? 'bg-zinc-800 text-white shadow-sm' : 'bg-white text-zinc-800 shadow-sm')
+                  : (theme === 'dark' ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600')
+              }`}
             >
-              <PanelLeft className="w-4 h-4" />
+              <Globe className="w-3.5 h-3.5" />
+              Preview
             </button>
             <button
-              onClick={() => setIsHistoryOpen(true)}
-              className={`p-1.5 rounded-md transition-colors ${isHistoryOpen ? 'bg-blue-600/20 text-blue-400' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-400')}`}
-              title="Historique des versions"
-              aria-label="Historique des versions"
+              onClick={() => setViewMode('code')}
+              aria-label="Code mode"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                viewMode === 'code'
+                  ? (theme === 'dark' ? 'bg-zinc-800 text-white shadow-sm' : 'bg-white text-zinc-800 shadow-sm')
+                  : (theme === 'dark' ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600')
+              }`}
             >
-              <History className="w-4 h-4" />
+              <Code2 className="w-3.5 h-3.5" />
+              Code
             </button>
+          </div>
+
+          {/* Device picker */}
+          <div className="relative">
+            <button
+              onClick={() => setIsDeviceMenuOpen(!isDeviceMenuOpen)}
+              className={`p-1.5 rounded-md border transition-colors ${
+                theme === 'dark'
+                  ? 'bg-zinc-900/60 border-zinc-800/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                  : 'bg-zinc-50 border-zinc-200 text-zinc-500 hover:bg-zinc-100'
+              }`}
+              title="Device"
+            >
+              <CurrentIcon className="w-3.5 h-3.5" />
+            </button>
+            <AnimatePresence>
+              {isDeviceMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setIsDeviceMenuOpen(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, y: 6, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 6, scale: 0.95 }}
+                    className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 bg-[#161617] border border-zinc-800 rounded-xl shadow-2xl z-20 py-1 overflow-hidden"
+                  >
+                    {devices.map((device) => (
+                      <button
+                        key={device.id}
+                        onClick={() => { setSelectedDevice(device.id as any); setIsDeviceMenuOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-3 py-2 transition-colors text-left text-xs ${
+                          selectedDevice === device.id
+                            ? 'bg-zinc-800/60 text-zinc-100'
+                            : 'text-zinc-400 hover:bg-zinc-800/30 hover:text-zinc-200'
+                        }`}
+                      >
+                        <device.icon className={`w-4 h-4 ${selectedDevice === device.id ? 'text-blue-400' : ''}`} />
+                        {device.label}
+                      </button>
+                    ))}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
-        <div className={`flex items-center gap-0.5 p-0.5 rounded-md border ml-16 ${theme === 'dark' ? 'bg-zinc-900/40 border-zinc-800/50' : 'bg-zinc-50 border-zinc-200'}`}>
-          <button
-            onClick={() => setViewMode('preview')}
-            aria-label="Preview mode"
-            className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold transition-colors ${viewMode === 'preview' ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400' : 'bg-white text-blue-600 shadow-sm') : 'text-zinc-500 hover:text-zinc-300'}`}
-          >
-            <Globe className="w-3 h-3" />
-            Preview
-          </button>
-          <button
-            onClick={() => setViewMode('code')}
-            aria-label="Code mode"
-            className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold transition-colors ${viewMode === 'code' ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400' : 'bg-white text-blue-600 shadow-sm') : 'text-zinc-500 hover:text-zinc-300'}`}
-          >
-            <Code2 className="w-3 h-3" />
-            Code
-          </button>
-        </div>
-
-
-        <div className={`flex items-center gap-1 p-1 rounded-lg border ml-2 mr-auto relative ${theme === 'dark' ? 'bg-zinc-900/40 border-zinc-800/50' : 'bg-zinc-50 border-zinc-200'}`}>
-          <button 
-            onClick={() => setIsDeviceMenuOpen(!isDeviceMenuOpen)}
-            className={`p-1.5 rounded-md transition-colors border flex items-center gap-1 ${theme === 'dark' ? 'bg-zinc-800/80 text-blue-400 border-zinc-700/30 hover:bg-zinc-700/50' : 'bg-white text-blue-600 border-zinc-200 hover:bg-zinc-50'}`}
-          >
-            <CurrentIcon className="w-3.5 h-3.5" />
-            <span className="text-[10px] ml-1 text-zinc-500 font-bold">/</span>
-          </button>
-
-          <AnimatePresence>
-            {isDeviceMenuOpen && (
-              <>
-                <div 
-                  className="fixed inset-0 z-10" 
-                  onClick={() => setIsDeviceMenuOpen(false)} 
-                />
-                <motion.div
-                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                  className="absolute top-full left-0 mt-2 w-56 bg-[#161617] border border-zinc-800 rounded-xl shadow-2xl z-20 py-1 overflow-hidden"
-                >
-                  {devices.map((device) => (
-                    <button
-                      key={device.id}
-                      onClick={() => {
-                        setSelectedDevice(device.id as any);
-                        setIsDeviceMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 transition-colors text-left ${
-                        selectedDevice === device.id 
-                          ? 'bg-zinc-800/50 text-zinc-100' 
-                          : 'text-zinc-400 hover:bg-zinc-800/30 hover:text-zinc-200'
-                      }`}
-                    >
-                      <device.icon className={`w-4 h-4 ${selectedDevice === device.id ? 'text-blue-400' : ''}`} />
-                      <span className="text-sm font-medium">{device.label}</span>
-                    </button>
-                  ))}
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Theme Toggle Switch */}
+        {/* ── RIGHT ─────────────────────────────────────────── */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Theme toggle icon button */}
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            className={`relative flex items-center w-14 h-7 rounded-full border transition-all duration-300 shrink-0 ${
+            className={`p-1.5 rounded-md border transition-all duration-200 ${
               theme === 'dark'
-                ? 'bg-zinc-800 border-zinc-700'
-                : 'bg-blue-100 border-blue-200'
+                ? 'border-zinc-700 bg-zinc-800/60 text-zinc-400 hover:text-yellow-400 hover:border-zinc-600'
+                : 'border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-blue-500 hover:bg-zinc-100'
             }`}
           >
-            {/* Track icons */}
-            <Sun className={`absolute left-1.5 w-3.5 h-3.5 transition-opacity duration-200 ${theme === 'light' ? 'text-yellow-500 opacity-100' : 'text-zinc-600 opacity-40'}`} />
-            <Moon className={`absolute right-1.5 w-3.5 h-3.5 transition-opacity duration-200 ${theme === 'dark' ? 'text-blue-400 opacity-100' : 'text-zinc-400 opacity-40'}`} />
-            {/* Thumb */}
-            <motion.div
-              layout
-              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-              className={`absolute w-5 h-5 rounded-full shadow-md flex items-center justify-center transition-colors duration-300 ${
-                theme === 'dark'
-                  ? 'left-[26px] bg-zinc-200'
-                  : 'left-[3px] bg-white'
-              }`}
-            />
+            <AnimatePresence mode="wait" initial={false}>
+              {theme === 'dark' ? (
+                <motion.span key="sun" initial={{ rotate: -45, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 45, opacity: 0 }} transition={{ duration: 0.15 }} className="block">
+                  <Sun className="w-4 h-4" />
+                </motion.span>
+              ) : (
+                <motion.span key="moon" initial={{ rotate: 45, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -45, opacity: 0 }} transition={{ duration: 0.15 }} className="block">
+                  <Moon className="w-4 h-4" />
+                </motion.span>
+              )}
+            </AnimatePresence>
           </button>
-          
+
+          {/* Deploy button */}
           <button
-            onClick={() => { 
+            onClick={() => {
               if (generatedFiles.length === 0) {
                 alert('Veuillez d\'abord générer des fichiers avant de déployer.');
                 return;
               }
-              setDeployStep('confirm'); setDeployResultUrl(null); setDeployError(null); setIsDeployModalOpen(true); 
+              setDeployStep('confirm'); setDeployResultUrl(null); setDeployError(null); setIsDeployModalOpen(true);
             }}
-            className="px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 text-white text-[11px] font-bold rounded-lg hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/20"
           >
             <Cloud className="w-3.5 h-3.5" />
             Deploy
