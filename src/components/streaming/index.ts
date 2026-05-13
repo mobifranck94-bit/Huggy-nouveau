@@ -7,3 +7,8 @@ export { LiveCodeStream } from './LiveCodeStream';
 export { MetricsBadges } from './MetricsBadges';
 export { ShimmerLine } from './ShimmerLine';
 export { CapabilityBlock, type CapabilityPlan } from './CapabilityBlock';
+export { TechnicalDetails } from './TechnicalDetails';
+export { ModeAnnounce, type AgentMode } from './ModeAnnounce';
+export { TodoList, type TodoStep, type TodoStatus } from './TodoList';
+export { ActionLog, type ActionEntry } from './ActionLog';
+export { QuestionBlock } from './QuestionBlock';

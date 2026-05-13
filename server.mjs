@@ -231,6 +231,17 @@ app.post('/api/build', buildLimiter, async (req, res) => {
               sendEvent({ type: 'tool', kind: event.kind, path: event.path, lines: event.lines });
               return;
             }
+            // Phase C: Transparent Agent events — forward verbatim (no transformation)
+            if (
+              event.type === 'mode_announce' ||
+              event.type === 'question' ||
+              event.type === 'todo_init' ||
+              event.type === 'todo_update' ||
+              event.type === 'action_log'
+            ) {
+              sendEvent(event);
+              return;
+            }
             const legacyEvent = transformToLegacyEvent(event);
             sendEvent(legacyEvent);
           },

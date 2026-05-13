@@ -81,12 +81,19 @@ import {
   AgentTimeline,
   ToolBlock,
   LiveCodeStream,
-  MetricsBadges,
-  CapabilityBlock,
+  TechnicalDetails,
+  ModeAnnounce,
+  TodoList,
+  ActionLog,
+  QuestionBlock,
   type AgentNode,
   type PipelinePhase,
   type AgentStepStatus,
   type CapabilityPlan,
+  type AgentMode,
+  type TodoStep,
+  type TodoStatus,
+  type ActionEntry,
 } from './components/streaming';
 import { useAnalytics, usePageTracking, useSessionTracking } from './lib/useAnalytics';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -161,6 +168,14 @@ interface BuildMessage {
   isStreaming: boolean;
   chatOnly?: boolean;
   toolEvents?: ToolEvent[];
+  // Phase D: Transparent Agent narration state
+  narration?: {
+    mode?: AgentMode;
+    modeReason?: string;
+    todos?: TodoStep[];
+    actions?: ActionEntry[];
+    question?: { question: string; options?: string[]; reason?: string };
+  };
   meta?: {
     securityScore?: number;
     qaScore?: number;
@@ -967,6 +982,81 @@ export default function App() {
           }));
         }
 
+        // ── Phase D: Transparent Agent narration events ─────────────────────
+        if (event.type === 'mode_announce' && event.mode) {
+          const mode = event.mode as AgentMode;
+          const reason = event.reason || '';
+          setMessages(prev => prev.map(m => {
+            if (m.id !== buildId || m.type !== 'build') return m;
+            const bm = m as BuildMessage;
+            return {
+              ...bm,
+              narration: {
+                ...(bm.narration || {}),
+                mode,
+                modeReason: reason,
+              },
+            };
+          }));
+        }
+
+        if (event.type === 'question' && event.question) {
+          const q = {
+            question: event.question,
+            options: Array.isArray(event.options) ? event.options : [],
+            reason: event.reason || '',
+          };
+          setMessages(prev => prev.map(m => {
+            if (m.id !== buildId || m.type !== 'build') return m;
+            const bm = m as BuildMessage;
+            return {
+              ...bm,
+              narration: { ...(bm.narration || {}), question: q },
+            };
+          }));
+        }
+
+        if (event.type === 'todo_init' && Array.isArray(event.steps)) {
+          const todos: TodoStep[] = event.steps.map(s => ({
+            id: s.id,
+            label: s.label,
+            status: (s.status as TodoStatus) || 'pending',
+          }));
+          setMessages(prev => prev.map(m => {
+            if (m.id !== buildId || m.type !== 'build') return m;
+            const bm = m as BuildMessage;
+            return { ...bm, narration: { ...(bm.narration || {}), todos } };
+          }));
+        }
+
+        if (event.type === 'todo_update' && event.stepId && event.todoStatus) {
+          const stepId = event.stepId;
+          const status = event.todoStatus as TodoStatus;
+          setMessages(prev => prev.map(m => {
+            if (m.id !== buildId || m.type !== 'build') return m;
+            const bm = m as BuildMessage;
+            const existing = bm.narration?.todos || [];
+            const updated = existing.map(t => (t.id === stepId ? { ...t, status } : t));
+            return { ...bm, narration: { ...(bm.narration || {}), todos: updated } };
+          }));
+        }
+
+        if (event.type === 'action_log' && event.tool && event.action) {
+          const entry: ActionEntry = {
+            id: event.actionId || `action-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            tool: event.tool,
+            action: event.action,
+            why: event.why,
+            next: event.next,
+          };
+          setMessages(prev => prev.map(m => {
+            if (m.id !== buildId || m.type !== 'build') return m;
+            const bm = m as BuildMessage;
+            const actions = [...(bm.narration?.actions || []), entry];
+            return { ...bm, narration: { ...(bm.narration || {}), actions } };
+          }));
+        }
+
         // ── Error ───────────────────────────────────────────────────────────
         if (event.type === 'error') {
           setIsBuilding(false);
@@ -1635,11 +1725,36 @@ export default function App() {
                           phase={phase}
                           timestamp={bm.timestamp}
                         >
+                          {/* Phase D: Mode announce (⚙️ Code / 💬 Discussion / ❓ Question) */}
+                          {bm.narration?.mode && (
+                            <ModeAnnounce
+                              mode={bm.narration.mode}
+                              reason={bm.narration.modeReason}
+                            />
+                          )}
+
+                          {/* Phase D: Question block with clickable options (only in Question mode) */}
+                          {bm.narration?.question && (
+                            <QuestionBlock
+                              question={bm.narration.question.question}
+                              options={bm.narration.question.options}
+                              reason={bm.narration.question.reason}
+                              onAnswer={(answer) => setChatInput(answer)}
+                            />
+                          )}
+
+                          {/* Phase D: Live todo list (Plan d'exécution) */}
+                          {bm.narration?.todos && bm.narration.todos.length > 0 && (
+                            <TodoList steps={bm.narration.todos} />
+                          )}
+
                           {/* Agent timeline with nested tool blocks */}
                           <AgentTimeline agents={timelineAgents} childrenByAgent={childrenByAgent} />
 
-                          {/* Capability decisions (backend, API, env) */}
-                          <CapabilityBlock plan={bm.meta?.capabilityPlan} />
+                          {/* Phase D: Significant action log (🛠️ / ✅ / ➡️) */}
+                          {bm.narration?.actions && bm.narration.actions.length > 0 && (
+                            <ActionLog entries={bm.narration.actions} />
+                          )}
 
                           {/* Live code stream (inline mini-editor) */}
                           {showLiveCode && (
@@ -1661,14 +1776,15 @@ export default function App() {
                             </p>
                           )}
 
-                          {/* Metrics footer (after complete) */}
-                          {bm.isComplete && !bm.isStreaming && bm.meta && (
-                            <MetricsBadges
-                              securityScore={bm.meta.securityScore}
-                              qaScore={bm.meta.qaScore}
-                              complexity={bm.meta.complexity}
+                          {/* Phase A: Technical details (Metrics + Capability) hidden behind toggle */}
+                          {bm.isComplete && !bm.isStreaming && (
+                            <TechnicalDetails
+                              securityScore={bm.meta?.securityScore}
+                              qaScore={bm.meta?.qaScore}
+                              complexity={bm.meta?.complexity}
                               filesCount={safeFiles.length}
                               timestamp={bm.timestamp}
+                              capabilityPlan={bm.meta?.capabilityPlan}
                             />
                           )}
 

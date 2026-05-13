@@ -1,8 +1,29 @@
 // ─── Pipeline SSE API Client ─────────────────────────────────────────────────
 // Connects to the Express backend and streams real-time agent progress events.
 
+export type AgentMode = 'code' | 'discussion' | 'question';
+export type TodoStatus = 'pending' | 'in_progress' | 'done';
+
+export interface TodoStepPayload {
+  id: string;
+  label: string;
+  status?: TodoStatus;
+}
+
+export interface ActionLogPayload {
+  id: string;
+  tool: string;
+  action: string;
+  why?: string;
+  next?: string;
+}
+
 export interface PipelineEvent {
-  type?: 'connected' | 'agent' | 'thinking' | 'reply' | 'complete' | 'error' | 'files_partial' | 'meta' | 'tool';
+  type?:
+    | 'connected' | 'agent' | 'thinking' | 'reply' | 'complete' | 'error'
+    | 'files_partial' | 'meta' | 'tool'
+    // Phase C — Transparent Agent events
+    | 'mode_announce' | 'question' | 'todo_init' | 'todo_update' | 'action_log';
   agent?: string;
   status?: 'active' | 'completed';
   index?: number;
@@ -44,6 +65,19 @@ export interface PipelineEvent {
   kind?: 'start' | 'progress' | 'complete';
   path?: string;
   lines?: number;
+  // Phase C — Transparent Agent payloads
+  mode?: AgentMode;
+  reason?: string;
+  question?: string;
+  options?: string[];
+  steps?: TodoStepPayload[];
+  stepId?: string;
+  todoStatus?: TodoStatus;
+  tool?: string;
+  action?: string;
+  why?: string;
+  next?: string;
+  actionId?: string;
 }
 
 /**
