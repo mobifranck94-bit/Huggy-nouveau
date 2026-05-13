@@ -535,6 +535,12 @@ export default function App() {
   }, []);
 
   // ─── Streaming Build Pipeline ───────────────────────────────────────────────
+  // Ref to accumulate live reply text without depending on React state batching
+  const liveReplyRef = useRef('');
+  // Ref to the typewriter queue: chars waiting to be displayed
+  const typewriterQueueRef = useRef<string>('');
+  const typewriterActiveRef = useRef(false);
+
   const startBuild = async () => {
     if (!chatInput.trim() || isBuilding) return;
 
@@ -547,6 +553,9 @@ export default function App() {
     const prompt = chatInput.trim();
     const buildId = `build-${Date.now()}`;
     const userId = `user-${Date.now()}`;
+    liveReplyRef.current = ''; // reset for this build
+    typewriterQueueRef.current = '';
+    typewriterActiveRef.current = false;
 
     // Initial agents state — all idle
     const initialAgents: AgentInfo[] = AGENTS_DEF.map(a => ({
@@ -627,19 +636,39 @@ export default function App() {
         if (event.type === 'reply') {
           const chunk = event.replyChunk || event.reply || '';
           if (chunk) {
-            // Accumulate Builder/Repair stream for visual overlay only (not in chat reply)
             if (event.agent === 'Builder Agent' || event.agent === 'Repair Agent') {
+              // Code stream → visual overlay only, not chat reply
               setLiveStream(prev => (prev + chunk).slice(-8000));
               setActiveAgentName(event.agent);
             } else {
-              // Only stream chat-type reply chunks (not code)
-              setMessages(prev => prev.map(m => {
-                if (m.id !== buildId || m.type !== 'build') return m;
-                const bm = m as BuildMessage;
-                const reply = `${bm.reply || ''}${chunk}`;
-                const replyVisible = `${bm.replyVisible || ''}${chunk}`;
-                return { ...bm, reply, replyVisible };
-              }));
+              // Chat reply: accumulate in ref (source of truth)
+              liveReplyRef.current += chunk;
+              // Enqueue new chars for typewriter display
+              typewriterQueueRef.current += chunk;
+
+              // Start typewriter loop if not already running
+              if (!typewriterActiveRef.current) {
+                typewriterActiveRef.current = true;
+                const pump = () => {
+                  if (typewriterQueueRef.current.length === 0) {
+                    typewriterActiveRef.current = false;
+                    return;
+                  }
+                  // Consume 1-2 chars per tick for natural feel
+                  const take = Math.min(2, typewriterQueueRef.current.length);
+                  const chars = typewriterQueueRef.current.slice(0, take);
+                  typewriterQueueRef.current = typewriterQueueRef.current.slice(take);
+                  setMessages(prev => prev.map(m => {
+                    if (m.id !== buildId || m.type !== 'build') return m;
+                    const bm = m as BuildMessage;
+                    const next = (bm.replyVisible || '') + chars;
+                    return { ...bm, replyVisible: next };
+                  }));
+                  // 22ms between ticks ≈ Claude speed (~45 chars/s)
+                  setTimeout(pump, 22);
+                };
+                setTimeout(pump, 22);
+              }
             }
           }
         }
@@ -647,8 +676,6 @@ export default function App() {
         // ── Pipeline complete ───────────────────────────────────────────────
         if (event.type === 'complete') {
           const finalFiles: FileEntry[] = event.files || [];
-          // Use event.reply only if streaming did not already build the reply
-          const fullReply = event.reply || '✅ Application générée avec succès.';
 
           // Store files for preview
           if (finalFiles.length) {
@@ -656,89 +683,119 @@ export default function App() {
             setActiveFilePath(finalFiles[0].path);
           }
 
-          // Mark complete — keep existing replyVisible if already streamed, otherwise start typewriter
-          let existingReplyLength = 0;
-          setMessages(prev => {
-            const updated = prev.map(m => {
+          // Read accumulated live reply from ref (always accurate, no batching issue)
+          const alreadyStreamed = liveReplyRef.current;
+          // Use event.reply only if nothing was streamed live
+          const fullReply = alreadyStreamed.length > 0
+            ? alreadyStreamed
+            : (event.reply || '✅ Application générée avec succès.');
+
+          const isChatOnly = event.meta?.chatOnly ?? (finalFiles.length === 0);
+
+          if (alreadyStreamed.length > 0) {
+            // Reply was streamed live via typewriter pump.
+            // Mark complete metadata but DO NOT touch replyVisible — let the pump finish naturally.
+            // Wait for the pump to drain, then finalize.
+            const finalize = () => {
+              if (typewriterActiveRef.current || typewriterQueueRef.current.length > 0) {
+                // Still pumping — check again in 50ms
+                setTimeout(finalize, 50);
+                return;
+              }
+              setMessages(prev => prev.map(m => {
+                if (m.id !== buildId || m.type !== 'build') return m;
+                const bm = m as BuildMessage;
+                return {
+                  ...bm,
+                  reply: fullReply,
+                  replyVisible: bm.replyVisible || fullReply, // keep what's already displayed
+                  files: finalFiles,
+                  filesVisible: finalFiles.length,
+                  isComplete: true,
+                  isStreaming: false,
+                  chatOnly: isChatOnly || bm.chatOnly,
+                  meta: {
+                    ...bm.meta,
+                    securityScore: event.meta?.securityScore,
+                    qaScore: event.meta?.qaScore,
+                    complexity: event.meta?.complexity,
+                    chatOnly: isChatOnly || bm.chatOnly,
+                  },
+                };
+              }));
+            };
+            // First update metadata (isComplete) without touching replyVisible
+            setMessages(prev => prev.map(m => {
               if (m.id !== buildId || m.type !== 'build') return m;
               const bm = m as BuildMessage;
-              existingReplyLength = (bm.replyVisible || '').length;
-              const isChatOnly = event.meta?.chatOnly ?? bm.chatOnly ?? (finalFiles.length === 0);
-              // If reply was already streamed live, keep it; otherwise use fullReply
-              const hadLiveReply = existingReplyLength > 0;
               return {
                 ...bm,
-                reply: hadLiveReply ? (bm.reply || fullReply) : fullReply,
-                replyVisible: hadLiveReply ? (bm.replyVisible || '') : '',
+                files: finalFiles,
+                isComplete: true,
+                chatOnly: isChatOnly || bm.chatOnly,
+                meta: {
+                  ...bm.meta,
+                  securityScore: event.meta?.securityScore,
+                  qaScore: event.meta?.qaScore,
+                  complexity: event.meta?.complexity,
+                  chatOnly: isChatOnly || bm.chatOnly,
+                },
+              };
+            }));
+            setTimeout(finalize, 50);
+          } else {
+            // Nothing was streamed live — use slow typewriter (Claude style: 25ms per char)
+            setMessages(prev => prev.map(m => {
+              if (m.id !== buildId || m.type !== 'build') return m;
+              const bm = m as BuildMessage;
+              return {
+                ...bm,
+                reply: fullReply,
+                replyVisible: '',
                 files: finalFiles,
                 filesVisible: 0,
                 isComplete: true,
                 isStreaming: true,
-                chatOnly: isChatOnly,
+                chatOnly: isChatOnly || bm.chatOnly,
                 meta: {
+                  ...bm.meta,
                   securityScore: event.meta?.securityScore,
                   qaScore: event.meta?.qaScore,
                   complexity: event.meta?.complexity,
-                  chatOnly: isChatOnly,
+                  chatOnly: isChatOnly || bm.chatOnly,
                 },
               };
-            });
-            return updated;
-          });
-
-          // Typewriter only if reply wasn't already streamed
-          const startTypewriter = (replyText: string, startFrom: number) => {
-            if (startFrom >= replyText.length) {
-              // Already complete, just finalize
-              if (finalFiles.length > 0) {
+            }));
+            // Slow typewriter: ~25ms per character, feels like Claude
+            let charIndex = 0;
+            const typeNext = () => {
+              charIndex = Math.min(charIndex + 2, fullReply.length);
+              setMessages(prev => prev.map(m => {
+                if (m.id !== buildId || m.type !== 'build') return m;
+                return { ...(m as BuildMessage), replyVisible: fullReply.slice(0, charIndex) };
+              }));
+              if (charIndex < fullReply.length) {
+                setTimeout(typeNext, 18);
+              } else {
+                // Done typing — reveal files then finalize
                 finalFiles.forEach((_, fileIdx) => {
                   setTimeout(() => {
                     setMessages(prev => prev.map(m => {
                       if (m.id !== buildId || m.type !== 'build') return m;
                       return { ...(m as BuildMessage), filesVisible: fileIdx + 1 };
                     }));
-                  }, fileIdx * 180);
+                  }, fileIdx * 150 + 200);
                 });
-              }
-              setTimeout(() => {
-                setMessages(prev => prev.map(m => {
-                  if (m.id !== buildId || m.type !== 'build') return m;
-                  return { ...(m as BuildMessage), isStreaming: false };
-                }));
-              }, finalFiles.length > 0 ? finalFiles.length * 180 + 300 : 100);
-              return;
-            }
-            let charIndex = startFrom;
-            const CHARS_PER_TICK = 3;
-            const typeInterval = setInterval(() => {
-              charIndex = Math.min(charIndex + CHARS_PER_TICK, replyText.length);
-              setMessages(prev => prev.map(m => {
-                if (m.id !== buildId || m.type !== 'build') return m;
-                return { ...(m as BuildMessage), replyVisible: replyText.slice(0, charIndex) };
-              }));
-              if (charIndex >= replyText.length) {
-                clearInterval(typeInterval);
-                if (finalFiles.length > 0) {
-                  finalFiles.forEach((_, fileIdx) => {
-                    setTimeout(() => {
-                      setMessages(prev => prev.map(m => {
-                        if (m.id !== buildId || m.type !== 'build') return m;
-                        return { ...(m as BuildMessage), filesVisible: fileIdx + 1 };
-                      }));
-                    }, fileIdx * 180);
-                  });
-                }
                 setTimeout(() => {
                   setMessages(prev => prev.map(m => {
                     if (m.id !== buildId || m.type !== 'build') return m;
                     return { ...(m as BuildMessage), isStreaming: false };
                   }));
-                }, finalFiles.length > 0 ? finalFiles.length * 180 + 300 : 100);
+                }, finalFiles.length * 150 + 500);
               }
-            }, 16);
-          };
-          // Start typewriter from where live-streaming left off
-          startTypewriter(fullReply, existingReplyLength);
+            };
+            setTimeout(typeNext, 50);
+          }
 
           setIsBuilding(false);
 
