@@ -106,12 +106,33 @@ type AgentStatus = 'idle' | 'active' | 'completed' | 'skipped';
 function stripCodeBlocks(text: string): string {
   if (!text) return '';
   let out = text;
+  // Safety net: if the message accidentally STARTS with a JSON object (e.g. an agent leaked
+  // its raw JSON output), strip the whole leading {...} block so the user only sees clean text.
+  const trimmed = out.trimStart();
+  if (trimmed.startsWith('{')) {
+    let depth = 0;
+    let endIdx = -1;
+    for (let i = 0; i < trimmed.length; i++) {
+      const ch = trimmed[i];
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) { endIdx = i; break; }
+      }
+    }
+    if (endIdx > 0) {
+      out = trimmed.slice(endIdx + 1).trimStart();
+    }
+  }
   // Remove complete fenced code blocks (```lang\n...\n```)
   out = out.replace(/```[\s\S]*?```/g, '');
   // Remove any dangling opening fence and content until end (streaming in progress)
   out = out.replace(/```[\s\S]*$/g, '');
   // Remove bare file:path lines that sometimes leak
   out = out.replace(/^\s*file:\S+\s*$/gim, '');
+  // Strip leading "💬 Mode Discussion — ..." / "⚙️ Mode Code — ..." / "❓ Mode Question — ..." lines
+  // The mode is shown by the ModeAnnounce component, no need to repeat it in the text.
+  out = out.replace(/^\s*(?:💬|⚙️|❓)\s*Mode\s+(?:Discussion|Code|Question)\s*[—\-:].*\n?/gim, '');
   // Strip markdown bold/italic/inline-code (** * __ _ `)
   out = out.replace(/\*\*([^*]+)\*\*/g, '$1');
   out = out.replace(/\*([^*]+)\*/g, '$1');
@@ -723,10 +744,21 @@ export default function App() {
         if (event.type === 'reply') {
           const chunk = event.replyChunk || event.reply || '';
           if (chunk) {
+            // JSON-emitting agents should NEVER stream into the user-visible chat.
+            // Their raw JSON output would leak (e.g. "{ \"intent\": \"conversation\", ... }")
+            // and the actual conversation handler will provide the final clean reply.
+            const JSON_AGENTS = new Set([
+              'Intent Parser', 'Product Manager', 'DBA Architect', 'UX Designer',
+              'Security Auditor', 'QA Reviewer', 'i18n Agent', 'Capability Planner',
+              'Web Research',
+            ]);
             if (event.agent === 'Builder Agent' || event.agent === 'Repair Agent') {
               // Code stream → visual overlay only, not chat reply
               setLiveStream(prev => (prev + chunk).slice(-8000));
               setActiveAgentName(event.agent);
+            } else if (event.agent && JSON_AGENTS.has(event.agent)) {
+              // Silently drop — these agents emit JSON, not conversation
+              return;
             } else {
               // Chat reply: accumulate in ref (source of truth)
               liveReplyRef.current += chunk;
@@ -1725,8 +1757,8 @@ export default function App() {
                           phase={phase}
                           timestamp={bm.timestamp}
                         >
-                          {/* Phase D: Mode announce (⚙️ Code / 💬 Discussion / ❓ Question) */}
-                          {bm.narration?.mode && (
+                          {/* Phase D: Mode announce — ONLY for code/question modes (casual chat = no badge) */}
+                          {bm.narration?.mode && bm.narration.mode !== 'discussion' && (
                             <ModeAnnounce
                               mode={bm.narration.mode}
                               reason={bm.narration.modeReason}
@@ -1743,8 +1775,8 @@ export default function App() {
                             />
                           )}
 
-                          {/* Phase D: Live todo list (Plan d'exécution) */}
-                          {bm.narration?.todos && bm.narration.todos.length > 0 && (
+                          {/* Phase D: Live todo list — ONLY when there's actual work to track (not for chat) */}
+                          {bm.narration?.todos && bm.narration.todos.length > 0 && !bm.chatOnly && (
                             <TodoList steps={bm.narration.todos} />
                           )}
 
