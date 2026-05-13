@@ -63,7 +63,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import Editor from '@monaco-editor/react';
 import axios from 'axios';
-import { startBuildPipeline, checkServerHealth, type ChatHistoryEntry } from './lib/api';
+import { startBuildPipeline, checkServerHealth, requestSummary, type ChatHistoryEntry } from './lib/api';
+import { saveMessage, loadMessages, clearMessages, loadConversationSummary, countMessages } from './lib/messages';
 import { VisualBuilder } from './components/visual';
 import { HuggyLogo } from './components/HuggyLogo';
 import { useAuth } from './lib/useAuth';
@@ -213,6 +214,9 @@ export default function App() {
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
   const [selectedElement, setSelectedElement] = useState<{ selector: string, text: string } | null>(null);
   const [buildHistory, setBuildHistory] = useState<Build[]>([]);
+  // Phase 6: persistent conversation memory per project
+  const [conversationSummary, setConversationSummary] = useState<string>('');
+  const [messageCount, setMessageCount] = useState<number>(0);
   const [isPreviewOnly, setIsPreviewOnly] = useState(false);
   const [isBuilding, setIsBuilding] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -299,6 +303,64 @@ export default function App() {
       }
     })();
   }, [currentProject, getBuilds]);
+
+  // Phase 6: Auto-load persistent conversation messages + summary when project changes
+  useEffect(() => {
+    if (!currentProject?.id || !user?.id) {
+      setConversationSummary('');
+      setMessageCount(0);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [dbMessages, summary, total] = await Promise.all([
+          loadMessages(currentProject.id, 50),
+          loadConversationSummary(currentProject.id),
+          countMessages(currentProject.id),
+        ]);
+        if (cancelled) return;
+
+        setConversationSummary(summary);
+        setMessageCount(total);
+
+        // Restore messages into the chat (only if we have DB messages and current state is fresh)
+        if (dbMessages.length > 0) {
+          const restored: ChatEntry[] = dbMessages.map(m => {
+            if (m.role === 'user') {
+              return {
+                id: m.id,
+                type: 'user' as const,
+                content: m.content,
+                timestamp: new Date(m.created_at).getTime(),
+              };
+            }
+            // assistant
+            return {
+              id: m.id,
+              type: 'build' as const,
+              timestamp: new Date(m.created_at).getTime(),
+              userPrompt: '',
+              agents: [],
+              thinkingLines: [],
+              reply: m.content,
+              replyVisible: m.content,
+              files: [],
+              filesVisible: 0,
+              isComplete: true,
+              isStreaming: false,
+              meta: (m.meta as BuildMessage['meta']) || {},
+            };
+          });
+          setMessages(restored);
+        }
+      } catch (err: any) {
+        console.warn('[Memory] Failed to load messages:', err?.message);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProject?.id, user?.id]);
 
   // Handle ?project= query param
   useEffect(() => {
@@ -594,6 +656,16 @@ export default function App() {
       } catch { /* continue without project */ }
     }
 
+    // Phase 6: persist the user message to DB (fire-and-forget, non-blocking)
+    if (projectId && user?.id) {
+      saveMessage({
+        projectId,
+        userId: user.id,
+        role: 'user',
+        content: prompt,
+      }).then(() => setMessageCount(c => c + 1)).catch(() => {});
+    }
+
     try {
       await startBuildPipeline(prompt, async (event) => {
         // Update connecting state on first event
@@ -804,6 +876,47 @@ export default function App() {
               await saveBuild(projectId, prompt, { files: event.files, reply: event.reply, meta: event.meta });
               await refreshProfile();
             } catch (e) { console.warn('Failed to save build:', e); }
+
+            // Phase 6: persist assistant reply for conversation memory
+            if (user?.id && fullReply) {
+              saveMessage({
+                projectId,
+                userId: user.id,
+                role: 'assistant',
+                content: fullReply.slice(0, 5000),
+                meta: {
+                  files_count: finalFiles.length,
+                  security_score: event.meta?.securityScore,
+                  qa_score: event.meta?.qaScore,
+                  complexity: event.meta?.complexity,
+                },
+              }).then(async () => {
+                const newCount = messageCount + 2;
+                setMessageCount(newCount);
+                // Auto-summarize when conversation grows beyond 30 messages
+                if (newCount > 30 && newCount % 10 === 0) {
+                  try {
+                    const old = await loadMessages(projectId, newCount - 20);
+                    const toSummarize = old.slice(0, -20); // keep 20 most recent untouched
+                    if (toSummarize.length > 0) {
+                      const { summary, compressed } = await requestSummary(
+                        toSummarize.map(m => ({ role: m.role, content: m.content })),
+                        conversationSummary,
+                      );
+                      if (compressed && summary) {
+                        setConversationSummary(summary);
+                        await supabase
+                          .from('projects')
+                          .update({ conversation_summary: summary, summary_message_count: toSummarize.length })
+                          .eq('id', projectId);
+                      }
+                    }
+                  } catch (sErr) {
+                    console.warn('[Memory] summarize failed:', sErr);
+                  }
+                }
+              }).catch(() => {});
+            }
           }
         }
 
@@ -866,17 +979,17 @@ export default function App() {
         }
 
       }, generatedFiles, appMode, selectedModel, projectId,
-        // Build chat history from current messages
+        // Build chat history from current messages (Phase 6: extended to 20 turns, 600 chars)
         messages
           .filter(m => m.type === 'user' || (m.type === 'build' && (m as BuildMessage).isComplete))
-          .slice(-8)
+          .slice(-20)
           .map(m => ({
             role: m.type === 'user' ? 'user' : 'assistant',
             content: m.type === 'user'
               ? (m as UserMessage).content
-              : ((m as BuildMessage).reply || '').slice(0, 300),
+              : ((m as BuildMessage).reply || '').slice(0, 600),
           } as ChatHistoryEntry)),
-        { signal: controller.signal, onConnecting: () => setIsConnecting(true) }
+        { signal: controller.signal, onConnecting: () => setIsConnecting(true), conversationSummary }
       );
     } catch (error) {
       // Don't show error if intentionally cancelled
@@ -1572,9 +1685,23 @@ export default function App() {
                       );
                     })}
 
-                    <div className="pt-4 flex justify-center">
+                    <div className="pt-4 flex flex-col items-center gap-2">
+                      {messageCount > 0 && currentProject?.id && (
+                        <div className="text-[9px] text-zinc-500 flex items-center gap-1">
+                          <span>💭</span>
+                          <span>{messageCount} messages mémorisés</span>
+                          {conversationSummary && <span className="text-blue-400">· résumé actif</span>}
+                        </div>
+                      )}
                       <button
-                        onClick={() => setMessages([])}
+                        onClick={async () => {
+                          setMessages([]);
+                          if (currentProject?.id) {
+                            await clearMessages(currentProject.id);
+                            setConversationSummary('');
+                            setMessageCount(0);
+                          }
+                        }}
                         className="text-[9px] text-zinc-600 hover:text-zinc-400 uppercase tracking-tighter font-bold transition-colors"
                       >
                         Clear History

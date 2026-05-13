@@ -124,9 +124,9 @@ export async function startBuildPipeline(
   model: string = 'claude-sonnet-4-6',
   projectId?: string | null,
   history?: ChatHistoryEntry[],
-  options?: StreamingOptions,
+  options?: StreamingOptions & { conversationSummary?: string },
 ): Promise<void> {
-  const { signal, onConnecting } = options || {};
+  const { signal, onConnecting, conversationSummary = '' } = options || {};
   const MAX_RETRIES = 2;
 
   const attemptFetch = async (attempt: number): Promise<Response> => {
@@ -135,7 +135,15 @@ export async function startBuildPipeline(
       return await fetch('/api/build', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, files: existingFiles, mode, model, projectId, history: history || [] }),
+        body: JSON.stringify({
+          prompt,
+          files: existingFiles,
+          mode,
+          model,
+          projectId,
+          history: history || [],
+          conversationSummary,
+        }),
         signal,
       });
     } catch (err) {
@@ -206,5 +214,30 @@ export async function checkServerHealth(): Promise<boolean> {
     return res.ok;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Phase 6: Compress older messages into a single paragraph summary via LLM.
+ * Returns the new summary or the existing one on failure (graceful degradation).
+ */
+export async function requestSummary(
+  messages: ChatHistoryEntry[],
+  existingSummary = '',
+): Promise<{ summary: string; compressed: boolean }> {
+  try {
+    const res = await fetch('/api/summarize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, existingSummary }),
+    });
+    if (!res.ok) return { summary: existingSummary, compressed: false };
+    const data = await res.json();
+    return {
+      summary: typeof data.summary === 'string' ? data.summary : existingSummary,
+      compressed: !!data.compressed,
+    };
+  } catch {
+    return { summary: existingSummary, compressed: false };
   }
 }

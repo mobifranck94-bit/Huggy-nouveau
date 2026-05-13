@@ -120,7 +120,7 @@ app.get('/api/health', (_req, res) => {
 
 // ─── Build Pipeline (SSE Stream) ─────────────────────────────────────────────
 app.post('/api/build', buildLimiter, async (req, res) => {
-  const { prompt, files, mode = 'build', model = 'claude-sonnet-4-6', projectId, history = [] } = req.body;
+  const { prompt, files, mode = 'build', model = 'claude-sonnet-4-6', projectId, history = [], conversationSummary = '' } = req.body;
 
   if (!prompt?.trim()) {
     return res.status(400).json({ error: 'Prompt is required' });
@@ -214,6 +214,7 @@ app.post('/api/build', buildLimiter, async (req, res) => {
           projectId,
           files,
           history,
+          conversationSummary,
           onEvent: (event) => {
             // Forward files_partial immediately for progressive display
             if (event.type === 'files_partial') {
@@ -276,6 +277,53 @@ app.post('/api/build', buildLimiter, async (req, res) => {
     sendEvent({ type: 'error', message: error.message });
   } finally {
     res.end();
+  }
+});
+
+// ─── Summarize: compress old conversation messages (Phase 6 memory) ──────────
+app.post('/api/summarize', async (req, res) => {
+  const { messages = [], existingSummary = '' } = req.body;
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: 'messages array required' });
+  }
+
+  const hasKey = process.env.ANTHROPIC_API_KEY || process.env.OPENROUTER_API_KEY;
+  if (!hasKey) {
+    // Graceful no-op: return existing summary (no compression possible without LLM)
+    return res.json({ summary: existingSummary, compressed: false });
+  }
+
+  try {
+    const { llmGateway } = await import('./lib/llm/gateway.mjs');
+
+    const transcript = messages
+      .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${(m.content || '').slice(0, 600)}`)
+      .join('\n');
+
+    const summarizerPrompt = `You are a conversation summarizer. Compress the following dialogue into a single dense paragraph (max 400 words) that preserves:
+- What the user is building (project type, key features)
+- Important architectural/design decisions made
+- Open questions or things left to do
+- User preferences (language, style, stack choices)
+
+${existingSummary ? `Existing summary so far:\n${existingSummary}\n\nNew messages to incorporate:` : 'Conversation to summarize:'}
+${transcript}
+
+Output ONLY the updated summary paragraph, no preamble.`;
+
+    const result = await llmGateway.streamGenerate('Web Research', summarizerPrompt, {
+      temperature: 0.2,
+      maxTokens: 600,
+    }, 'You are a precise conversation summarizer. Output only the summary paragraph.');
+
+    if (!result.success) {
+      return res.json({ summary: existingSummary, compressed: false, error: result.error });
+    }
+
+    return res.json({ summary: (result.content || '').trim(), compressed: true });
+  } catch (err) {
+    console.warn('[Summarize] failed:', err.message);
+    return res.json({ summary: existingSummary, compressed: false, error: err.message });
   }
 });
 
