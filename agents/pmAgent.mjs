@@ -26,11 +26,13 @@ You analyze user requests and produce a structured product spec. Think like a PM
     }
   ],
   "designGuidelines": {
-    "colorScheme": "dark violet | dark blue | light minimal | gradient sunset | mono",
-    "typography": "Inter | Geist | JetBrains Mono",
-    "style": "glassmorphism | neumorphism | flat | brutalist | classic",
-    "mood": "premium | friendly | playful | corporate | minimal",
-    "references": "Linear, Vercel, Stripe (or whatever fits)"
+    "colorScheme": "Pick a bold 3-color palette with hex values. Examples: 'warm editorial (#0E0B07 bg / #F2E8D5 text / #C8853A accent)', 'cold tech (#0A0A0F bg / #E8E4D9 text / #00D9FF accent)', 'crimson minimal (#FAFAF7 bg / #1A1A1A text / #C1272D accent)'. NEVER 'dark violet' or generic SaaS templates.",
+    "typography": "Distinctive Google Fonts pair (display + body/mono). Examples: 'Cormorant Garamond + DM Mono', 'Instrument Serif + Space Grotesk', 'Fraunces + Inter Tight', 'Geist + Geist Mono'. FORBIDDEN: plain Inter, Roboto, Arial, system-ui.",
+    "style": "editorial | brutalist | swiss-modern | post-modern | terminal | gallery (pick something with a stance, not 'glassmorphism' or 'flat')",
+    "mood": "memorable + opinionated. The user should feel something specific (rigor, warmth, urgency, calm, etc.)",
+    "references": "Cite real award-winning sites: Linear, Vercel, Basement Studio, Rauno Frii, Stripe, Apple, NY Times projects",
+    "compositionHint": "Asymmetric grid, overlapping elements, dramatic spacing. NOT centered columns.",
+    "textureHint": "Layered radial-gradients, noise SVG, glassmorphism — NEVER flat solid backgrounds."
   },
   "dataModel": [
     {
