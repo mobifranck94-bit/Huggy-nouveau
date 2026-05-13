@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTyping } from './hooks/useTyping';
 
 type Theme = 'dark' | 'light';
@@ -57,7 +57,8 @@ import {
   Paperclip,
   AlertCircle,
   Copy,
-  X
+  X,
+  Square
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Editor from '@monaco-editor/react';
@@ -86,8 +87,6 @@ import {
   type AgentStepStatus,
   type CapabilityPlan,
 } from './components/streaming';
-// Sandpack is heavy (~600kB) - lazy-load only when the user toggles to it
-const SandpackPreview = lazy(() => import('./components/SandpackPreview'));
 import { useAnalytics, usePageTracking, useSessionTracking } from './lib/useAnalytics';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -206,6 +205,9 @@ export default function App() {
   const [buildHistory, setBuildHistory] = useState<Build[]>([]);
   const [isPreviewOnly, setIsPreviewOnly] = useState(false);
   const [isBuilding, setIsBuilding] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
   const [isRenamingProject, setIsRenamingProject] = useState(false);
   const [renameValue, setRenameValue] = useState('');
@@ -316,6 +318,9 @@ export default function App() {
     }
   });
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isServerOnline, setIsServerOnline] = useState(false);
   const [generatedFiles, setGeneratedFiles] = useState<Array<{path: string, content: string}>>([]);
@@ -331,8 +336,6 @@ export default function App() {
   // Build history drawer
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-  // Preview engine: 'iframe' (esbuild server-side, default) or 'sandpack' (in-browser hot reload)
-  const [previewEngine, setPreviewEngine] = useState<'iframe' | 'sandpack'>('iframe');
 
   // Build preview server-side (esbuild) whenever generated files change
   useEffect(() => {
@@ -379,10 +382,28 @@ export default function App() {
     localStorage.setItem('huggy_messages_v2', JSON.stringify(messages));
   }, [messages]);
 
-  // Auto-scroll to bottom
+  // Smart sticky scroll - only auto-scroll if user is already near the bottom
+  const scrollToBottom = useCallback((force = false) => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    if (force || isAtBottomRef.current) {
+      requestAnimationFrame(() => {
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      });
+    }
+  }, []);
+
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (isAtBottomRef.current) scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  const handleChatScroll = useCallback(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    isAtBottomRef.current = distanceFromBottom < 80;
+    setShowScrollBtn(distanceFromBottom > 120);
+  }, []);
 
   // Handle textarea auto-resize
   useEffect(() => {
@@ -493,9 +514,25 @@ export default function App() {
   };
 
 
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, []);
+
   // ─── Streaming Build Pipeline ───────────────────────────────────────────────
   const startBuild = async () => {
     if (!chatInput.trim() || isBuilding) return;
+
+    // Cancel any existing stream before starting new one
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
 
     const prompt = chatInput.trim();
     const buildId = `build-${Date.now()}`;
@@ -519,9 +556,13 @@ export default function App() {
     ]);
 
     setIsBuilding(true);
+    setIsConnecting(true);
     setChatInput('');
     setLiveStream('');
     setActiveAgentName('');
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     // Track silencieusement (ne bloque pas)
     try { trackBuild(currentProject?.id || 'unknown', 'started', { promptLength: prompt.length, model: selectedModel }); } catch {}
@@ -536,6 +577,8 @@ export default function App() {
 
     try {
       await startBuildPipeline(prompt, async (event) => {
+        // Update connecting state on first event
+        if (isConnecting) setIsConnecting(false);
 
 
         // ── Agent progress ──────────────────────────────────────────────────
@@ -627,7 +670,7 @@ export default function App() {
 
           // Typewriter effect for reply
           let charIndex = 0;
-          const CHARS_PER_TICK = 4;
+          const CHARS_PER_TICK = 2;
           const typeInterval = setInterval(() => {
             charIndex = Math.min(charIndex + CHARS_PER_TICK, fullReply.length);
             setMessages(prev => prev.map(m => {
@@ -733,9 +776,14 @@ export default function App() {
             content: m.type === 'user'
               ? (m as UserMessage).content
               : ((m as BuildMessage).reply || '').slice(0, 300),
-          } as ChatHistoryEntry))
+          } as ChatHistoryEntry)),
+        { signal: controller.signal, onConnecting: () => setIsConnecting(true) }
       );
     } catch (error) {
+      // Don't show error if intentionally cancelled
+      if ((error as Error).message === 'Stream cancelled' || controller.signal.aborted) {
+        return;
+      }
       const errMsg = error instanceof Error ? error.message : String(error);
       const errReply = `❌ Connexion échouée: ${errMsg}`;
       setMessages(prev => prev.map(m => {
@@ -744,7 +792,36 @@ export default function App() {
       }));
     } finally {
       setIsBuilding(false);
+      setIsConnecting(false);
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
     }
+  };
+
+  const stopBuild = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsBuilding(false);
+    setIsConnecting(false);
+    setMessages(prev => prev.map(m => {
+      if (m.type !== 'build') return m;
+      const bm = m as BuildMessage;
+      if (!bm.isComplete && bm.isStreaming) {
+        return { ...bm, isComplete: true, isStreaming: false, replyVisible: (bm.replyVisible || '') + '\n\n⏹ Génération interrompue.' };
+      }
+      return m;
+    }));
+  };
+
+  const copyMessage = async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedMsgId(id);
+      setTimeout(() => setCopiedMsgId(prev => prev === id ? null : prev), 2000);
+    } catch {}
   };
 
   const toggleRecording = () => {
@@ -823,7 +900,7 @@ export default function App() {
   }
 
   return (
-    <div className={`flex flex-col h-screen overflow-hidden select-none font-sans transition-colors duration-300 ${
+    <div className={`flex flex-col h-screen overflow-hidden font-sans transition-colors duration-300 ${
       theme === 'dark' 
         ? 'bg-[#0a0a0b] text-zinc-400' 
         : 'bg-white text-zinc-600'
@@ -1058,36 +1135,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* Preview engine toggle */}
-        {viewMode === 'preview' && (
-          <div
-            className={`flex items-center gap-0.5 ml-2 p-0.5 rounded-md border ${theme === 'dark' ? 'bg-zinc-900/40 border-zinc-800/50' : 'bg-zinc-50 border-zinc-200'}`}
-            title="Moteur de preview"
-          >
-            <button
-              onClick={() => setPreviewEngine('iframe')}
-              aria-label="Preview iframe (esbuild)"
-              className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${
-                previewEngine === 'iframe'
-                  ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400' : 'bg-white text-blue-600 shadow-sm')
-                  : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              Iframe
-            </button>
-            <button
-              onClick={() => setPreviewEngine('sandpack')}
-              aria-label="Preview Sandpack (hot reload)"
-              className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${
-                previewEngine === 'sandpack'
-                  ? (theme === 'dark' ? 'bg-zinc-800 text-violet-400' : 'bg-white text-violet-600 shadow-sm')
-                  : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              Sandpack
-            </button>
-          </div>
-        )}
 
         <div className={`flex items-center gap-1 p-1 rounded-lg border ml-2 mr-auto relative ${theme === 'dark' ? 'bg-zinc-900/40 border-zinc-800/50' : 'bg-zinc-50 border-zinc-200'}`}>
           <button 
@@ -1189,7 +1236,11 @@ export default function App() {
               className="flex flex-col gap-2 shrink-0 h-full overflow-hidden"
             >
               {/* Conversation/History Area */}
-              <div className={`flex-1 rounded-2xl border overflow-hidden shadow-inner flex flex-col p-4 overflow-y-auto scrollbar-hide ${theme === 'dark' ? 'bg-[#161617] border-zinc-800/50' : 'bg-zinc-50 border-zinc-200'}`}>
+              <div className="relative flex-1 min-h-0">
+              <div
+                ref={chatScrollRef}
+                onScroll={handleChatScroll}
+                className={`h-full rounded-2xl border overflow-hidden shadow-inner flex flex-col p-4 overflow-y-auto scrollbar-hide ${theme === 'dark' ? 'bg-[#161617] border-zinc-800/50' : 'bg-zinc-50 border-zinc-200'}`}>
                 {messages.length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center text-center p-6 opacity-30">
                     <Clock className="w-8 h-8 mb-3" />
@@ -1210,11 +1261,18 @@ export default function App() {
                             transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
                             className="flex justify-end"
                           >
-                            <div className="max-w-[85%] bg-indigo-600/20 border border-indigo-500/30 rounded-2xl rounded-tr-sm px-3.5 py-2.5">
-                              <p className="text-xs text-zinc-200 leading-relaxed">{entry.content}</p>
+                            <div className="group relative max-w-[85%] bg-indigo-600/20 border border-indigo-500/30 rounded-2xl rounded-tr-sm px-3.5 py-2.5">
+                              <p className="text-xs text-zinc-200 leading-relaxed select-text">{entry.content}</p>
                               <span className="text-[9px] text-zinc-600 mt-1 block text-right">
                                 {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
+                              <button
+                                onClick={() => copyMessage(entry.id, entry.content)}
+                                className="absolute -top-2 -left-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-zinc-200"
+                                title="Copier"
+                              >
+                                {copiedMsgId === entry.id ? <CheckCircle2 className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+                              </button>
                             </div>
                           </motion.div>
                         );
@@ -1226,23 +1284,32 @@ export default function App() {
                       if (bm.chatOnly || bm.meta?.chatOnly) {
                         const text = stripCodeBlocks(bm.replyVisible || bm.reply || '');
                         return (
-                          <motion.div 
-                            key={bm.id} 
+                          <motion.div
+                            key={bm.id}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
+                            transition={{ duration: 0.2 }}
                             className="flex justify-start"
                           >
-                            <div className={`max-w-[85%] rounded-2xl rounded-tl-sm px-3.5 py-2.5 border ${theme === 'dark' ? 'bg-zinc-900/60 border-zinc-800/60 text-zinc-200' : 'bg-white border-zinc-200 text-zinc-800'}`}>
-                              <p className="text-xs leading-relaxed whitespace-pre-wrap">
+                            <div className={`group relative max-w-[85%] rounded-2xl rounded-tl-sm px-3.5 py-2.5 border ${theme === 'dark' ? 'bg-zinc-900/60 border-zinc-800/60 text-zinc-200' : 'bg-white border-zinc-200 text-zinc-800'}`}>
+                              <p className="text-xs leading-relaxed whitespace-pre-wrap select-text">
                                 {text}
-                                {bm.isStreaming && text.length < (bm.reply || '').length && (
+                                {bm.isStreaming && (
                                   <span className="windsurf-cursor animate-windsurf-cursor inline-block ml-0.5" />
                                 )}
                               </p>
                               <span className="text-[9px] text-zinc-600 mt-1 block">
                                 {new Date(bm.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
+                              {!bm.isStreaming && (
+                                <button
+                                  onClick={() => copyMessage(bm.id, text)}
+                                  className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-zinc-200"
+                                  title="Copier"
+                                >
+                                  {copiedMsgId === bm.id ? <CheckCircle2 className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+                                </button>
+                              )}
                             </div>
                           </motion.div>
                         );
@@ -1256,9 +1323,14 @@ export default function App() {
                       const activeAgent = safeAgents.find(a => a.status === 'active');
                       const allDone = safeAgents.length > 0 && safeAgents.every(a => a.status === 'completed' || a.status === 'skipped');
 
+                      // Check if this is the latest message and we're connecting
+                      const isLatestMessage = index === messages.length - 1;
+                      const showConnecting = isLatestMessage && isConnecting && !bm.isComplete;
+
                       // Map agent name → pipeline phase for the StatusPill
                       let phase: PipelinePhase = 'thinking';
                       if (bm.isComplete || allDone) phase = 'done';
+                      else if (showConnecting) phase = 'connecting';
                       else if (activeAgent?.name === 'Intent Parser') phase = 'thinking';
                       else if (activeAgent?.name === 'Builder Agent') phase = 'building';
                       else if (activeAgent?.name === 'Preview Compiler') phase = 'compiling';
@@ -1333,6 +1405,8 @@ export default function App() {
 
                       const replyText = stripCodeBlocks(bm.replyVisible || '');
                       const showReply = replyText.length > 0;
+                      const fullReplyText = stripCodeBlocks(bm.reply || '');
+                      const isStillTyping = bm.isStreaming && replyText.length < fullReplyText.length;
 
                       return (
                         <AIBubble
@@ -1358,9 +1432,9 @@ export default function App() {
 
                           {/* Reply text (typewriter) */}
                           {showReply && (
-                            <p className="text-xs leading-relaxed text-zinc-200 whitespace-pre-wrap">
+                            <p className="text-xs leading-relaxed text-zinc-200 whitespace-pre-wrap select-text">
                               {replyText}
-                              {bm.isStreaming && replyText.length < (bm.reply || '').length && (
+                              {isStillTyping && (
                                 <span className="windsurf-cursor animate-windsurf-cursor inline-block ml-0.5" />
                               )}
                             </p>
@@ -1401,6 +1475,22 @@ export default function App() {
                     <div ref={chatEndRef} />
                   </div>
                 )}
+              </div>
+              {/* Jump-to-bottom button */}
+              <AnimatePresence>
+                {showScrollBtn && (
+                  <motion.button
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                    onClick={() => { isAtBottomRef.current = true; scrollToBottom(true); }}
+                    className="absolute bottom-3 right-3 z-10 p-1.5 rounded-full bg-zinc-700 border border-zinc-600 text-zinc-300 hover:bg-zinc-600 shadow-lg transition-colors"
+                    aria-label="Aller en bas"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </motion.button>
+                )}
+              </AnimatePresence>
               </div>
 
               {/* Chat Input Area */}
@@ -1566,18 +1656,29 @@ export default function App() {
                     >
                       <Mic className="w-3.5 h-3.5" />
                     </button>
-                    <button 
-                      id="send-prompt-btn"
-                      disabled={!chatInput.trim() || isBuilding}
-                      onClick={startBuild}
-                      className={`p-2 rounded-full transition-colors border ${
-                        chatInput.trim() && !isBuilding 
-                          ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-600/20 border-blue-600' 
-                          : (theme === 'dark' ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border-zinc-700/50' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed border-zinc-300')
-                      }`}
-                    >
-                      {isBuilding ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" /> : <ArrowUp className="w-3.5 h-3.5" />}
-                    </button>
+                    {isBuilding ? (
+                      <button
+                        onClick={stopBuild}
+                        className="p-2 rounded-lg transition-all duration-200 border bg-red-600/20 border-red-500/50 text-red-400 hover:bg-red-600/30 hover:text-red-300 huggy-stop-pulse"
+                        title="Arrêter la génération"
+                        aria-label="Arrêter"
+                      >
+                        <Square className="w-3.5 h-3.5 fill-current" />
+                      </button>
+                    ) : (
+                      <button
+                        id="send-prompt-btn"
+                        disabled={!chatInput.trim()}
+                        onClick={startBuild}
+                        className={`p-2 rounded-full transition-all duration-200 border ${
+                          chatInput.trim()
+                            ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-600/20 border-blue-600'
+                            : (theme === 'dark' ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border-zinc-700/50' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed border-zinc-300')
+                        }`}
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1646,7 +1747,7 @@ export default function App() {
 
           <div className="flex-1 relative">
             {/* Empty State - Template Carousel (shown when no preview active) */}
-            {!(previewUrl || (previewEngine === 'sandpack' && generatedFiles.length > 0)) && !isBuilding && (
+            {!previewUrl && !isBuilding && (
               <TemplateCarousel 
                 onSelect={(template: Template) => {
                   setChatInput(template.prompt);
@@ -1693,25 +1794,15 @@ export default function App() {
             )}
 
             {/* Generated App Live Preview / Code Editor / Analytics */}
-            {(previewUrl || (previewEngine === 'sandpack' && generatedFiles.length > 0)) && !isBuilding && !isEditMode && (
+            {previewUrl && !isBuilding && !isEditMode && (
               <div className="absolute inset-0 z-10 bg-[#0a0a0b]">
                 {viewMode === 'preview' ? (
-                  previewEngine === 'sandpack' ? (
-                    <Suspense fallback={
-                      <div className="w-full h-full flex items-center justify-center bg-[#0a0a0b] text-zinc-400 text-sm">
-                        Chargement de Sandpack...
-                      </div>
-                    }>
-                      <SandpackPreview files={generatedFiles} fullHeight />
-                    </Suspense>
-                  ) : (
-                    <iframe
-                      title="Live Preview"
-                      src={previewUrl || 'about:blank'}
-                      className="w-full h-full border-0"
-                      sandbox="allow-scripts allow-same-origin allow-forms"
-                    />
-                  )
+                  <iframe
+                    title="Live Preview"
+                    src={previewUrl}
+                    className="w-full h-full border-0"
+                    sandbox="allow-scripts allow-same-origin allow-forms"
+                  />
                 ) : viewMode === 'visual' ? (
                   (() => {
                     const targetFile = generatedFiles.find(f => 

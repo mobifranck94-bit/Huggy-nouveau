@@ -50,10 +50,70 @@ export interface PipelineEvent {
  * Start the build pipeline via SSE streaming.
  * Calls `onEvent` for each server-sent event (agent progress, completion, error).
  * Returns a Promise that resolves when the stream ends.
+ * Supports cancellation via AbortSignal.
  */
 export interface ChatHistoryEntry {
   role: 'user' | 'assistant';
   content: string;
+}
+
+export interface StreamingOptions {
+  signal?: AbortSignal;
+  onConnecting?: () => void;
+}
+
+// Robust SSE parser that handles fragmented JSON across chunks
+function parseSSEEvents(buffer: string, jsonBuffer: string): {
+  events: PipelineEvent[];
+  newBuffer: string;
+  newJsonBuffer: string;
+} {
+  const events: PipelineEvent[] = [];
+  const parts = buffer.split('\n\n');
+  const newBuffer = parts.pop() || '';
+  let newJsonBuffer = jsonBuffer;
+
+  for (const part of parts) {
+    let dataStr = '';
+    for (const line of part.split('\n')) {
+      if (line.startsWith('data: ')) {
+        dataStr = line.slice(6);
+        break;
+      }
+    }
+
+    if (!dataStr) continue;
+
+    // Try to parse with accumulated buffer
+    let parsed: PipelineEvent | null = null;
+    const parseAttempt = newJsonBuffer + dataStr;
+
+    try {
+      parsed = JSON.parse(parseAttempt);
+      newJsonBuffer = '';
+    } catch (e) {
+      const trimmed = parseAttempt.trim();
+      // Check if this looks like incomplete JSON (starts with { but doesn't end with })
+      if (trimmed.startsWith('{') && !trimmed.endsWith('}')) {
+        newJsonBuffer = parseAttempt;
+        continue;
+      }
+      // Try just the current data
+      try {
+        parsed = JSON.parse(dataStr);
+        newJsonBuffer = '';
+      } catch {
+        newJsonBuffer = '';
+        continue;
+      }
+    }
+
+    if (parsed) {
+      events.push(parsed);
+    }
+  }
+
+  return { events, newBuffer, newJsonBuffer };
 }
 
 export async function startBuildPipeline(
@@ -64,12 +124,33 @@ export async function startBuildPipeline(
   model: string = 'claude-sonnet-4-6',
   projectId?: string | null,
   history?: ChatHistoryEntry[],
+  options?: StreamingOptions,
 ): Promise<void> {
-  const response = await fetch('/api/build', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, files: existingFiles, mode, model, projectId, history: history || [] }),
-  });
+  const { signal, onConnecting } = options || {};
+  const MAX_RETRIES = 2;
+
+  const attemptFetch = async (attempt: number): Promise<Response> => {
+    try {
+      onConnecting?.();
+      return await fetch('/api/build', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, files: existingFiles, mode, model, projectId, history: history || [] }),
+        signal,
+      });
+    } catch (err) {
+      // Retry on network-level errors (not on abort or if max retries reached)
+      const isAborted = signal?.aborted || (err as Error).name === 'AbortError';
+      const isNetworkErr = err instanceof TypeError;
+      if (!isAborted && isNetworkErr && attempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+        return attemptFetch(attempt + 1);
+      }
+      throw err;
+    }
+  };
+
+  const response = await attemptFetch(0);
 
   let errorData;
   if (!response.ok) {
@@ -85,42 +166,33 @@ export async function startBuildPipeline(
   const reader = response.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let jsonBuffer = ''; // Accumulates fragmented JSON
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
 
+    // Check for cancellation
+    if (signal?.aborted) {
+      throw new Error('Stream cancelled');
+    }
+
     buffer += decoder.decode(value, { stream: true });
 
-    // SSE messages are delimited by double newlines
-    const parts = buffer.split('\n\n');
-    buffer = parts.pop() || '';
+    const { events, newBuffer, newJsonBuffer } = parseSSEEvents(buffer, jsonBuffer);
+    buffer = newBuffer;
+    jsonBuffer = newJsonBuffer;
 
-    for (const part of parts) {
-      for (const line of part.split('\n')) {
-        if (line.startsWith('data: ')) {
-          try {
-            const data: PipelineEvent = JSON.parse(line.slice(6));
-            onEvent(data);
-          } catch {
-            // Ignore malformed JSON lines
-          }
-        }
-      }
+    for (const event of events) {
+      onEvent(event);
     }
   }
 
   // Process any remaining buffer
   if (buffer.trim()) {
-    for (const line of buffer.split('\n')) {
-      if (line.startsWith('data: ')) {
-        try {
-          const data: PipelineEvent = JSON.parse(line.slice(6));
-          onEvent(data);
-        } catch {
-          // Ignore
-        }
-      }
+    const { events } = parseSSEEvents(buffer + '\n\n', jsonBuffer);
+    for (const event of events) {
+      onEvent(event);
     }
   }
 }

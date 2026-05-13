@@ -178,4 +178,22 @@ body {
   .huggy-fade-in-up {
     animation: huggy-fade-in-up 0.35s ease-out both;
   }
+
+  /* ── Token streaming fade-in (Claude/Lovable style) ──────────────────────── */
+  @keyframes huggy-token-in {
+    from { opacity: 0; transform: translateY(2px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .huggy-token {
+    animation: huggy-token-in 0.08s ease-out both;
+  }
+
+  /* ── Stop button pulse glow ──────────────────────────────────────────────── */
+  @keyframes huggy-stop-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.25); }
+    50%       { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+  }
+  .huggy-stop-pulse {
+    animation: huggy-stop-pulse 1.8s ease-in-out infinite;
+  }
 }

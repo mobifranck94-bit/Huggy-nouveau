@@ -6,7 +6,7 @@
 import { motion } from 'motion/react';
 import { Brain, Hammer, Package, Wrench, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 
-export type PipelinePhase = 'thinking' | 'building' | 'compiling' | 'repairing' | 'done' | 'error';
+export type PipelinePhase = 'connecting' | 'thinking' | 'building' | 'compiling' | 'repairing' | 'done' | 'error';
 
 interface StatusPillProps {
   phase: PipelinePhase;
@@ -22,6 +22,14 @@ const PHASE_CONFIG: Record<PipelinePhase, {
   border: string;         // border color
   pulse: boolean;
 }> = {
+  connecting: {
+    label: 'Connecting',
+    Icon: Loader2,
+    color: 'text-zinc-300',
+    bg: 'bg-zinc-500/10',
+    border: 'border-zinc-500/25',
+    pulse: true,
+  },
   thinking: {
     label: 'Thinking',
     Icon: Brain,
