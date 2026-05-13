@@ -431,7 +431,20 @@ export default function App() {
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isServerOnline, setIsServerOnline] = useState(false);
-  const [generatedFiles, setGeneratedFiles] = useState<Array<{path: string, content: string}>>([]);
+  const [generatedFiles, setGeneratedFiles] = useState<Array<{path: string, content: string}>>(() => {
+    // Restore last generated files from localStorage so the preview survives a page refresh.
+    // The DB load (when a project is selected) will overwrite this with the authoritative version.
+    try {
+      const saved = localStorage.getItem('huggy_generated_files');
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((f: any) => f && typeof f.path === 'string' && typeof f.content === 'string');
+    } catch {
+      localStorage.removeItem('huggy_generated_files');
+      return [];
+    }
+  });
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewBuilding, setIsPreviewBuilding] = useState(false);
@@ -489,6 +502,24 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('huggy_messages_v2', JSON.stringify(messages));
   }, [messages]);
+
+  // Auto-save generated files so the preview survives a page refresh
+  useEffect(() => {
+    if (generatedFiles.length === 0) return; // Don't wipe on initial empty state
+    try {
+      const serialized = JSON.stringify(generatedFiles);
+      // Skip persistence if project is huge (>2MB) — localStorage quota is typically 5-10MB
+      // and other state (messages, summary, etc.) also needs room.
+      if (serialized.length > 2_000_000) {
+        console.warn('[Storage] Generated files exceed 2MB — skipping localStorage persistence');
+        return;
+      }
+      localStorage.setItem('huggy_generated_files', serialized);
+    } catch (e) {
+      // Quota exceeded or storage disabled — silently ignore
+      console.warn('[Storage] Failed to persist generated files:', (e as Error).message);
+    }
+  }, [generatedFiles]);
 
   // Smart sticky scroll - only auto-scroll if user is already near the bottom
   const scrollToBottom = useCallback((force = false) => {
