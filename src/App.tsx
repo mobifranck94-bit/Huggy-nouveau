@@ -104,6 +104,16 @@ function stripCodeBlocks(text: string): string {
   out = out.replace(/```[\s\S]*$/g, '');
   // Remove bare file:path lines that sometimes leak
   out = out.replace(/^\s*file:\S+\s*$/gim, '');
+  // Strip markdown bold/italic/inline-code (** * __ _ `)
+  out = out.replace(/\*\*([^*]+)\*\*/g, '$1');
+  out = out.replace(/\*([^*]+)\*/g, '$1');
+  out = out.replace(/__([^_]+)__/g, '$1');
+  out = out.replace(/_([^_]+)_/g, '$1');
+  out = out.replace(/`([^`]+)`/g, '$1');
+  // Strip markdown links [text](url) → text
+  out = out.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  // Strip markdown headings (# ## ###)
+  out = out.replace(/^#{1,6}\s+/gm, '');
   // Collapse excessive blank lines
   out = out.replace(/\n{3,}/g, '\n\n').trim();
   return out;
@@ -617,68 +627,69 @@ export default function App() {
         if (event.type === 'reply') {
           const chunk = event.replyChunk || event.reply || '';
           if (chunk) {
-            // Accumulate Builder/Repair stream for visual overlay
+            // Accumulate Builder/Repair stream for visual overlay only (not in chat reply)
             if (event.agent === 'Builder Agent' || event.agent === 'Repair Agent') {
               setLiveStream(prev => (prev + chunk).slice(-8000));
               setActiveAgentName(event.agent);
+            } else {
+              // Only stream chat-type reply chunks (not code)
+              setMessages(prev => prev.map(m => {
+                if (m.id !== buildId || m.type !== 'build') return m;
+                const bm = m as BuildMessage;
+                const reply = `${bm.reply || ''}${chunk}`;
+                const replyVisible = `${bm.replyVisible || ''}${chunk}`;
+                return { ...bm, reply, replyVisible };
+              }));
             }
-            setMessages(prev => prev.map(m => {
-              if (m.id !== buildId || m.type !== 'build') return m;
-              const bm = m as BuildMessage;
-              const reply = `${bm.reply || ''}${chunk}`;
-              const replyVisible = `${bm.replyVisible || ''}${chunk}`;
-              return { ...bm, reply, replyVisible };
-            }));
           }
         }
 
         // ── Pipeline complete ───────────────────────────────────────────────
         if (event.type === 'complete') {
           const finalFiles: FileEntry[] = event.files || [];
+          // Use event.reply only if streaming did not already build the reply
           const fullReply = event.reply || '✅ Application générée avec succès.';
 
           // Store files for preview
-              if (finalFiles.length) {
-                setGeneratedFiles(finalFiles);
-                setActiveFilePath(finalFiles[0].path);
-              }
+          if (finalFiles.length) {
+            setGeneratedFiles(finalFiles);
+            setActiveFilePath(finalFiles[0].path);
+          }
 
-          // Set reply + files (hidden), mark complete
-          setMessages(prev => prev.map(m => {
-            if (m.id !== buildId || m.type !== 'build') return m;
-            const bm = m as BuildMessage;
-            // Preserve chatOnly if previously set by an early meta event,
-            // OR auto-detect when the build returned no files (pure conversation/clarification).
-            const isChatOnly = event.meta?.chatOnly ?? bm.chatOnly ?? (finalFiles.length === 0);
-            return {
-              ...bm,
-              reply: fullReply,
-              replyVisible: '',
-              files: finalFiles,
-              filesVisible: 0,
-              isComplete: true,
-              isStreaming: true,
-              chatOnly: isChatOnly,
-              meta: {
-                securityScore: event.meta?.securityScore,
-                qaScore: event.meta?.qaScore,
-                complexity: event.meta?.complexity,
-                chatOnly: isChatOnly,
-              },
-            };
-          }));
-
-          // Typewriter effect for reply
-          let charIndex = 0;
-          const CHARS_PER_TICK = 2;
-          const typeInterval = setInterval(() => {
-            charIndex = Math.min(charIndex + CHARS_PER_TICK, fullReply.length);
-            setMessages(prev => prev.map(m => {
+          // Mark complete — keep existing replyVisible if already streamed, otherwise start typewriter
+          let existingReplyLength = 0;
+          setMessages(prev => {
+            const updated = prev.map(m => {
               if (m.id !== buildId || m.type !== 'build') return m;
-              return { ...(m as BuildMessage), replyVisible: fullReply.slice(0, charIndex) };
-            }));
-            if (charIndex >= fullReply.length) {
-              clearInterval(typeInterval);
+              const bm = m as BuildMessage;
+              existingReplyLength = (bm.replyVisible || '').length;
+              const isChatOnly = event.meta?.chatOnly ?? bm.chatOnly ?? (finalFiles.length === 0);
+              // If reply was already streamed live, keep it; otherwise use fullReply
+              const hadLiveReply = existingReplyLength > 0;
+              return {
+                ...bm,
+                reply: hadLiveReply ? (bm.reply || fullReply) : fullReply,
+                replyVisible: hadLiveReply ? (bm.replyVisible || '') : '',
+                files: finalFiles,
+                filesVisible: 0,
+                isComplete: true,
+                isStreaming: true,
+                chatOnly: isChatOnly,
+                meta: {
+                  securityScore: event.meta?.securityScore,
+                  qaScore: event.meta?.qaScore,
+                  complexity: event.meta?.complexity,
+                  chatOnly: isChatOnly,
+                },
+              };
+            });
+            return updated;
+          });
+
+          // Typewriter only if reply wasn't already streamed
+          const startTypewriter = (replyText: string, startFrom: number) => {
+            if (startFrom >= replyText.length) {
+              // Already complete, just finalize
               if (finalFiles.length > 0) {
                 finalFiles.forEach((_, fileIdx) => {
                   setTimeout(() => {
@@ -695,8 +706,39 @@ export default function App() {
                   return { ...(m as BuildMessage), isStreaming: false };
                 }));
               }, finalFiles.length > 0 ? finalFiles.length * 180 + 300 : 100);
+              return;
             }
-          }, 16);
+            let charIndex = startFrom;
+            const CHARS_PER_TICK = 3;
+            const typeInterval = setInterval(() => {
+              charIndex = Math.min(charIndex + CHARS_PER_TICK, replyText.length);
+              setMessages(prev => prev.map(m => {
+                if (m.id !== buildId || m.type !== 'build') return m;
+                return { ...(m as BuildMessage), replyVisible: replyText.slice(0, charIndex) };
+              }));
+              if (charIndex >= replyText.length) {
+                clearInterval(typeInterval);
+                if (finalFiles.length > 0) {
+                  finalFiles.forEach((_, fileIdx) => {
+                    setTimeout(() => {
+                      setMessages(prev => prev.map(m => {
+                        if (m.id !== buildId || m.type !== 'build') return m;
+                        return { ...(m as BuildMessage), filesVisible: fileIdx + 1 };
+                      }));
+                    }, fileIdx * 180);
+                  });
+                }
+                setTimeout(() => {
+                  setMessages(prev => prev.map(m => {
+                    if (m.id !== buildId || m.type !== 'build') return m;
+                    return { ...(m as BuildMessage), isStreaming: false };
+                  }));
+                }, finalFiles.length > 0 ? finalFiles.length * 180 + 300 : 100);
+              }
+            }, 16);
+          };
+          // Start typewriter from where live-streaming left off
+          startTypewriter(fullReply, existingReplyLength);
 
           setIsBuilding(false);
 
@@ -1794,7 +1836,7 @@ export default function App() {
             )}
 
             {/* Generated App Live Preview / Code Editor / Analytics */}
-            {previewUrl && !isBuilding && !isEditMode && (
+            {previewUrl && !isEditMode && (
               <div className="absolute inset-0 z-10 bg-[#0a0a0b]">
                 {viewMode === 'preview' ? (
                   <iframe

@@ -401,12 +401,12 @@ app.post('/api/deploy', deployLimiter, async (req, res) => {
       });
       const status = await statusRes.json();
       if (status.readyState === 'READY') {
-        // Return custom domain URL instead of vercel.app URL
-        console.log(`[Deploy] ✅ ${customUrl} (Vercel: ${status.url})`);
+        const liveUrl = `https://${status.url}`;
+        console.log(`[Deploy] ✅ ${liveUrl}`);
         return res.json({ 
           success: true, 
-          url: customUrl,
-          vercelUrl: `https://${status.url}`,
+          url: liveUrl,
+          vercelUrl: liveUrl,
           slug,
           badgeEnabled: badgeEnabled !== false,
         });
