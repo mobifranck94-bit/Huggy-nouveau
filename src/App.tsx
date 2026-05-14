@@ -234,7 +234,7 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [attachedFiles, setAttachedFiles] = useState<{ name: string; content: string }[]>([]);
   
-  const [appMode, setAppMode] = useState<'build' | 'plan'>('build');
+  const [appMode, setAppMode] = useState<'build' | 'plan' | 'edit'>('build');
   const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-6');
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
@@ -1132,7 +1132,11 @@ export default function App() {
           }));
         }
 
-      }, generatedFiles, appMode, selectedModel, projectId,
+      },
+        // CRITICAL FIX: only pass existing files when EXPLICITLY in edit mode.
+        // Otherwise new app requests after a previous build get forced into edit mode
+        // by the looksLikeEditRequest heuristic because generatedFiles persists in localStorage.
+        appMode === 'edit' ? generatedFiles : [],
         // Build chat history from current messages (Phase 6: extended to 20 turns, 600 chars)
         messages
           .filter(m => m.type === 'user' || (m.type === 'build' && (m as BuildMessage).isComplete))
@@ -1953,14 +1957,19 @@ export default function App() {
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
-                    <button 
-                      onClick={() => setIsEditMode(!isEditMode)}
+                    <button
+                      onClick={() => {
+                        const newEditMode = !isEditMode;
+                        setIsEditMode(newEditMode);
+                        // Sync appMode with edit state - critical for passing existingFiles to pipeline
+                        setAppMode(newEditMode ? 'edit' : 'build');
+                      }}
                       className={`p-1.5 rounded-full border transition-all duration-200 ${
-                        isEditMode 
-                          ? 'bg-blue-600/20 border-blue-500/50 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]' 
+                        isEditMode
+                          ? 'bg-blue-600/20 border-blue-500/50 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]'
                           : (theme === 'dark' ? 'hover:bg-zinc-800 border-zinc-800/80 text-zinc-500' : 'hover:bg-zinc-100 border-zinc-200 text-zinc-500')
                       }`}
-                      title="Edit mode"
+                      title={isEditMode ? 'Désactiver le mode édition' : 'Activer le mode édition'}
                     >
                       <Target className="w-3.5 h-3.5" />
                     </button>
@@ -2028,19 +2037,26 @@ export default function App() {
                             exit={{ opacity: 0, y: -10 }}
                             className={`absolute bottom-full right-0 mb-2 w-32 rounded-xl shadow-2xl z-20 py-1 overflow-hidden border ${theme === 'dark' ? 'bg-[#1c1c1d] border-zinc-800' : 'bg-white border-zinc-200 shadow-lg'}`}
                           >
-                            <button 
-                              onClick={() => { setAppMode('build'); setIsModeMenuOpen(false); }}
+                            <button
+                              onClick={() => { setAppMode('build'); setIsModeMenuOpen(false); setIsEditMode(false); }}
                               className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center gap-2 transition-colors ${appMode === 'build' ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400' : 'bg-blue-50 text-blue-600') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200' : 'text-zinc-600 hover:bg-zinc-50')}`}
                             >
                               <Zap className="w-3.5 h-3.5" />
                               Build
                             </button>
-                            <button 
-                              onClick={() => { setAppMode('plan'); setIsModeMenuOpen(false); }}
+                            <button
+                              onClick={() => { setAppMode('plan'); setIsModeMenuOpen(false); setIsEditMode(false); }}
                               className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center gap-2 transition-colors ${appMode === 'plan' ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400' : 'bg-blue-50 text-blue-600') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200' : 'text-zinc-600 hover:bg-zinc-50')}`}
                             >
                               <Layout className="w-3.5 h-3.5" />
                               Plan
+                            </button>
+                            <button
+                              onClick={() => { setAppMode('edit'); setIsModeMenuOpen(false); setIsEditMode(true); }}
+                              className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center gap-2 transition-colors ${appMode === 'edit' ? (theme === 'dark' ? 'bg-zinc-800 text-blue-400' : 'bg-blue-50 text-blue-600') : (theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200' : 'text-zinc-600 hover:bg-zinc-50')}`}
+                            >
+                              <Target className="w-3.5 h-3.5" />
+                              Edit
                             </button>
                           </motion.div>
                         </>
@@ -2482,8 +2498,8 @@ export default function App() {
                       <span className="text-xs font-semibold text-zinc-100">Select an element to edit</span>
                     </div>
                     <div className="w-px h-4 bg-zinc-700" />
-                    <button 
-                      onClick={() => setIsEditMode(false)}
+                    <button
+                      onClick={() => { setIsEditMode(false); setAppMode('build'); }}
                       className="text-[10px] text-zinc-500 hover:text-zinc-300 uppercase tracking-wider font-bold"
                     >
                       Cancel
