@@ -435,6 +435,26 @@ app.post('/api/deploy', deployLimiter, async (req, res) => {
     const deploy = await deployRes.json();
     if (!deployRes.ok) throw new Error(deploy.error?.message || `Deploy failed (${deployRes.status})`);
 
+    // 5b. Assign custom domain alias (best-effort, requires domain configured in Vercel)
+    let aliasAssigned = false;
+    try {
+      const aliasRes = await fetch(`https://api.vercel.com/v2/deployments/${deploy.id}/aliases`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alias: customUrl.replace('https://', '') }),
+      });
+      if (aliasRes.ok) {
+        aliasAssigned = true;
+        console.log(`[Deploy] Alias assigned: ${customUrl}`);
+      } else {
+        const aliasErr = await aliasRes.text();
+        console.warn(`[Deploy] Alias assignment skipped (${aliasRes.status}): ${aliasErr.slice(0, 200)}`);
+        console.warn(`[Deploy] To enable custom domains, add ${customDomain} to your Vercel project settings`);
+      }
+    } catch (aliasErr) {
+      console.warn('[Deploy] Alias assignment failed:', aliasErr.message);
+    }
+
     // 6. Store deployment record (optional, for custom domain routing)
     try {
       const deploymentRecord = createDeploymentRecord({
@@ -462,12 +482,15 @@ app.post('/api/deploy', deployLimiter, async (req, res) => {
       if (status.readyState === 'READY') {
         const liveUrl = `https://${status.url}`;
         console.log(`[Deploy] ✅ ${liveUrl}`);
-        return res.json({ 
-          success: true, 
-          url: liveUrl,
-          vercelUrl: liveUrl,
+        console.log(`[Deploy] 🌐 Custom domain: ${customUrl} (alias assigned: ${aliasAssigned})`);
+        return res.json({
+          success: true,
+          url: aliasAssigned ? customUrl : liveUrl,  // Prefer custom domain if alias worked
+          vercelUrl: liveUrl,  // Always provide Vercel URL as fallback
+          customUrl: customUrl,  // Custom domain URL (may need DNS setup)
           slug,
           badgeEnabled: badgeEnabled !== false,
+          aliasAssigned,
         });
       }
       if (status.readyState === 'ERROR') throw new Error('Vercel build errored out');

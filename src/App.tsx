@@ -243,6 +243,9 @@ export default function App() {
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
   const [deployStep, setDeployStep] = useState<'confirm' | 'deploying' | 'success' | 'error'>('confirm');
   const [deployResultUrl, setDeployResultUrl] = useState<string | null>(null);
+  const [deployVercelUrl, setDeployVercelUrl] = useState<string | null>(null);
+  const [deployCustomUrl, setDeployCustomUrl] = useState<string | null>(null);
+  const [deployAliasAssigned, setDeployAliasAssigned] = useState<boolean>(false);
   const [deployError, setDeployError] = useState<string | null>(null);
   const [deployCopied, setDeployCopied] = useState(false);
   const [deploySlug, setDeploySlug] = useState<string>('');
@@ -2590,9 +2593,15 @@ export default function App() {
                               files: generatedFiles,
                             });
                             const url = response.data.url as string;
+                            const vercelUrl = response.data.vercelUrl as string | undefined;
+                            const customUrl = response.data.customUrl as string | undefined;
+                            const aliasAssigned = response.data.aliasAssigned as boolean | undefined;
                             setDeployResultUrl(url);
+                            setDeployVercelUrl(vercelUrl || url);
+                            setDeployCustomUrl(customUrl || url);
+                            setDeployAliasAssigned(aliasAssigned || false);
                             setDeployUrl(url);
-                            trackDeploy(currentProject?.id || 'unknown', 'completed', { url, filesCount: generatedFiles.length });
+                            trackDeploy(currentProject?.id || 'unknown', 'completed', { url, filesCount: generatedFiles.length, aliasAssigned });
                             setDeployStep('success');
                           } catch (e: any) {
                             setDeployError(e?.response?.data?.error || e.message || 'Unknown error');
@@ -2644,18 +2653,63 @@ export default function App() {
                         <p className="text-xs text-zinc-500">{deploySlug}.huggy.fun</p>
                       )}
                     </div>
-                    
-                    {/* Custom Domain URL */}
-                    <div className={`flex items-center gap-2 rounded-xl border p-3 ${theme === 'dark' ? 'bg-zinc-900/50 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}>
-                      <Globe2 className="w-4 h-4 text-blue-400 shrink-0" />
-                      <a href={deployResultUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline truncate flex-1">{deployResultUrl}</a>
-                      <button
-                        onClick={() => { navigator.clipboard.writeText(deployResultUrl); setDeployCopied(true); setTimeout(() => setDeployCopied(false), 2000); }}
-                        className={`shrink-0 p-1.5 rounded-lg transition-colors ${deployCopied ? 'text-green-400' : 'text-zinc-500 hover:text-zinc-300'}`}
-                      >
-                        {deployCopied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
+
+                    {/* Custom Domain URL (if alias assigned) */}
+                    {deployAliasAssigned && deployCustomUrl && (
+                      <div className={`flex flex-col gap-2 rounded-xl border p-3 ${theme === 'dark' ? 'bg-green-500/10 border-green-500/30' : 'bg-green-50 border-green-200'}`}>
+                        <div className="flex items-center gap-2">
+                          <Globe2 className="w-4 h-4 text-green-400 shrink-0" />
+                          <span className="text-[10px] font-bold text-green-400 uppercase tracking-wider">Custom Domain</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <a href={deployCustomUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline truncate flex-1">{deployCustomUrl}</a>
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(deployCustomUrl); setDeployCopied(true); setTimeout(() => setDeployCopied(false), 2000); }}
+                            className={`shrink-0 p-1.5 rounded-lg transition-colors ${deployCopied ? 'text-green-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                          >
+                            {deployCopied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Vercel URL (always works) */}
+                    <div className={`flex flex-col gap-2 rounded-xl border p-3 ${theme === 'dark' ? 'bg-zinc-900/50 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}>
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Vercel URL (Guaranteed to work)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <a href={deployVercelUrl || deployResultUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline truncate flex-1">{deployVercelUrl || deployResultUrl}</a>
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(deployVercelUrl || deployResultUrl); setDeployCopied(true); setTimeout(() => setDeployCopied(false), 2000); }}
+                          className={`shrink-0 p-1.5 rounded-lg transition-colors ${deployCopied ? 'text-green-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                        >
+                          {deployCopied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
                     </div>
+
+                    {/* DNS Setup Instructions (if alias not assigned) */}
+                    {!deployAliasAssigned && deployCustomUrl && (
+                      <div className={`flex flex-col gap-2 rounded-xl border p-3 ${theme === 'dark' ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-200'}`}>
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">DNS Setup Required</span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400">
+                          To make <code className="text-amber-300">{deployCustomUrl?.replace('https://', '')}</code> work globally, add this CNAME record to your DNS:
+                        </p>
+                        <div className={`font-mono text-[10px] p-2 rounded ${theme === 'dark' ? 'bg-black/30' : 'bg-white'}`}>
+                          <div className="text-zinc-400">Name: <span className="text-zinc-200">{deploySlug}</span></div>
+                          <div className="text-zinc-400">Type: <span className="text-zinc-200">CNAME</span></div>
+                          <div className="text-zinc-400">Value: <span className="text-zinc-200">cname.vercel-dns.com</span></div>
+                        </div>
+                        <p className="text-[10px] text-zinc-500">
+                          Or use the Vercel URL above which works immediately everywhere.
+                        </p>
+                      </div>
+                    )}
                     
                     {/* Made with Huggy Badge Indicator */}
                     {deployBadgeEnabled && (
