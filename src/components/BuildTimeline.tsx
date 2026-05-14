@@ -8,7 +8,7 @@
  * - Visual diff indicators
  */
 
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Clock, 
   RotateCcw, 

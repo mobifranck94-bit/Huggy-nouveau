@@ -5,7 +5,7 @@
  */
 
 import type { ReactNode } from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { StatusPill, type PipelinePhase } from './StatusPill';
 import { PhaseIndicator } from './PhaseIndicator';
 

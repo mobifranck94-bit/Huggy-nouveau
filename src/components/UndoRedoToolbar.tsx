@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Undo2, Redo2, RotateCcw, History } from 'lucide-react';
 
 interface UndoRedoToolbarProps {
