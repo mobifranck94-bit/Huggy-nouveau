@@ -1,10 +1,14 @@
 /**
- * TodoList — compact animated plan with design system colors
- * Single accent color (orange) for all states
+ * TodoList — visible checkbox plan that updates in real time as the agent
+ * progresses through steps. Shows the user exactly where the agent stands.
+ *
+ *  ☑️ done       (green check)
+ *  🔵 in_progress (animated spinner)
+ *  ⬜ pending    (empty zinc box)
  */
 
 import { motion, AnimatePresence } from 'motion/react';
-import { Check, Loader2, Circle } from 'lucide-react';
+import { Check, Loader2, Square } from 'lucide-react';
 
 export type TodoStatus = 'pending' | 'in_progress' | 'done';
 
@@ -17,63 +21,46 @@ export interface TodoStep {
 interface TodoListProps {
   steps: TodoStep[];
   title?: string;
-  compact?: boolean;
 }
 
-export function TodoList({ steps, title = "Plan", compact = true }: TodoListProps) {
+export function TodoList({ steps, title = "📋 Plan d'exécution" }: TodoListProps) {
   if (!steps || steps.length === 0) return null;
-
-  const doneCount = steps.filter(s => s.status === 'done').length;
-  const progress = Math.round((doneCount / steps.length) * 100);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="rounded-md border border-border-subtle bg-bg-surface/50 p-2"
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className="rounded-lg border border-zinc-800/60 bg-zinc-900/40 px-3 py-2.5"
       role="region"
-      aria-label={title}
+      aria-label="Plan d'exécution"
     >
-      {/* Header with progress */}
-      <div className="flex items-center justify-between mb-1.5">
-        <p className="text-[10px] font-semibold text-text-secondary">{title}</p>
-        <div className="flex items-center gap-1.5">
-          <div className="w-12 h-1 rounded-full bg-bg-elevated overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
-              className="h-full bg-accent rounded-full"
-            />
-          </div>
-          <span className="text-[9px] text-text-muted font-mono">
-            {doneCount}/{steps.length}
-          </span>
-        </div>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[11px] font-semibold text-zinc-300">{title}</p>
+        <span className="text-[9px] text-zinc-600 font-mono">
+          {steps.filter(s => s.status === 'done').length} / {steps.length}
+        </span>
       </div>
-
-      {/* Steps */}
-      <ul className={compact ? "space-y-0.5" : "space-y-1"} role="list">
-        <AnimatePresence initial={false} mode="popLayout">
+      <ul className="space-y-1" role="list">
+        <AnimatePresence initial={false}>
           {steps.map((step, idx) => (
             <motion.li
               key={step.id}
               layout
-              initial={{ opacity: 0, x: -8 }}
+              initial={{ opacity: 0, x: -4 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 8 }}
-              transition={{ duration: 0.15, delay: idx * 0.02 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, delay: idx * 0.03 }}
               className="flex items-center gap-2 text-[11px]"
             >
               <StatusIcon status={step.status} />
               <span
                 className={
                   step.status === 'done'
-                    ? 'text-text-muted line-through decoration-border-default'
+                    ? 'text-zinc-500 line-through decoration-zinc-700'
                     : step.status === 'in_progress'
-                    ? 'text-text-primary font-medium'
-                    : 'text-text-secondary'
+                    ? 'text-zinc-100 font-medium'
+                    : 'text-zinc-400'
                 }
               >
                 {step.label}
@@ -89,32 +76,30 @@ export function TodoList({ steps, title = "Plan", compact = true }: TodoListProp
 function StatusIcon({ status }: { status: TodoStatus }) {
   if (status === 'done') {
     return (
-      <motion.span
-        initial={{ scale: 0.8 }}
-        animate={{ scale: 1 }}
-        className="w-3.5 h-3.5 rounded bg-accent-dim border border-accent-border flex items-center justify-center shrink-0"
-        aria-label="Done"
+      <span
+        className="w-4 h-4 rounded-md bg-green-500/15 border border-green-500/40 flex items-center justify-center shrink-0"
+        aria-label="Étape terminée"
       >
-        <Check className="w-2 h-2 text-accent" strokeWidth={2.5} />
-      </motion.span>
+        <Check className="w-2.5 h-2.5 text-green-400" />
+      </span>
     );
   }
   if (status === 'in_progress') {
     return (
       <span
-        className="w-3.5 h-3.5 rounded bg-accent-dim border border-accent-border flex items-center justify-center shrink-0"
-        aria-label="In progress"
+        className="w-4 h-4 rounded-md bg-blue-500/15 border border-blue-500/40 flex items-center justify-center shrink-0"
+        aria-label="Étape en cours"
       >
-        <Loader2 className="w-2 h-2 text-accent animate-spin" strokeWidth={2.5} />
+        <Loader2 className="w-2.5 h-2.5 text-blue-400 animate-spin" />
       </span>
     );
   }
   return (
     <span
-      className="w-3.5 h-3.5 rounded border border-border-default flex items-center justify-center shrink-0"
-      aria-label="Pending"
+      className="w-4 h-4 rounded-md border border-zinc-700/60 flex items-center justify-center shrink-0"
+      aria-label="Étape en attente"
     >
-      <Circle className="w-1.5 h-1.5 text-text-muted" strokeWidth={2} />
+      <Square className="w-2 h-2 text-zinc-700" />
     </span>
   );
 }

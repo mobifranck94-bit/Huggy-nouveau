@@ -1,5 +1,14 @@
+// Re-export types from api.ts for convenience
+export type {
+  PipelinePhase,
+  AgentDefinition,
+  PhaseConfig,
+} from '../../lib/api';
+export { AGENTS_PIPELINE, PHASE_CONFIG } from '../../lib/api';
+
 export { AIBubble } from './AIBubble';
-export { StatusPill, type PipelinePhase } from './StatusPill';
+export { StatusPill } from './StatusPill';
+export { PhaseIndicator } from './PhaseIndicator';
 export { AgentTimeline, type AgentNode } from './AgentTimeline';
 export { AgentStep, type AgentStepStatus } from './AgentStep';
 export { ToolBlock, type ToolKind, type ToolStatus } from './ToolBlock';
@@ -13,10 +22,3 @@ export { TodoList, type TodoStep, type TodoStatus } from './TodoList';
 export { ActionLog, type ActionEntry } from './ActionLog';
 export { QuestionBlock } from './QuestionBlock';
 export { ConversationMessage } from './ConversationMessage';
-
-// New Design System components
-export { ThinkingIndicator } from './ThinkingIndicator';
-export { ShimmerMessage } from './ShimmerMessage';
-export { ReadIndicator } from './ReadIndicator';
-export { AutoFixBadge } from './AutoFixBadge';
-export { ToughProblemIndicator } from './ToughProblemIndicator';

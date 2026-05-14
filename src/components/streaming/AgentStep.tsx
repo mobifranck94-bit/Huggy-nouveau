@@ -1,13 +1,14 @@
 /**
  * AgentStep - one node in the vertical AgentTimeline.
- * Design System: couleur unique accent (orange) pour tous les états actifs
+ * Renders status indicator (○ idle, ◉ active with pulse/shimmer, ✓ done, ⊘ skipped, ✗ error),
+ * label, optional duration/description, and a nested list of children (typically ToolBlocks).
  */
 
 import type { ReactNode } from 'react';
 import { motion } from 'motion/react';
-import { Check, Minus, X } from 'lucide-react';
+import { Check, Minus, X, Loader2 } from 'lucide-react';
 
-export type AgentStepStatus = 'idle' | 'active' | 'completed' | 'skipped' | 'error';
+export type AgentStepStatus = 'idle' | 'active' | 'completed' | 'skipped' | 'error' | 'pending';
 
 interface AgentStepProps {
   name: string;
@@ -22,26 +23,29 @@ export function AgentStep({ name, status, description, isLast = false, children 
   const isDone = status === 'completed';
   const isSkipped = status === 'skipped';
   const isError = status === 'error';
+  const isPending = status === 'pending';
 
   return (
     <div className="relative flex gap-3">
       {/* Left rail: dot + connecting line */}
       <div className="relative flex flex-col items-center shrink-0">
-        {/* Dot - unified accent color scheme */}
+        {/* Dot with shimmer when active */}
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
           className={`relative z-10 flex items-center justify-center w-4 h-4 rounded-full border ${
             isDone
-              ? 'bg-accent-dim border-accent-border text-accent'
+              ? 'bg-green-500/20 border-green-500/50 text-green-300'
               : isActive
-              ? 'bg-accent-dim border-accent text-accent'
+              ? 'bg-blue-500/20 border-blue-400 text-blue-300 huggy-pulse-dot'
               : isSkipped
-              ? 'bg-bg-elevated border-border-default text-text-muted'
+              ? 'bg-zinc-800 border-zinc-700 text-zinc-600'
               : isError
-              ? 'bg-red-dim border-red/30 text-red'
-              : 'bg-bg-surface border-border-default text-text-muted'
+              ? 'bg-red-500/20 border-red-500/50 text-red-300'
+              : isPending
+              ? 'bg-zinc-800/50 border-zinc-700/50 text-zinc-500'
+              : 'bg-zinc-900 border-zinc-700 text-zinc-600'
           }`}
         >
           {isDone && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
@@ -49,25 +53,26 @@ export function AgentStep({ name, status, description, isLast = false, children 
           {isError && <X className="w-2.5 h-2.5" strokeWidth={3} />}
           {isActive && (
             <>
-              <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-soft" />
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
               <motion.span
-                className="absolute inset-0 rounded-full border-2 border-accent/50"
+                className="absolute inset-0 rounded-full border-2 border-blue-400/50"
                 animate={{ scale: [1, 1.8], opacity: [0.6, 0] }}
                 transition={{ duration: 1.4, repeat: Infinity, ease: 'easeOut' }}
               />
             </>
           )}
+          {isPending && <Loader2 className="w-2 h-2 animate-spin" />}
         </motion.div>
 
-        {/* Connector line (skip on last item) */}
+        {/* Connector line with gradient when active */}
         {!isLast && (
           <div
             className={`w-px flex-1 mt-1 mb-1 ${
               isDone || isSkipped
-                ? 'bg-border-default'
+                ? 'bg-gradient-to-b from-violet-500/60 via-blue-500/40 to-zinc-800'
                 : isActive
-                ? 'bg-accent/30'
-                : 'bg-border-subtle'
+                ? 'huggy-timeline-connector-active'
+                : 'bg-zinc-800'
             }`}
             style={{ minHeight: '1rem' }}
           />
@@ -75,21 +80,23 @@ export function AgentStep({ name, status, description, isLast = false, children 
       </div>
 
       {/* Right content: label + nested */}
-      <div className={`flex-1 min-w-0 ${isLast ? '' : 'pb-2'}`}>
+      <div className={`flex-1 min-w-0 ${isLast ? '' : 'pb-3'}`}>
         <div className="flex items-baseline gap-2">
           <span
             className={`text-xs font-semibold ${
-              isDone || isActive
-                ? 'text-text-primary'
+              isDone
+                ? 'text-zinc-300'
+                : isActive
+                ? 'text-zinc-100'
                 : isSkipped || isError
-                ? 'text-text-secondary'
-                : 'text-text-muted'
+                ? 'text-zinc-500'
+                : 'text-zinc-500'
             }`}
           >
             {name}
           </span>
           {description && (
-            <span className="text-[10px] text-text-muted truncate">{description}</span>
+            <span className="text-[10px] text-zinc-500 truncate">{description}</span>
           )}
         </div>
 
@@ -98,8 +105,8 @@ export function AgentStep({ name, status, description, isLast = false, children 
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
-            transition={{ duration: 0.25 }}
-            className="mt-1 flex flex-col gap-1"
+            transition={{ duration: 0.3 }}
+            className="mt-1.5 flex flex-col gap-1"
           >
             {children}
           </motion.div>

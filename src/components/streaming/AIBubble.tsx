@@ -1,71 +1,61 @@
 /**
- * AIBubble - simplified container for AI streaming response.
- * Design System: minimal header, single accent color
+ * AIBubble - container wrapping a single AI streaming response.
+ * Header: avatar + "Huggy AI" + StatusPill + PhaseIndicator + timestamp.
+ * Body  : free children (timeline, code stream, reply, metrics, feedback).
  */
 
 import type { ReactNode } from 'react';
 import { motion } from 'motion/react';
-import { Sparkles } from 'lucide-react';
 import { StatusPill, type PipelinePhase } from './StatusPill';
+import { PhaseIndicator } from './PhaseIndicator';
 
 interface AIBubbleProps {
   phase: PipelinePhase;
   elapsed?: number;
+  timestamp?: number;
+  phaseProgress?: number;  // NEW: 0-100 progress for phase indicator
+  showPhaseIndicator?: boolean;  // NEW: show detailed phase info
   children: ReactNode;
-  /** Ultra-minimal mode - hides timeline, plan, agents, shows only status + content */
-  compact?: boolean;
 }
 
-export function AIBubble({ phase, elapsed, children, compact = false }: AIBubbleProps) {
+export function AIBubble({ phase, elapsed, timestamp, phaseProgress, showPhaseIndicator, children }: AIBubbleProps) {
   const isStreaming = phase !== 'done' && phase !== 'error';
-
-  if (compact) {
-    return (
-      <motion.div
-        layout
-        initial={{ opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-        className="flex-1 min-w-0"
-        role="article"
-        aria-live={isStreaming ? 'polite' : 'off'}
-        aria-busy={isStreaming}
-      >
-        {/* Compact Header - just avatar + status pill */}
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-5 h-5 rounded-md bg-accent-dim border border-accent-border flex items-center justify-center">
-            <Sparkles className="w-3 h-3 text-accent" />
-          </div>
-          <StatusPill phase={phase} elapsed={elapsed} />
-        </div>
-        {/* Content - no left padding */}
-        <div className="flex flex-col gap-2">{children}</div>
-      </motion.div>
-    );
-  }
-
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+      initial={{ opacity: 0, y: 6, filter: 'blur(3px)' }}
+      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
       className="flex-1 min-w-0"
       role="article"
       aria-live={isStreaming ? 'polite' : 'off'}
       aria-busy={isStreaming}
     >
-      {/* Minimal Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-5 h-5 rounded-md bg-accent-dim border border-accent-border flex items-center justify-center">
-          <Sparkles className="w-3 h-3 text-accent" />
-        </div>
-        <span className="text-[11px] font-semibold text-text-primary">Huggy</span>
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        <span className="text-[11px] font-semibold text-zinc-200">Huggy AI</span>
         <StatusPill phase={phase} elapsed={elapsed} />
+        {timestamp && (
+          <span className="ml-auto text-[9px] text-zinc-600 font-mono">
+            {new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
       </div>
 
-      {/* Content */}
-      <div className="flex flex-col gap-2 pl-7">{children}</div>
+      {/* Phase Indicator with progress bar (NEW) */}
+      {showPhaseIndicator && isStreaming && (
+        <div className="mb-3">
+          <PhaseIndicator
+            phase={phase}
+            progress={phaseProgress}
+            showProgressBar
+            elapsedSeconds={elapsed}
+          />
+        </div>
+      )}
+
+      {/* Sections (stacked) */}
+      <div className="flex flex-col gap-3">{children}</div>
     </motion.div>
   );
 }

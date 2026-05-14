@@ -63,7 +63,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import Editor from '@monaco-editor/react';
 import axios from 'axios';
-import { startBuildPipeline, checkServerHealth, requestSummary, type ChatHistoryEntry } from './lib/api';
+import { startBuildPipeline, checkServerHealth, requestSummary, type ChatHistoryEntry, type PipelinePhase, type ToolKind, type ToolStatus, AGENTS_PIPELINE } from './lib/api';
 import { saveMessage, loadMessages, clearMessages, loadConversationSummary, countMessages } from './lib/messages';
 import { VisualBuilder } from './components/visual';
 import { HuggyLogo } from './components/HuggyLogo';
@@ -80,6 +80,7 @@ import {
   AIBubble,
   AgentTimeline,
   ToolBlock,
+  PhaseIndicator,
   LiveCodeStream,
   TechnicalDetails,
   ModeAnnounce,
@@ -87,11 +88,6 @@ import {
   ActionLog,
   QuestionBlock,
   ConversationMessage,
-  ThinkingIndicator,
-  ShimmerMessage,
-  ReadIndicator,
-  AutoFixBadge,
-  ToughProblemIndicator,
   type AgentNode,
   type PipelinePhase,
   type AgentStepStatus,
@@ -158,6 +154,9 @@ interface AgentInfo {
   name: string;
   status: AgentStatus;
   description: string;
+  phase?: PipelinePhase;
+  toolsCompleted?: number;
+  toolsTotal?: number;
 }
 
 interface FileEntry {
@@ -172,12 +171,17 @@ interface UserMessage {
   timestamp: number;
 }
 
+/** Enhanced ToolEvent matching api.ts ToolKind */
 interface ToolEvent {
   id: string;            // stable per (path) - last status wins
-  kind: 'write';         // currently we only emit writes
+  kind: ToolKind;        // extended: read, write, edit, analyze, etc.
   path: string;
+  label?: string;        // display label (e.g. "Reading src/App.tsx")
+  detail?: string;       // additional info (e.g. "124 lines", "+12 -3")
   lines?: number;
-  status: 'active' | 'completed';
+  status: ToolStatus;
+  agentName?: string;    // which agent emitted this tool event
+  timestamp: number;
 }
 
 interface BuildMessage {
@@ -194,7 +198,12 @@ interface BuildMessage {
   isComplete: boolean;
   isStreaming: boolean;
   chatOnly?: boolean;
+  // NEW: Advanced streaming state
+  phase?: PipelinePhase;
+  phaseProgress?: number;
+  phaseElapsed?: number;
   toolEvents?: ToolEvent[];
+  activeToolsByAgent?: Record<string, ToolEvent[]>;  // tools grouped by agent
   // Phase D: Transparent Agent narration state
   narration?: {
     mode?: AgentMode;
@@ -209,6 +218,8 @@ interface BuildMessage {
     complexity?: string;
     chatOnly?: boolean;
     capabilityPlan?: CapabilityPlan;
+    elapsedTime?: number;
+    tokensUsed?: number;
   };
 }
 
@@ -244,7 +255,6 @@ export default function App() {
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'preview' | 'code' | 'visual' | 'analytics'>('preview');
-  const [compactUi, setCompactUi] = useState(true); // Minimal UI - hide agents/timeline/plan
   const [isCustomDomainModalOpen, setIsCustomDomainModalOpen] = useState(false);
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
   const [deployStep, setDeployStep] = useState<'confirm' | 'deploying' | 'success' | 'error'>('confirm');
@@ -750,23 +760,120 @@ export default function App() {
 
 
         // ── Agent progress ──────────────────────────────────────────────────
-        if (event.type === 'agent') {
+        if (event.type === 'agent' || event.type === 'agent_start' || event.type === 'agent_active' || event.type === 'agent_complete') {
           setMessages(prev => prev.map(m => {
             if (m.id !== buildId || m.type !== 'build') return m;
             const bm = m as BuildMessage;
             const currentAgents = Array.isArray(bm.agents) ? bm.agents : initialAgents;
-            const agentIndex = typeof event.index === 'number'
-              ? event.index
-              : currentAgents.findIndex(a => a.name === event.agent);
+            const agentIndex = typeof event.agentIndex === 'number'
+              ? event.agentIndex
+              : typeof event.index === 'number'
+                ? event.index
+                : currentAgents.findIndex(a => a.name === event.agent);
             const updatedAgents = currentAgents.map((a, i) =>
               i === agentIndex
-                ? { ...a, status: event.status as AgentStatus, description: event.description || '' }
+                ? {
+                    ...a,
+                    status: (event.status || (event.type === 'agent_complete' ? 'completed' : 'active')) as AgentStatus,
+                    description: event.description || event.message || '',
+                    phase: event.phase || a.phase,
+                  }
                 : a
             );
-            const newThinking = event.status === 'active' && event.description
+            const newThinking = (event.status === 'active' || event.type === 'agent_active') && event.description
               ? [...(Array.isArray(bm.thinkingLines) ? bm.thinkingLines : []), `[${event.agent}] ${event.description}`]
               : (Array.isArray(bm.thinkingLines) ? bm.thinkingLines : []);
             return { ...bm, agents: updatedAgents, thinkingLines: newThinking };
+          }));
+        }
+
+        // ── Agent skip (conditional agent didn't run) ─────────────────────────
+        if (event.type === 'agent_skip') {
+          setMessages(prev => prev.map(m => {
+            if (m.id !== buildId || m.type !== 'build') return m;
+            const bm = m as BuildMessage;
+            const currentAgents = Array.isArray(bm.agents) ? bm.agents : initialAgents;
+            const agentIndex = currentAgents.findIndex(a => a.name === event.agent);
+            if (agentIndex === -1) return m;
+            const updatedAgents = currentAgents.map((a, i) =>
+              i === agentIndex
+                ? { ...a, status: 'skipped' as AgentStatus, description: event.reason || 'Skipped' }
+                : a
+            );
+            return { ...bm, agents: updatedAgents };
+          }));
+        }
+
+        // ── Phase change events ───────────────────────────────────────────────
+        if (event.type === 'phase_start' || event.type === 'phase_progress' || event.type === 'phase_complete') {
+          setMessages(prev => prev.map(m => {
+            if (m.id !== buildId || m.type !== 'build') return m;
+            const bm = m as BuildMessage;
+            return {
+              ...bm,
+              phase: event.phase as PipelinePhase || bm.phase,
+              phaseProgress: event.phaseProgress || bm.phaseProgress || 0,
+            };
+          }));
+        }
+
+        // ── Tool events (granular actions) ──────────────────────────────────
+        if (event.type === 'tool' || event.type === 'tool_start' || event.type === 'tool_progress' || event.type === 'tool_complete') {
+          setMessages(prev => prev.map(m => {
+            if (m.id !== buildId || m.type !== 'build') return m;
+            const bm = m as BuildMessage;
+
+            // Create or update tool event
+            const toolId = event.toolId || `${event.tool}-${event.path || event.toolLabel}`;
+            const existingTools = bm.toolEvents || [];
+            const existingIndex = existingTools.findIndex(t => t.id === toolId);
+
+            const newTool: ToolEvent = {
+              id: toolId,
+              kind: (event.tool || 'write') as ToolKind,
+              path: event.path || event.toolLabel || '',
+              label: event.toolLabel || event.path || '',
+              detail: event.toolDetail || (event.lines ? `${event.lines} lines` : undefined),
+              lines: event.lines,
+              status: (event.toolStatus || (event.type === 'tool_complete' ? 'completed' : 'active')) as ToolStatus,
+              agentName: event.agent,
+              timestamp: Date.now(),
+            };
+
+            let updatedTools: ToolEvent[];
+            if (existingIndex >= 0) {
+              // Update existing tool
+              updatedTools = existingTools.map((t, i) => i === existingIndex ? newTool : t);
+            } else {
+              // Add new tool
+              updatedTools = [...existingTools, newTool];
+            }
+
+            // Group tools by agent for display
+            const activeToolsByAgent: Record<string, ToolEvent[]> = {};
+            updatedTools.forEach(tool => {
+              const agent = tool.agentName || 'Builder Agent';
+              if (!activeToolsByAgent[agent]) activeToolsByAgent[agent] = [];
+              activeToolsByAgent[agent].push(tool);
+            });
+
+            return { ...bm, toolEvents: updatedTools, activeToolsByAgent };
+          }));
+        }
+
+        // ── Metrics event ─────────────────────────────────────────────────────
+        if (event.type === 'metrics' && event.metrics) {
+          setMessages(prev => prev.map(m => {
+            if (m.id !== buildId || m.type !== 'build') return m;
+            const bm = m as BuildMessage;
+            return {
+              ...bm,
+              meta: {
+                ...bm.meta,
+                elapsedTime: event.metrics?.duration,
+                tokensUsed: (event.metrics?.tokensIn || 0) + (event.metrics?.tokensOut || 0),
+              },
+            };
           }));
         }
 
@@ -1419,7 +1526,7 @@ export default function App() {
                             onChange={e => setRenameValue(e.target.value)}
                             onKeyDown={async e => {
                               if (e.key === 'Enter' && renameValue.trim() && currentProject) {
-                                await createProject(renameValue.trim());
+                                await createProject(renameValue.trim(), 'New project created from rename');
                                 setIsRenamingProject(false);
                                 setIsProjectMenuOpen(false);
                               }
@@ -1462,7 +1569,7 @@ export default function App() {
                         <button
                           onClick={async () => {
                             const name = `Project ${(projects?.length || 0) + 1}`;
-                            await createProject(name);
+                            await createProject(name, 'New project created');
                             setIsProjectMenuOpen(false);
                           }}
                           className={`w-full flex items-center gap-2.5 px-4 py-2 text-left text-xs font-medium transition-colors text-accent hover:bg-bg-hover`}
@@ -1697,14 +1804,18 @@ export default function App() {
                       const isLatestMessage = index === messages.length - 1;
                       const showConnecting = isLatestMessage && isConnecting && !bm.isComplete;
 
-                      // Map agent name → pipeline phase for the StatusPill (4 phases design system)
-                      let phase: PipelinePhase = 'thinking';
+                      // Map agent name → pipeline phase for the StatusPill
+                      // NEW: Use bm.phase from streaming events if available
+                      let phase: PipelinePhase = bm.phase || 'thinking';
                       if (bm.isComplete || allDone) phase = 'done';
-                      else if (showConnecting) phase = 'thinking';
-                      else if (activeAgent?.name === 'Intent Parser') phase = 'thinking';
-                      else if (activeAgent?.name === 'Builder Agent') phase = 'working';
-                      else if (activeAgent?.name === 'Preview Compiler') phase = 'working';
-                      else if (activeAgent?.name === 'Repair Agent') phase = 'fixing';
+                      else if (showConnecting) phase = 'initializing';
+                      // Fallback to agent-based mapping if no phase from events
+                      else if (!bm.phase) {
+                        if (activeAgent?.name === 'Intent Parser') phase = 'understanding';
+                        else if (activeAgent?.name === 'Builder Agent') phase = 'coding';
+                        else if (activeAgent?.name === 'Preview Compiler') phase = 'building';
+                        else if (activeAgent?.name === 'Repair Agent') phase = 'repairing';
+                      }
 
                       // Build the AgentNode[] for the timeline
                       const timelineAgents: AgentNode[] = AGENTS_DEF.map((def, idx) => {
@@ -1716,54 +1827,87 @@ export default function App() {
                         };
                       });
 
-                      // Tool blocks under Builder Agent. Prefer real-time toolEvents from
-                      // the SSE stream; fall back to deriving from files (backwards-compat).
+                      // Tool blocks under each agent using activeToolsByAgent (NEW streaming)
+                      // or fall back to bm.toolEvents / files for backwards-compat.
                       const visibleFiles = safeFiles.slice(0, Math.max(safeFilesVisible, safeFiles.length));
                       const builderAgentIdx = AGENTS_DEF.findIndex(a => a.name === 'Builder Agent');
                       const builderAgentState = safeAgents[builderAgentIdx];
                       const isBuilderActive = builderAgentState?.status === 'active';
+
+                      // NEW: Use activeToolsByAgent from streaming events if available
+                      const activeToolsByAgent = bm.activeToolsByAgent || {};
                       const liveToolEvents = bm.toolEvents || [];
 
-                      const toolBlocksNode = liveToolEvents.length > 0 ? (
-                        <>
-                          {liveToolEvents.map((te) => (
-                            <ToolBlock
-                              key={`${bm.id}-${te.path}`}
-                              kind="write"
-                              label={te.path}
-                              detail={typeof te.lines === 'number' ? `${te.lines} ${te.lines > 1 ? 'lines' : 'line'}` : undefined}
-                              status={te.status}
-                            />
-                          ))}
-                        </>
-                      ) : visibleFiles.length > 0 ? (
-                        <>
-                          {visibleFiles.map((file, fi) => {
-                            const lineCount = (file.content?.match(/\n/g)?.length || 0) + 1;
-                            const isLastWhileStreaming = isBuilderActive && fi === visibleFiles.length - 1 && bm.isStreaming;
-                            return (
-                              <ToolBlock
-                                key={`${bm.id}-${file.path}-${fi}`}
-                                kind="write"
-                                label={file.path}
-                                detail={`${lineCount} ${lineCount > 1 ? 'lines' : 'line'}`}
-                                status={isLastWhileStreaming ? 'active' : 'completed'}
-                              />
-                            );
-                          })}
-                          {isBuilderActive && visibleFiles.length === 0 && (
-                            <ToolBlock kind="write" label="Preparing files..." status="active" />
-                          )}
-                        </>
-                      ) : isBuilderActive ? (
-                        <ToolBlock kind="write" label="Generating React app..." status="active" />
-                      ) : null;
-
+                      // Build childrenByAgent for all agents with tools
                       const childrenByAgent: Record<string, React.ReactNode> = {};
-                      if (toolBlocksNode) childrenByAgent['Builder Agent'] = toolBlocksNode;
+
+                      // If we have streaming tool events grouped by agent, use them
+                      if (Object.keys(activeToolsByAgent).length > 0) {
+                        Object.entries(activeToolsByAgent).forEach(([agentName, tools]) => {
+                          const activeTools = tools.filter(t => t.status === 'active');
+                          const completedTools = tools.filter(t => t.status === 'completed');
+                          const showTools = [...activeTools, ...completedTools.slice(-5)]; // Show active + last 5 completed
+
+                          if (showTools.length > 0) {
+                            childrenByAgent[agentName] = (
+                              <>
+                                {showTools.map((te) => (
+                                  <ToolBlock
+                                    key={`${bm.id}-${te.id}`}
+                                    kind={te.kind}
+                                    label={te.label || te.path}
+                                    detail={te.detail || (typeof te.lines === 'number' ? `${te.lines} lines` : undefined)}
+                                    status={te.status}
+                                  />
+                                ))}
+                              </>
+                            );
+                          }
+                        });
+                      }
+                      // Fall back to flat toolEvents (legacy)
+                      else if (liveToolEvents.length > 0) {
+                        childrenByAgent['Builder Agent'] = (
+                          <>
+                            {liveToolEvents.map((te) => (
+                              <ToolBlock
+                                key={`${bm.id}-${te.id}`}
+                                kind={te.kind || 'write'}
+                                label={te.label || te.path}
+                                detail={te.detail || (typeof te.lines === 'number' ? `${te.lines} lines` : undefined)}
+                                status={te.status}
+                              />
+                            ))}
+                          </>
+                        );
+                      }
+                      // Fall back to deriving from files (backwards-compat)
+                      else if (visibleFiles.length > 0) {
+                        childrenByAgent['Builder Agent'] = (
+                          <>
+                            {visibleFiles.map((file, fi) => {
+                              const lineCount = (file.content?.match(/\n/g)?.length || 0) + 1;
+                              const isLastWhileStreaming = isBuilderActive && fi === visibleFiles.length - 1 && bm.isStreaming;
+                              return (
+                                <ToolBlock
+                                  key={`${bm.id}-${file.path}-${fi}`}
+                                  kind="write"
+                                  label={file.path}
+                                  detail={`${lineCount} ${lineCount > 1 ? 'lines' : 'line'}`}
+                                  status={isLastWhileStreaming ? 'active' : 'completed'}
+                                />
+                              );
+                            })}
+                          </>
+                        );
+                      }
+                      // Show placeholder while building
+                      else if (isBuilderActive) {
+                        childrenByAgent['Builder Agent'] = <ToolBlock kind="write" label="Generating React app..." status="active" />;
+                      }
 
                       // Detect a "currently writing" path from the live stream global state
-                      const isThisBuildStreaming = bm.isStreaming && !bm.isComplete && phase === 'working';
+                      const isThisBuildStreaming = bm.isStreaming && !bm.isComplete && phase === 'building';
                       const livePathMatch = isThisBuildStreaming ? liveStream.match(/```(?:[a-z]+\s+)?file:([^\n`]+)/i) : null;
                       const showLiveCode = isThisBuildStreaming && liveStream.trim().length > 0;
                       const livePath = livePathMatch?.[1]?.trim() || (visibleFiles[visibleFiles.length - 1]?.path) || 'generating...';
@@ -1783,17 +1927,18 @@ export default function App() {
                           key={bm.id}
                           phase={phase}
                           timestamp={bm.timestamp}
-                          compact={compactUi}
+                          phaseProgress={bm.phaseProgress}
+                          showPhaseIndicator={bm.isStreaming && !bm.isComplete}
                         >
-                          {/* Phase D: Mode announce — hidden in compact mode */}
-                          {!compactUi && bm.narration?.mode && bm.narration.mode !== 'discussion' && (
+                          {/* Phase D: Mode announce — ONLY for code/question modes (casual chat = no badge) */}
+                          {bm.narration?.mode && bm.narration.mode !== 'discussion' && (
                             <ModeAnnounce
                               mode={bm.narration.mode}
                               reason={bm.narration.modeReason}
                             />
                           )}
 
-                          {/* Phase D: Question block with clickable options (always show when needed) */}
+                          {/* Phase D: Question block with clickable options (only in Question mode) */}
                           {bm.narration?.question && (
                             <QuestionBlock
                               question={bm.narration.question.question}
@@ -1803,18 +1948,16 @@ export default function App() {
                             />
                           )}
 
-                          {/* Phase D: Live todo list — hidden in compact mode */}
-                          {!compactUi && bm.narration?.todos && bm.narration.todos.length > 0 && !bm.chatOnly && (
+                          {/* Phase D: Live todo list — ONLY when there's actual work to track (not for chat) */}
+                          {bm.narration?.todos && bm.narration.todos.length > 0 && !bm.chatOnly && (
                             <TodoList steps={bm.narration.todos} />
                           )}
 
-                          {/* Agent timeline with nested tool blocks — hidden in compact mode */}
-                          {!compactUi && (
-                            <AgentTimeline agents={timelineAgents} childrenByAgent={childrenByAgent} />
-                          )}
+                          {/* Agent timeline with nested tool blocks */}
+                          <AgentTimeline agents={timelineAgents} childrenByAgent={childrenByAgent} />
 
-                          {/* Phase D: Significant action log — hidden in compact mode */}
-                          {!compactUi && bm.narration?.actions && bm.narration.actions.length > 0 && (
+                          {/* Phase D: Significant action log (🛠️ / ✅ / ➡️) */}
+                          {bm.narration?.actions && bm.narration.actions.length > 0 && (
                             <ActionLog entries={bm.narration.actions} />
                           )}
 
@@ -2074,15 +2217,6 @@ export default function App() {
                         </>
                       )}
                     </AnimatePresence>
-
-                    {/* Compact UI Toggle */}
-                    <button
-                      onClick={() => setCompactUi(!compactUi)}
-                      className={`p-1.5 rounded-lg transition-colors text-[10px] font-medium ${compactUi ? 'bg-accent-dim text-accent border border-accent-border' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500')}`}
-                      title={compactUi ? 'Mode compact (détails cachés)' : 'Mode complet (tous les détails)'}
-                    >
-                      {compactUi ? 'Compact' : 'Complet'}
-                    </button>
 
                     <button 
                       onClick={toggleRecording}

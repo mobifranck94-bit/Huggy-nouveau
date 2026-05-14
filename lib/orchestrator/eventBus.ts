@@ -5,16 +5,37 @@
  * compatibles avec l'UI streaming style Windsurf.
  */
 
-export type EventType = 
+export type EventType =
+  // Agent lifecycle
   | 'agent.start'
-  | 'agent.progress' 
+  | 'agent.progress'
+  | 'agent.active'
   | 'agent.complete'
   | 'agent.error'
   | 'agent.retry'
+  | 'agent.skip'  // NEW: agent skipped (conditional)
+  // Tool events (NEW)
+  | 'tool.start'
+  | 'tool.progress'
+  | 'tool.complete'
+  | 'tool.error'
+  // Phase events (NEW)
+  | 'phase.start'
+  | 'phase.progress'
+  | 'phase.complete'
+  // Content events
   | 'thinking'
   | 'reply.chunk'
+  | 'code.chunk'  // NEW: code streaming
   | 'files.ready'
-  | 'pipeline.complete';
+  | 'files.partial'  // NEW: partial files
+  // Pipeline lifecycle
+  | 'pipeline.initialized'  // NEW
+  | 'pipeline.complete'
+  | 'pipeline.error'
+  // Meta events (NEW)
+  | 'metrics'
+  | 'warning';
 
 export type AgentStatus = 'idle' | 'active' | 'completed' | 'failed' | 'retrying';
 
@@ -36,24 +57,54 @@ export interface WindsurfEvent {
     agentIndex?: number;
     totalAgents?: number;
     description?: string;
-    
+
+    // Phase data (NEW)
+    phase?: string;
+    previousPhase?: string;
+    phaseProgress?: number;
+
+    // Tool data (NEW)
+    tool?: string;
+    toolStatus?: 'pending' | 'active' | 'completed' | 'error';
+    toolLabel?: string;
+    toolDetail?: string;
+    toolPath?: string;
+    toolLines?: number;
+
     // Terminal thinking block data
     thinkingLines?: string[];
     thinkingLine?: string;
-    
+
     // Reply streaming data
     replyChunk?: string;
     fullReply?: string;
-    
+
+    // Code streaming data (NEW)
+    codeChunk?: string;
+    codePath?: string;
+
     // Files data
     files?: Array<{ path: string; content: string }>;
     fileCount?: number;
-    
+    partialFile?: { path: string; content: string; isComplete: boolean };
+
     // Error/Retry data
     error?: string;
+    errorCode?: string;
     retryCount?: number;
     maxRetries?: number;
-    
+    recoverable?: boolean;
+
+    // Metrics (NEW)
+    metrics?: {
+      startTime?: number;
+      duration?: number;
+      tokensIn?: number;
+      tokensOut?: number;
+      filesCreated?: number;
+      filesModified?: number;
+    };
+
     // Metadata
     meta?: {
       securityScore?: number;
@@ -61,6 +112,9 @@ export interface WindsurfEvent {
       complexity?: string;
       projectName?: string;
     };
+
+    // Skip reason (NEW)
+    skipReason?: string;
   };
 }
 
@@ -270,6 +324,211 @@ export class WindsurfEventBus {
         fullReply: finalResult.reply,
         files: finalResult.files,
         meta: finalResult.meta,
+      },
+    });
+  }
+
+  /**
+   * Emit tool start event (NEW)
+   */
+  emitToolStart(tool: string, label: string, path?: string): void {
+    this.emit({
+      type: 'tool.start',
+      timestamp: Date.now(),
+      data: {
+        tool,
+        toolStatus: 'active',
+        toolLabel: label,
+        toolPath: path,
+      },
+    });
+  }
+
+  /**
+   * Emit tool progress event (NEW)
+   */
+  emitToolProgress(tool: string, label: string, progress: number, detail?: string): void {
+    this.emit({
+      type: 'tool.progress',
+      timestamp: Date.now(),
+      data: {
+        tool,
+        toolStatus: 'active',
+        toolLabel: label,
+        toolDetail: detail,
+        phaseProgress: progress,
+      },
+    });
+  }
+
+  /**
+   * Emit tool complete event (NEW)
+   */
+  emitToolComplete(tool: string, label: string, detail?: string, lines?: number): void {
+    this.emit({
+      type: 'tool.complete',
+      timestamp: Date.now(),
+      data: {
+        tool,
+        toolStatus: 'completed',
+        toolLabel: label,
+        toolDetail: detail,
+        toolLines: lines,
+      },
+    });
+  }
+
+  /**
+   * Emit tool error event (NEW)
+   */
+  emitToolError(tool: string, label: string, error: string): void {
+    this.emit({
+      type: 'tool.error',
+      timestamp: Date.now(),
+      data: {
+        tool,
+        toolStatus: 'error',
+        toolLabel: label,
+        error,
+      },
+    });
+  }
+
+  /**
+   * Emit phase change event (NEW)
+   */
+  emitPhaseStart(phase: string, previousPhase?: string, description?: string): void {
+    this.emit({
+      type: 'phase.start',
+      timestamp: Date.now(),
+      data: {
+        phase,
+        previousPhase,
+        description,
+        phaseProgress: 0,
+      },
+    });
+  }
+
+  /**
+   * Emit phase progress event (NEW)
+   */
+  emitPhaseProgress(phase: string, progress: number, description?: string): void {
+    this.emit({
+      type: 'phase.progress',
+      timestamp: Date.now(),
+      data: {
+        phase,
+        phaseProgress: progress,
+        description,
+      },
+    });
+  }
+
+  /**
+   * Emit phase complete event (NEW)
+   */
+  emitPhaseComplete(phase: string, nextPhase?: string): void {
+    this.emit({
+      type: 'phase.complete',
+      timestamp: Date.now(),
+      data: {
+        phase: nextPhase || phase,
+        previousPhase: phase,
+        phaseProgress: 100,
+      },
+    });
+  }
+
+  /**
+   * Emit agent skip event (NEW)
+   */
+  emitAgentSkip(agent: string, reason: string): void {
+    this.emit({
+      type: 'agent.skip',
+      agent,
+      timestamp: Date.now(),
+      data: {
+        agentStatus: 'completed',
+        skipReason: reason,
+        description: `Skipped: ${reason}`,
+      },
+    });
+  }
+
+  /**
+   * Emit code chunk for live code streaming (NEW)
+   */
+  emitCodeChunk(chunk: string, path?: string, agent?: string): void {
+    this.emit({
+      type: 'code.chunk',
+      agent,
+      timestamp: Date.now(),
+      data: {
+        codeChunk: chunk,
+        codePath: path,
+      },
+    });
+  }
+
+  /**
+   * Emit partial file update (NEW)
+   */
+  emitPartialFile(path: string, content: string, isComplete: boolean = false): void {
+    this.emit({
+      type: 'files.partial',
+      timestamp: Date.now(),
+      data: {
+        partialFile: { path, content, isComplete },
+        toolPath: path,
+      },
+    });
+  }
+
+  /**
+   * Emit pipeline initialized event (NEW)
+   */
+  emitPipelineInitialized(totalAgents: number, description?: string): void {
+    this.emit({
+      type: 'pipeline.initialized',
+      timestamp: Date.now(),
+      data: {
+        totalAgents,
+        description,
+        phase: 'initializing',
+      },
+    });
+  }
+
+  /**
+   * Emit metrics event (NEW)
+   */
+  emitMetrics(metrics: {
+    startTime?: number;
+    duration?: number;
+    tokensIn?: number;
+    tokensOut?: number;
+    filesCreated?: number;
+    filesModified?: number;
+  }): void {
+    this.emit({
+      type: 'metrics',
+      timestamp: Date.now(),
+      data: { metrics },
+    });
+  }
+
+  /**
+   * Emit warning event (NEW)
+   */
+  emitWarning(warning: string, code?: string, recoverable: boolean = true): void {
+    this.emit({
+      type: 'warning',
+      timestamp: Date.now(),
+      data: {
+        error: warning,
+        errorCode: code,
+        recoverable,
       },
     });
   }
