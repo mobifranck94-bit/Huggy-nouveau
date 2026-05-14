@@ -1293,7 +1293,7 @@ export default function App() {
             </div>
             
             {/* Home Link Section */}
-            <div className="flex items-center gap-2.5 ml-1 relative">
+            <div className="flex items-center gap-2.5 ml-1 relative z-[55]">
               <div 
                 onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
                 className={`w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-zinc-50 transition-all cursor-pointer group ${theme === 'dark' ? 'border-zinc-700' : 'border-zinc-200'}`}
@@ -1308,7 +1308,7 @@ export default function App() {
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute top-full left-0 mt-2 w-64 bg-bg-elevated border border-border-default rounded-xl z-50 py-2 overflow-hidden backdrop-blur-xl"
+                      className="absolute top-full left-0 mt-2 w-64 bg-bg-elevated border border-border-default rounded-xl z-[60] py-2 overflow-hidden backdrop-blur-xl shadow-2xl"
                     >
                       {/* User Info Section */}
                       <div className="px-4 py-3 border-b border-zinc-800/50">
@@ -1397,7 +1397,7 @@ export default function App() {
                       initial={{ opacity: 0, y: 8, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                      className={`absolute top-full left-0 mt-2 w-64 rounded-xl z-50 py-2 border overflow-hidden bg-bg-elevated border-border-default`}
+                      className={`absolute top-full left-0 mt-2 w-64 rounded-xl z-[60] py-2 border overflow-hidden bg-bg-elevated border-border-default shadow-2xl`}
                     >
                       {/* Current project header */}
                       <div className={`px-4 py-2.5 border-b text-[10px] font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-zinc-500 border-zinc-800/50' : 'text-zinc-400 border-zinc-100'}`}>
@@ -2217,7 +2217,8 @@ export default function App() {
                     title="Live Preview"
                     src={previewUrl}
                     className="w-full h-full border-0"
-                    sandbox="allow-scripts allow-same-origin allow-forms"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
+                    allow="accelerometer; camera; encrypted-media; fullscreen; geolocation; gyroscope; microphone; midi; payment; picture-in-picture; speaker; usb; vr"
                   />
                 ) : viewMode === 'visual' ? (
                   (() => {
