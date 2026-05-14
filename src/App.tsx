@@ -95,9 +95,38 @@ import {
   type TodoStep,
   type TodoStatus,
   type ActionEntry,
+  AIChatStream,
+  type StreamMessage,
 } from './components/streaming';
 import { useAnalytics, usePageTracking, useSessionTracking } from './lib/useAnalytics';
 import { useNavigate, useLocation } from 'react-router-dom';
+
+// ─── AI Chat Stream Helpers ────────────────────────────────────────────────────
+function toStreamMessages(messages: ChatEntry[]): StreamMessage[] {
+  return messages.map(m => {
+    if (m.type === 'user') {
+      return {
+        id: m.id,
+        type: 'user',
+        content: m.text,
+        timestamp: new Date(m.timestamp || Date.now()),
+        isStreaming: false,
+      };
+    } else {
+      return {
+        id: m.id,
+        type: m.isError ? 'error' : 'assistant',
+        content: m.summary || m.preview || m.text || '',
+        timestamp: new Date(m.timestamp || Date.now()),
+        isStreaming: m.isStreaming,
+        metadata: {
+          agent: m.agent || 'Huggy',
+          status: m.isError ? 'error' : m.isComplete ? 'success' : 'pending',
+        },
+      };
+    }
+  });
+}
 
 // ─── Streaming Chat Types ─────────────────────────────────────────────────────
 type AgentStatus = 'idle' | 'active' | 'completed' | 'skipped';
@@ -1630,254 +1659,11 @@ export default function App() {
                     <p className="text-[10px] mt-1">Your conversations will appear here</p>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-5">
-                    {messages.map((entry, index) => {
-
-                      // ── User message ──────────────────────────────────────
-                      if (entry.type === 'user') {
-                        return (
-                          <motion.div 
-                            key={entry.id} 
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
-                            className="flex justify-end"
-                          >
-                            <div className="group relative max-w-[85%] bg-indigo-600/20 border border-indigo-500/30 rounded-2xl rounded-tr-sm px-3.5 py-2.5">
-                              <p className="text-xs text-zinc-200 leading-relaxed select-text">{entry.content}</p>
-                              <span className="text-[9px] text-zinc-600 mt-1 block text-right">
-                                {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                              <button
-                                onClick={() => copyMessage(entry.id, entry.content)}
-                                className="absolute -top-2 -left-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-zinc-200"
-                                title="Copier"
-                              >
-                                {copiedMsgId === entry.id ? <CheckCircle2 className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                              </button>
-                            </div>
-                          </motion.div>
-                        );
-                      }
-
-                      // ── Build message ─────────────────────────────────────
-                      const bm = entry as BuildMessage;
-
-                      if (bm.chatOnly || bm.meta?.chatOnly) {
-                        const text = stripCodeBlocks(bm.replyVisible || bm.reply || '');
-                        return (
-                          <ConversationMessage
-                            key={bm.id}
-                            id={bm.id}
-                            text={text}
-                            isStreaming={!!bm.isStreaming}
-                            timestamp={bm.timestamp}
-                            theme={theme}
-                            copied={copiedMsgId === bm.id}
-                            onCopy={() => copyMessage(bm.id, text)}
-                          />
-                        );
-                      }
-
-                      const safeAgents = Array.isArray(bm.agents) ? bm.agents : [];
-                      const safeFiles = Array.isArray(bm.files) ? bm.files : [];
-                      const safeFilesVisible = typeof bm.filesVisible === 'number' ? bm.filesVisible : 0;
-
-                      // ── Derive UI state from raw agent events ────────────
-                      const activeAgent = safeAgents.find(a => a.status === 'active');
-                      const allDone = safeAgents.length > 0 && safeAgents.every(a => a.status === 'completed' || a.status === 'skipped');
-
-                      // Check if this is the latest message and we're connecting
-                      const isLatestMessage = index === messages.length - 1;
-                      const showConnecting = isLatestMessage && isConnecting && !bm.isComplete;
-
-                      // Map agent name → pipeline phase for the StatusPill
-                      let phase: PipelinePhase = 'thinking';
-                      if (bm.isComplete || allDone) phase = 'done';
-                      else if (showConnecting) phase = 'connecting';
-                      else if (activeAgent?.name === 'Intent Parser') phase = 'thinking';
-                      else if (activeAgent?.name === 'Builder Agent') phase = 'building';
-                      else if (activeAgent?.name === 'Preview Compiler') phase = 'compiling';
-                      else if (activeAgent?.name === 'Repair Agent') phase = 'repairing';
-
-                      // Build the AgentNode[] for the timeline
-                      const timelineAgents: AgentNode[] = AGENTS_DEF.map((def, idx) => {
-                        const a = safeAgents[idx];
-                        return {
-                          name: def.name,
-                          status: (a?.status || 'idle') as AgentStepStatus,
-                          description: a?.description,
-                        };
-                      });
-
-                      // Tool blocks under Builder Agent. Prefer real-time toolEvents from
-                      // the SSE stream; fall back to deriving from files (backwards-compat).
-                      const visibleFiles = safeFiles.slice(0, Math.max(safeFilesVisible, safeFiles.length));
-                      const builderAgentIdx = AGENTS_DEF.findIndex(a => a.name === 'Builder Agent');
-                      const builderAgentState = safeAgents[builderAgentIdx];
-                      const isBuilderActive = builderAgentState?.status === 'active';
-                      const liveToolEvents = bm.toolEvents || [];
-
-                      const toolBlocksNode = liveToolEvents.length > 0 ? (
-                        <>
-                          {liveToolEvents.map((te) => (
-                            <ToolBlock
-                              key={`${bm.id}-${te.path}`}
-                              kind="write"
-                              label={te.path}
-                              detail={typeof te.lines === 'number' ? `${te.lines} ${te.lines > 1 ? 'lines' : 'line'}` : undefined}
-                              status={te.status}
-                            />
-                          ))}
-                        </>
-                      ) : visibleFiles.length > 0 ? (
-                        <>
-                          {visibleFiles.map((file, fi) => {
-                            const lineCount = (file.content?.match(/\n/g)?.length || 0) + 1;
-                            const isLastWhileStreaming = isBuilderActive && fi === visibleFiles.length - 1 && bm.isStreaming;
-                            return (
-                              <ToolBlock
-                                key={`${bm.id}-${file.path}-${fi}`}
-                                kind="write"
-                                label={file.path}
-                                detail={`${lineCount} ${lineCount > 1 ? 'lines' : 'line'}`}
-                                status={isLastWhileStreaming ? 'active' : 'completed'}
-                              />
-                            );
-                          })}
-                          {isBuilderActive && visibleFiles.length === 0 && (
-                            <ToolBlock kind="write" label="Preparing files..." status="active" />
-                          )}
-                        </>
-                      ) : isBuilderActive ? (
-                        <ToolBlock kind="write" label="Generating React app..." status="active" />
-                      ) : null;
-
-                      const childrenByAgent: Record<string, React.ReactNode> = {};
-                      if (toolBlocksNode) childrenByAgent['Builder Agent'] = toolBlocksNode;
-
-                      // Detect a "currently writing" path from the live stream global state
-                      const isThisBuildStreaming = bm.isStreaming && !bm.isComplete && phase === 'building';
-                      const livePathMatch = isThisBuildStreaming ? liveStream.match(/```(?:[a-z]+\s+)?file:([^\n`]+)/i) : null;
-                      const showLiveCode = isThisBuildStreaming && liveStream.trim().length > 0;
-                      const livePath = livePathMatch?.[1]?.trim() || (visibleFiles[visibleFiles.length - 1]?.path) || 'generating...';
-                      // Strip file: markers from liveStream for cleaner inline display
-                      const liveCodeContent = liveStream
-                        .replace(/```(?:[a-z]+\s+)?file:[^\n]+\n?/gi, '')
-                        .replace(/```/g, '')
-                        .slice(-1200); // last ~1200 chars to keep the panel snappy
-
-                      const replyText = stripCodeBlocks(bm.replyVisible || '');
-                      const showReply = replyText.length > 0;
-                      const fullReplyText = stripCodeBlocks(bm.reply || '');
-                      const isStillTyping = bm.isStreaming && replyText.length < fullReplyText.length;
-
-                      return (
-                        <AIBubble
-                          key={bm.id}
-                          phase={phase}
-                          timestamp={bm.timestamp}
-                        >
-                          {/* Phase D: Mode announce — ONLY for code/question modes (casual chat = no badge) */}
-                          {bm.narration?.mode && bm.narration.mode !== 'discussion' && (
-                            <ModeAnnounce
-                              mode={bm.narration.mode}
-                              reason={bm.narration.modeReason}
-                            />
-                          )}
-
-                          {/* Phase D: Question block with clickable options (only in Question mode) */}
-                          {bm.narration?.question && (
-                            <QuestionBlock
-                              question={bm.narration.question.question}
-                              options={bm.narration.question.options}
-                              reason={bm.narration.question.reason}
-                              onAnswer={(answer) => setChatInput(answer)}
-                            />
-                          )}
-
-                          {/* Phase D: Live todo list — ONLY when there's actual work to track (not for chat) */}
-                          {bm.narration?.todos && bm.narration.todos.length > 0 && !bm.chatOnly && (
-                            <TodoList steps={bm.narration.todos} />
-                          )}
-
-                          {/* Agent timeline with nested tool blocks */}
-                          <AgentTimeline agents={timelineAgents} childrenByAgent={childrenByAgent} />
-
-                          {/* Phase D: Significant action log (🛠️ / ✅ / ➡️) */}
-                          {bm.narration?.actions && bm.narration.actions.length > 0 && (
-                            <ActionLog entries={bm.narration.actions} />
-                          )}
-
-                          {/* Live code stream (inline mini-editor) */}
-                          {showLiveCode && (
-                            <LiveCodeStream
-                              path={livePath}
-                              content={liveCodeContent}
-                              isStreaming={isThisBuildStreaming}
-                              maxHeight={180}
-                            />
-                          )}
-
-                          {/* Reply text (typewriter) */}
-                          {showReply && (
-                            <p className="text-xs leading-relaxed text-zinc-200 whitespace-pre-wrap select-text">
-                              {replyText}
-                              {isStillTyping && (
-                                <span className="windsurf-cursor animate-windsurf-cursor inline-block ml-0.5" />
-                              )}
-                            </p>
-                          )}
-
-                          {/* Phase A: Technical details (Metrics + Capability) hidden behind toggle */}
-                          {bm.isComplete && !bm.isStreaming && (
-                            <TechnicalDetails
-                              securityScore={bm.meta?.securityScore}
-                              qaScore={bm.meta?.qaScore}
-                              complexity={bm.meta?.complexity}
-                              filesCount={safeFiles.length}
-                              timestamp={bm.timestamp}
-                              capabilityPlan={bm.meta?.capabilityPlan}
-                            />
-                          )}
-
-                          {/* Inline 👍 / 👎 feedback */}
-                          {bm.isComplete && !bm.isStreaming && !bm.chatOnly && safeFiles.length > 0 && (
-                            <BuildFeedback
-                              userId={user?.id}
-                              buildId={bm.id}
-                              projectId={currentProject?.id}
-                              prompt={bm.userPrompt}
-                            />
-                          )}
-                        </AIBubble>
-                      );
-                    })}
-
-                    <div className="pt-4 flex flex-col items-center gap-2">
-                      {messageCount > 0 && currentProject?.id && (
-                        <div className="text-[9px] text-zinc-500 flex items-center gap-1">
-                          <span>💭</span>
-                          <span>{messageCount} messages mémorisés</span>
-                          {conversationSummary && <span className="text-blue-400">· résumé actif</span>}
-                        </div>
-                      )}
-                      <button
-                        onClick={async () => {
-                          setMessages([]);
-                          if (currentProject?.id) {
-                            await clearMessages(currentProject.id);
-                            setConversationSummary('');
-                            setMessageCount(0);
-                          }
-                        }}
-                        className="text-[9px] text-zinc-600 hover:text-zinc-400 uppercase tracking-tighter font-bold transition-colors"
-                      >
-                        Clear History
-                      </button>
-                    </div>
-                    <div ref={chatEndRef} />
-                  </div>
+                  <AIChatStream
+                    messages={toStreamMessages(messages)}
+                    isTyping={messages.some(m => m.type === 'build' && m.isStreaming && !m.isComplete)}
+                    currentAgent={[...messages].reverse().find(m => m.type === 'build' && m.isStreaming)?.agent || 'Huggy'}
+                  />
                 )}
               </div>
               {/* Jump-to-bottom button */}
