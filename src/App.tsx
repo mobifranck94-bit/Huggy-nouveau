@@ -100,6 +100,11 @@ import {
 import { useAnalytics, usePageTracking, useSessionTracking } from './lib/useAnalytics';
 import { useNavigate, useLocation } from 'react-router-dom';
 
+// Undo/Redo imports
+import { useUndoRedo } from './hooks/useUndoRedo';
+import { UndoRedoToolbar } from './components/UndoRedoToolbar';
+import { BuildTimeline } from './components/BuildTimeline';
+
 // ─── Streaming Chat Types ─────────────────────────────────────────────────────
 type AgentStatus = 'idle' | 'active' | 'completed' | 'skipped';
 
@@ -281,6 +286,9 @@ export default function App() {
   const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
   const [isRenamingProject, setIsRenamingProject] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+
+  // Undo/Redo state
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
 
   // Theme state - synced with LandingPage via localStorage
   const [theme, setTheme] = useState<Theme>(() => {
@@ -1674,6 +1682,18 @@ export default function App() {
               )}
             </AnimatePresence>
           </div>
+
+          {/* Undo/Redo Toolbar */}
+          <div className="border-l border-zinc-800/50 pl-2 ml-1">
+            <UndoRedoToolbar
+              canUndo={false} // Will be connected later
+              canRedo={false}
+              isViewingHistory={false}
+              onUndo={() => {}}
+              onRedo={() => {}}
+              onOpenHistory={() => setIsHistoryDrawerOpen(true)}
+            />
+          </div>
         </div>
 
         {/* ── RIGHT ─────────────────────────────────────────── */}
@@ -2925,6 +2945,66 @@ export default function App() {
           setIsHistoryOpen(false);
         }}
       />
+
+      {/* History Drawer with Build Timeline (Undo/Redo) */}
+      <AnimatePresence>
+        {isHistoryDrawerOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-black/50"
+              onClick={() => setIsHistoryDrawerOpen(false)}
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="fixed right-0 top-0 bottom-0 w-[320px] z-50 bg-[#0a0a0b] border-l border-zinc-800 flex flex-col"
+            >
+              {/* Header */}
+              <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+                  <History className="w-4 h-4 text-accent" />
+                  Version History
+                </h2>
+                <button
+                  onClick={() => setIsHistoryDrawerOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              
+              {/* Build Timeline */}
+              <div className="flex-1 overflow-y-auto p-3">
+                <BuildTimeline
+                  builds={[]}
+                  currentIndex={-1}
+                  onSelect={(idx) => {
+                    // TODO: connect with useUndoRedo
+                    setIsHistoryDrawerOpen(false);
+                  }}
+                  onResetToLive={() => {
+                    // TODO: connect with useUndoRedo
+                    setIsHistoryDrawerOpen(false);
+                  }}
+                />
+              </div>
+              
+              {/* Instructions */}
+              <div className="p-4 border-t border-zinc-800 bg-zinc-900/50">
+                <p className="text-[10px] text-zinc-500 text-center">
+                  Ctrl+Z to undo · Ctrl+Shift+Z to redo
+                </p>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+
