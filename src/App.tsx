@@ -212,7 +212,7 @@ type ChatEntry = UserMessage | BuildMessage;
 // ─── Agent Definitions ────────────────────────────────────────────────────────
 const AGENTS_DEF = [
   { name: 'Intent Parser',     Icon: ClipboardList, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/30' },
-  { name: 'Builder Agent',     Icon: Code2,         color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/30'   },
+  { name: 'Builder Agent',     Icon: Code2,         color: 'text-accent',   bg: 'bg-accent/10',   border: 'border-accent/30'   },
   { name: 'Preview Compiler',  Icon: Eye,           color: 'text-cyan-400',   bg: 'bg-cyan-500/10',   border: 'border-cyan-500/30'   },
   { name: 'Repair Agent',      Icon: ShieldCheck,   color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/30'  },
 ];
@@ -1247,7 +1247,7 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+      <div className="min-h-screen bg-bg-deep flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-12 h-12 border-4 border-huggy-blue border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-zinc-500 font-medium">Loading Huggy…</p>
@@ -1259,7 +1259,7 @@ export default function App() {
 
   if (isPreviewOnly) {
     return (
-      <div className="fixed inset-0 bg-[#0a0a0b] flex flex-col">
+      <div className="fixed inset-0 bg-bg-deep flex flex-col">
         <div className="h-12 border-b border-zinc-800 flex items-center justify-between px-6 z-50">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
@@ -1275,14 +1275,14 @@ export default function App() {
   return (
     <div className={`flex flex-col h-screen overflow-hidden font-sans transition-colors duration-300 ${
       theme === 'dark' 
-        ? 'bg-[#0a0a0b] text-zinc-400' 
-        : 'bg-white text-zinc-600'
+        ? 'bg-bg-deep text-text-secondary' 
+        : 'bg-bg-deep text-text-secondary'
     }`}>
       {/* Top Header */}
       <header className={`flex items-center justify-between px-4 border-b h-14 shrink-0 z-10 transition-colors duration-300 ${
         theme === 'dark'
-          ? 'border-zinc-800/60 bg-[#141415]'
-          : 'border-zinc-100 bg-white shadow-sm'
+          ? 'border-border-subtle bg-bg-surface'
+          : 'border-border-subtle bg-bg-surface'
       }`}>
         {/* ── LEFT ──────────────────────────────────────────── */}
         <div className="flex items-center gap-1 shrink-0">
@@ -1298,7 +1298,7 @@ export default function App() {
                 onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
                 className={`w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-zinc-50 transition-all cursor-pointer group ${theme === 'dark' ? 'border-zinc-700' : 'border-zinc-200'}`}
               >
-                <Home className={`w-4 h-4 transition-colors ${isHeaderMenuOpen ? 'text-blue-500' : 'text-zinc-400 group-hover:text-zinc-600'}`} />
+                <Home className={`w-4 h-4 transition-colors ${isHeaderMenuOpen ? 'text-accent' : 'text-text-muted group-hover:text-text-secondary'}`} />
               </div>
               <AnimatePresence>
                 {isHeaderMenuOpen && (
@@ -1308,7 +1308,7 @@ export default function App() {
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute top-full left-0 mt-2 w-64 bg-[#1c1c1d] border border-zinc-800 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-50 py-2 overflow-hidden backdrop-blur-xl"
+                      className="absolute top-full left-0 mt-2 w-64 bg-bg-elevated border border-border-default rounded-xl z-50 py-2 overflow-hidden backdrop-blur-xl"
                     >
                       {/* User Info Section */}
                       <div className="px-4 py-3 border-b border-zinc-800/50">
@@ -1317,19 +1317,19 @@ export default function App() {
                       </div>
 
                       {/* Credits Section */}
-                      <div className="px-4 py-3 border-b border-zinc-800/50 bg-blue-500/5">
+                      <div className="px-4 py-3 border-b border-border-subtle bg-accent/5">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Credits Huggy</span>
-                          <span className="text-[10px] text-blue-400 font-mono">{(profile?.plan || 'free').toUpperCase()}</span>
+                          <span className="text-[10px] text-accent-text font-mono">{(profile?.plan || 'free').toUpperCase()}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className="p-1.5 bg-blue-500/20 rounded-md">
-                            <Coins className="w-4 h-4 text-blue-400" />
+                          <div className="p-1.5 bg-accent/20 rounded-md">
+                            <Coins className="w-4 h-4 text-accent" />
                           </div>
                           <div>
                             <div className="text-sm font-bold text-zinc-100">{profile?.credits ?? 0} <span className="text-zinc-500 font-normal">/ {profile?.max_credits ?? 500}</span></div>
-                            <div className="w-32 h-1 bg-zinc-800 rounded-full mt-1 overflow-hidden">
-                              <div className="h-full bg-blue-500 transition-all" style={{ width: `${Math.round(((profile?.credits ?? 0) / (profile?.max_credits ?? 500)) * 100)}%` }} />
+                            <div className="w-32 h-1 bg-bg-hover rounded-full mt-1 overflow-hidden">
+                              <div className="h-full bg-accent transition-all" style={{ width: `${Math.round(((profile?.credits ?? 0) / (profile?.max_credits ?? 500)) * 100)}%` }} />
                             </div>
                           </div>
                         </div>
@@ -1345,17 +1345,17 @@ export default function App() {
                           className="w-full flex items-center justify-between px-3 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-lg transition-all text-xs font-medium group"
                         >
                           <div className="flex items-center gap-2">
-                            <Layout className="w-4 h-4 text-zinc-500 group-hover:text-blue-400" />
+                            <Layout className="w-4 h-4 text-text-muted group-hover:text-accent" />
                             User Dashboard
                           </div>
                           <ExternalLink className="w-3 h-3 text-zinc-600" />
                         </button>
                         <button className="w-full flex items-center gap-2 px-3 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-lg transition-all text-xs font-medium group">
-                          <Settings className="w-4 h-4 text-zinc-500 group-hover:text-blue-400" />
+                          <Settings className="w-4 h-4 text-text-muted group-hover:text-accent" />
                           Project Settings
                         </button>
                         <button className="w-full flex items-center gap-2 px-3 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-lg transition-all text-xs font-medium group text-zinc-100">
-                          <CreditCard className="w-4 h-4 text-zinc-500 group-hover:text-blue-400" />
+                          <CreditCard className="w-4 h-4 text-text-muted group-hover:text-accent" />
                           Upgrade Plan
                         </button>
                       </div>
@@ -1397,7 +1397,7 @@ export default function App() {
                       initial={{ opacity: 0, y: 8, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                      className={`absolute top-full left-0 mt-2 w-64 rounded-xl shadow-2xl z-50 py-2 border overflow-hidden ${ theme === 'dark' ? 'bg-[#1c1c1d] border-zinc-800' : 'bg-white border-zinc-200 shadow-lg'}`}
+                      className={`absolute top-full left-0 mt-2 w-64 rounded-xl z-50 py-2 border overflow-hidden bg-bg-elevated border-border-default`}
                     >
                       {/* Current project header */}
                       <div className={`px-4 py-2.5 border-b text-[10px] font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-zinc-500 border-zinc-800/50' : 'text-zinc-400 border-zinc-100'}`}>
@@ -1419,7 +1419,7 @@ export default function App() {
                               }
                               if (e.key === 'Escape') setIsRenamingProject(false);
                             }}
-                            className={`w-full text-sm px-3 py-1.5 rounded-lg border outline-none focus:ring-1 focus:ring-blue-500 ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-zinc-50 border-zinc-300 text-zinc-800'}`}
+                            className={`w-full text-sm px-3 py-1.5 rounded-lg border outline-none focus:ring-1 focus:ring-accent bg-bg-surface border-border-default text-text-primary`}
                             placeholder="Project name…"
                           />
                           <p className="text-[10px] text-zinc-500 mt-1 px-1">Press Enter to confirm</p>
@@ -1459,7 +1459,7 @@ export default function App() {
                             await createProject(name);
                             setIsProjectMenuOpen(false);
                           }}
-                          className={`w-full flex items-center gap-2.5 px-4 py-2 text-left text-xs font-medium transition-colors text-blue-400 ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-blue-50'}`}
+                          className={`w-full flex items-center gap-2.5 px-4 py-2 text-left text-xs font-medium transition-colors text-accent hover:bg-bg-hover`}
                         >
                           <Plus className="w-3.5 h-3.5" />
                           New Project
@@ -1475,7 +1475,7 @@ export default function App() {
             <div className={`flex items-center gap-0.5 ml-3 pl-3 border-l ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200'}`}>
               <button
                 onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                className={`p-1.5 rounded-md transition-colors ${isSidebarCollapsed ? 'bg-blue-600/20 text-blue-400' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300' : 'hover:bg-zinc-100 text-zinc-400')}`}
+                className={`p-1.5 rounded-md transition-colors ${isSidebarCollapsed ? 'bg-accent/20 text-accent' : 'hover:bg-bg-hover text-text-muted hover:text-text-secondary'}`}
                 title="Toggle Chat"
               >
                 <PanelLeft className="w-4 h-4" />
@@ -1997,7 +1997,7 @@ export default function App() {
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
-                            className={`absolute bottom-full right-32 mb-2 w-48 rounded-xl shadow-2xl z-20 py-1 overflow-hidden border ${theme === 'dark' ? 'bg-[#1c1c1d] border-zinc-800' : 'bg-white border-zinc-200 shadow-lg'}`}
+                            className={`absolute bottom-full right-32 mb-2 w-48 rounded-xl z-20 py-1 overflow-hidden border bg-bg-elevated border-border-default`}
                           >
                             <button 
                               onClick={() => { setSelectedModel('claude-3-5-sonnet-20241022'); setIsModelMenuOpen(false); }}
@@ -2038,7 +2038,7 @@ export default function App() {
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
-                            className={`absolute bottom-full right-0 mb-2 w-32 rounded-xl shadow-2xl z-20 py-1 overflow-hidden border ${theme === 'dark' ? 'bg-[#1c1c1d] border-zinc-800' : 'bg-white border-zinc-200 shadow-lg'}`}
+                            className={`absolute bottom-full right-0 mb-2 w-32 rounded-xl z-20 py-1 overflow-hidden border bg-bg-elevated border-border-default`}
                           >
                             <button
                               onClick={() => { setAppMode('build'); setIsModeMenuOpen(false); setIsEditMode(false); }}
@@ -2177,16 +2177,16 @@ export default function App() {
 
             {/* Preview loading spinner */}
             {isPreviewBuilding && !isBuilding && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0a0a0b]">
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-bg-deep">
                 <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
+                  <Loader2 className="w-6 h-6 text-accent animate-spin" />
                   <span className="text-xs text-zinc-500">Compilation en cours…</span>
                 </div>
               </div>
             )}
 
             {previewError && !isBuilding && !isPreviewBuilding && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0a0a0b] p-6">
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-bg-deep p-6">
                 <div className="max-w-lg w-full rounded-2xl border border-red-500/30 bg-zinc-950 p-6 shadow-2xl">
                   <div className="flex items-center gap-3 mb-4">
                     <AlertCircle className="w-5 h-5 text-red-400" />
@@ -2201,7 +2201,7 @@ export default function App() {
                       setPreviewError(null);
                       setGeneratedFiles(prev => [...prev]);
                     }}
-                    className="mt-4 w-full rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-500 transition"
+                    className="mt-4 w-full rounded-lg bg-accent px-4 py-2 text-xs font-bold text-white hover:opacity-90 transition"
                   >
                     Retry preview build
                   </button>
@@ -2211,7 +2211,7 @@ export default function App() {
 
             {/* Generated App Live Preview / Code Editor / Analytics */}
             {previewUrl && !isEditMode && (
-              <div className="absolute inset-0 z-10 bg-[#0a0a0b]">
+              <div className="absolute inset-0 z-10 bg-bg-deep">
                 {viewMode === 'preview' ? (
                   <iframe
                     title="Live Preview"
@@ -2250,7 +2250,7 @@ export default function App() {
                     );
                   })()
                 ) : viewMode === 'analytics' ? (
-                  <div className="w-full h-full p-8 overflow-y-auto bg-[#0a0a0b] text-zinc-400">
+                  <div className="w-full h-full p-8 overflow-y-auto bg-bg-deep text-text-secondary">
                     <div className="max-w-5xl mx-auto">
                       <div className="flex items-center justify-between mb-8">
                         <div>

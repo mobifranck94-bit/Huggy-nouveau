@@ -1,19 +1,39 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
+@import "./styles/design-tokens.css";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Poppins", sans-serif;
+  --font-sans: "DM Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-display: "DM Sans", sans-serif;
   
-  --color-huggy-blue: #2563EB;
-  --color-huggy-blue-light: #60A5FA;
-  --color-huggy-cyan: #22D3EE;
-  --color-huggy-dark: #0F172A;
-  --color-huggy-bg: #F8F9FA;
+  /* Claude Code × Bolt Design System — Dark First */
+  --color-bg-deep: #08080C;
+  --color-bg-base: #0E0E14;
+  --color-bg-surface: #141419;
+  --color-bg-elevated: #1C1C24;
+  --color-bg-hover: #22222C;
+  
+  --color-text-primary: #EEEAE4;
+  --color-text-secondary: #8B8785;
+  --color-text-muted: #4E4C4A;
+  
+  --color-accent: #E8864A;
+  --color-accent-dim: rgba(232,134,74,0.10);
+  --color-accent-text: #F5A870;
+  
+  --color-green: #22C55E;
+  --color-red: #EF4444;
+  --color-amber: #F59E0B;
+  --color-blue: #60A5FA;
+  
+  --color-border-subtle: rgba(255,255,255,0.05);
+  --color-border-default: rgba(255,255,255,0.09);
+  --color-border-strong: rgba(255,255,255,0.16);
 }
 
 body {
-  @apply bg-white text-huggy-dark font-sans antialiased;
+  @apply bg-bg-deep text-text-primary font-sans antialiased;
 }
 
 @layer utilities {
@@ -25,16 +45,35 @@ body {
     scrollbar-width: none;
   }
   
+  /* Claude Code × Bolt Design System */
   .huggy-gradient {
-    @apply bg-gradient-to-r from-huggy-blue to-huggy-blue-light;
+    @apply bg-gradient-to-r from-accent to-accent-text;
   }
   
   .huggy-card {
-    @apply bg-white border border-huggy-dark/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[32px];
+    @apply bg-bg-elevated border border-border-default rounded-lg;
   }
   
   .huggy-button {
-    @apply bg-gradient-to-r from-huggy-blue to-huggy-blue-light text-white font-bold rounded-full transition-all hover:scale-105 active:scale-95 hover:shadow-[0_0_20px_rgba(37,99,235,0.4)];
+    @apply bg-accent text-white font-medium rounded-md transition-all hover:opacity-90 active:scale-95;
+  }
+  
+  .huggy-button-secondary {
+    @apply bg-bg-elevated text-text-primary border border-border-default rounded-md transition-all hover:bg-bg-hover hover:border-border-strong;
+  }
+  
+  /* Design system utilities */
+  .card-elevated {
+    @apply bg-bg-elevated border border-border-default rounded-lg;
+  }
+  
+  .card-hover:hover {
+    @apply border-border-strong;
+  }
+  
+  .input-dark {
+    @apply bg-bg-surface border border-border-default rounded-md text-text-primary placeholder:text-text-muted;
+    @apply hover:border-border-strong focus:border-accent focus:ring-2 focus:ring-accent-dim;
   }
 
   /* Windsurf-style animations */
