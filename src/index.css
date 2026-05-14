@@ -1,35 +1,54 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 @import "./styles/design-tokens.css";
+@import "./styles/design-system.css";
 
 @theme {
   --font-sans: "DM Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
   --font-display: "DM Sans", sans-serif;
-  
+
   /* Claude Code × Bolt Design System — Dark First */
   --color-bg-deep: #08080C;
   --color-bg-base: #0E0E14;
   --color-bg-surface: #141419;
   --color-bg-elevated: #1C1C24;
   --color-bg-hover: #22222C;
-  
+  --color-bg-active: #28282E;
+
   --color-text-primary: #EEEAE4;
   --color-text-secondary: #8B8785;
   --color-text-muted: #4E4C4A;
-  
+
+  /* Accent — Orange chaud unique */
   --color-accent: #E8864A;
   --color-accent-dim: rgba(232,134,74,0.10);
+  --color-accent-glow: rgba(232,134,74,0.06);
   --color-accent-text: #F5A870;
-  
+  --color-accent-border: rgba(232,134,74,0.30);
+
+  /* Sémantique */
   --color-green: #22C55E;
+  --color-green-dim: rgba(34,197,94,0.10);
   --color-red: #EF4444;
+  --color-red-dim: rgba(239,68,68,0.10);
   --color-amber: #F59E0B;
+  --color-amber-dim: rgba(245,158,11,0.10);
   --color-blue: #60A5FA;
-  
+  --color-blue-dim: rgba(96,165,250,0.10);
+
+  /* Bordures */
   --color-border-subtle: rgba(255,255,255,0.05);
   --color-border-default: rgba(255,255,255,0.09);
   --color-border-strong: rgba(255,255,255,0.16);
+  --color-border-hover: rgba(255,255,255,0.25);
+
+  /* Radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 }
 
 body {

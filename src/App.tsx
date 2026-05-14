@@ -87,6 +87,11 @@ import {
   ActionLog,
   QuestionBlock,
   ConversationMessage,
+  ThinkingIndicator,
+  ShimmerMessage,
+  ReadIndicator,
+  AutoFixBadge,
+  ToughProblemIndicator,
   type AgentNode,
   type PipelinePhase,
   type AgentStepStatus,
@@ -1691,14 +1696,14 @@ export default function App() {
                       const isLatestMessage = index === messages.length - 1;
                       const showConnecting = isLatestMessage && isConnecting && !bm.isComplete;
 
-                      // Map agent name → pipeline phase for the StatusPill
+                      // Map agent name → pipeline phase for the StatusPill (4 phases design system)
                       let phase: PipelinePhase = 'thinking';
                       if (bm.isComplete || allDone) phase = 'done';
-                      else if (showConnecting) phase = 'connecting';
+                      else if (showConnecting) phase = 'thinking';
                       else if (activeAgent?.name === 'Intent Parser') phase = 'thinking';
-                      else if (activeAgent?.name === 'Builder Agent') phase = 'building';
-                      else if (activeAgent?.name === 'Preview Compiler') phase = 'compiling';
-                      else if (activeAgent?.name === 'Repair Agent') phase = 'repairing';
+                      else if (activeAgent?.name === 'Builder Agent') phase = 'working';
+                      else if (activeAgent?.name === 'Preview Compiler') phase = 'working';
+                      else if (activeAgent?.name === 'Repair Agent') phase = 'fixing';
 
                       // Build the AgentNode[] for the timeline
                       const timelineAgents: AgentNode[] = AGENTS_DEF.map((def, idx) => {
@@ -1757,7 +1762,7 @@ export default function App() {
                       if (toolBlocksNode) childrenByAgent['Builder Agent'] = toolBlocksNode;
 
                       // Detect a "currently writing" path from the live stream global state
-                      const isThisBuildStreaming = bm.isStreaming && !bm.isComplete && phase === 'building';
+                      const isThisBuildStreaming = bm.isStreaming && !bm.isComplete && phase === 'working';
                       const livePathMatch = isThisBuildStreaming ? liveStream.match(/```(?:[a-z]+\s+)?file:([^\n`]+)/i) : null;
                       const showLiveCode = isThisBuildStreaming && liveStream.trim().length > 0;
                       const livePath = livePathMatch?.[1]?.trim() || (visibleFiles[visibleFiles.length - 1]?.path) || 'generating...';

@@ -1,17 +1,9 @@
 /**
  * ConversationMessage — Claude Code–style chat-only AI message.
- *
- * Design principles:
- *  - No heavy bubble. Text flows directly on the canvas.
- *  - Small Huggy avatar to the left, name and timestamp on hover only.
- *  - Custom mini-markdown renderer (bold, italic, inline code, code blocks, lists, links).
- *  - Thin blinking caret while streaming (not a fat block).
- *  - Hover toolbar with Copy / 👍 / 👎 / Regenerate.
- *  - Subtle 1px divider above for rhythm between turns.
- *  - Generous typography (14px, line-height 1.65) for comfortable reading.
+ * Design System: dark-first, single accent color (orange)
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { Copy, Check, ThumbsUp, ThumbsDown, RotateCcw, Sparkles } from 'lucide-react';
 
@@ -20,7 +12,7 @@ interface ConversationMessageProps {
   text: string;
   isStreaming: boolean;
   timestamp: number;
-  theme: 'dark' | 'light';
+  theme?: 'dark' | 'light';
   onCopy: () => void;
   copied: boolean;
   onRegenerate?: () => void;
@@ -31,7 +23,7 @@ export function ConversationMessage({
   text,
   isStreaming,
   timestamp,
-  theme,
+  theme = 'dark',
   onCopy,
   copied,
   onRegenerate,
@@ -50,76 +42,51 @@ export function ConversationMessage({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
       className="group relative w-full"
     >
       {/* Subtle top divider for rhythm */}
-      <div className={`absolute -top-3 left-0 right-0 h-px ${isDark ? 'bg-zinc-800/40' : 'bg-zinc-200/60'}`} />
+      <div className="absolute -top-3 left-0 right-0 h-px bg-border-subtle" />
 
       <div className="flex gap-3 pt-1">
-        {/* Avatar */}
+        {/* Avatar - Design System accent */}
         <div className="flex-shrink-0 pt-0.5">
-          <div
-            className={`w-6 h-6 rounded-md flex items-center justify-center ${
-              isDark
-                ? 'bg-gradient-to-br from-violet-500/20 to-blue-500/20 border border-violet-500/30'
-                : 'bg-gradient-to-br from-violet-100 to-blue-100 border border-violet-200'
-            }`}
-          >
-            <Sparkles className={`w-3 h-3 ${isDark ? 'text-violet-300' : 'text-violet-600'}`} strokeWidth={2.2} />
+          <div className="w-6 h-6 rounded-md bg-accent-dim border border-accent-border flex items-center justify-center">
+            <Sparkles className="w-3 h-3 text-accent" strokeWidth={2.2} />
           </div>
         </div>
 
         {/* Content column */}
         <div className="flex-1 min-w-0">
-          {/* Header: name (hidden until hover) + timestamp (hidden until hover) */}
+          {/* Header: name + timestamp on hover */}
           <div className="flex items-center gap-2 mb-1 h-3.5">
-            <span
-              className={`text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${
-                isDark ? 'text-zinc-300' : 'text-zinc-700'
-              }`}
-            >
+            <span className="text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-text-secondary">
               Huggy
             </span>
-            <span
-              className={`text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${
-                isDark ? 'text-zinc-600' : 'text-zinc-400'
-              }`}
-            >
+            <span className="text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-text-muted">
               {new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
 
           {/* Rendered markdown content */}
-          <div
-            className={`conversation-prose text-[13.5px] leading-[1.65] select-text ${
-              isDark ? 'text-zinc-200' : 'text-zinc-800'
-            }`}
-          >
+          <div className="conversation-prose text-[13.5px] leading-[1.65] select-text text-text-primary">
             {blocks.map((block, i) => (
-              <MarkdownBlock key={i} block={block} isDark={isDark} />
+              <MarkdownBlock key={i} block={block} />
             ))}
             {isStreaming && (
               <span
-                className={`inline-block w-[2px] h-[14px] ml-[1px] align-middle ${
-                  isDark ? 'bg-violet-400' : 'bg-violet-600'
-                } animate-windsurf-cursor`}
+                className="inline-block w-[2px] h-[14px] ml-[1px] align-middle bg-accent animate-windsurf-cursor"
                 aria-hidden="true"
               />
             )}
           </div>
 
-          {/* Hover toolbar — only when streaming is done */}
+          {/* Hover toolbar */}
           {!isStreaming && text.length > 0 && (
             <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              <ToolbarButton
-                onClick={onCopy}
-                title={copied ? 'Copié' : 'Copier'}
-                isDark={isDark}
-                active={copied}
-              >
+              <ToolbarButton onClick={onCopy} title={copied ? 'Copied' : 'Copy'} active={copied}>
                 {copied ? <Check className="w-3 h-3" strokeWidth={2.5} /> : <Copy className="w-3 h-3" strokeWidth={2} />}
               </ToolbarButton>
 
@@ -127,16 +94,14 @@ export function ConversationMessage({
                 <>
                   <ToolbarButton
                     onClick={() => handleFeedback('up')}
-                    title="Bonne réponse"
-                    isDark={isDark}
+                    title="Good response"
                     active={feedback === 'up'}
                   >
                     <ThumbsUp className="w-3 h-3" strokeWidth={2} />
                   </ToolbarButton>
                   <ToolbarButton
                     onClick={() => handleFeedback('down')}
-                    title="Mauvaise réponse"
-                    isDark={isDark}
+                    title="Bad response"
                     active={feedback === 'down'}
                   >
                     <ThumbsDown className="w-3 h-3" strokeWidth={2} />
@@ -145,7 +110,7 @@ export function ConversationMessage({
               )}
 
               {onRegenerate && (
-                <ToolbarButton onClick={onRegenerate} title="Régénérer" isDark={isDark}>
+                <ToolbarButton onClick={onRegenerate} title="Regenerate">
                   <RotateCcw className="w-3 h-3" strokeWidth={2} />
                 </ToolbarButton>
               )}
@@ -162,13 +127,11 @@ function ToolbarButton({
   onClick,
   title,
   children,
-  isDark,
   active = false,
 }: {
   onClick: () => void;
   title: string;
-  children: React.ReactNode;
-  isDark: boolean;
+  children: ReactNode;
   active?: boolean;
 }) {
   return (
@@ -178,12 +141,8 @@ function ToolbarButton({
       aria-label={title}
       className={`p-1.5 rounded-md transition-all duration-150 ${
         active
-          ? isDark
-            ? 'bg-violet-500/15 text-violet-300'
-            : 'bg-violet-100 text-violet-700'
-          : isDark
-          ? 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/60'
-          : 'text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100'
+          ? 'bg-accent-dim text-accent-text border border-accent-border'
+          : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
       }`}
     >
       {children}
@@ -297,27 +256,23 @@ function parseMarkdown(raw: string): Block[] {
 }
 
 // ─── Block renderer ──────────────────────────────────────────────────────────
-function MarkdownBlock({ block, isDark }: { block: Block; isDark: boolean }) {
-  if (block.kind === 'code') return <CodeBlock lang={block.lang} content={block.content} isDark={isDark} />;
+function MarkdownBlock({ block }: { block: Block }) {
+  if (block.kind === 'code') return <CodeBlock lang={block.lang} content={block.content} />;
 
   if (block.kind === 'h') {
     const sizes = ['text-lg', 'text-base', 'text-sm'];
     const size = sizes[block.level - 1] || 'text-sm';
     return (
-      <div className={`font-bold ${size} mt-3 mb-1.5 ${isDark ? 'text-zinc-100' : 'text-zinc-900'}`}>
-        <InlineText text={block.text} isDark={isDark} />
+      <div className={`font-bold ${size} mt-3 mb-1.5 text-text-primary`}>
+        <InlineText text={block.text} />
       </div>
     );
   }
 
   if (block.kind === 'quote') {
     return (
-      <blockquote
-        className={`border-l-2 pl-3 my-2 italic ${
-          isDark ? 'border-violet-500/40 text-zinc-300' : 'border-violet-300 text-zinc-600'
-        }`}
-      >
-        <InlineText text={block.text} isDark={isDark} />
+      <blockquote className="border-l-2 pl-3 my-2 italic border-accent-border text-text-secondary">
+        <InlineText text={block.text} />
       </blockquote>
     );
   }
@@ -325,14 +280,10 @@ function MarkdownBlock({ block, isDark }: { block: Block; isDark: boolean }) {
   if (block.kind === 'list') {
     const ListTag = block.ordered ? 'ol' : 'ul';
     return (
-      <ListTag
-        className={`my-1.5 space-y-1 ${block.ordered ? 'list-decimal' : 'list-disc'} pl-5 marker:${
-          isDark ? 'text-zinc-600' : 'text-zinc-400'
-        }`}
-      >
+      <ListTag className="my-1.5 space-y-1 pl-5 marker:text-text-muted">
         {block.items.map((item, idx) => (
           <li key={idx}>
-            <InlineText text={item} isDark={isDark} />
+            <InlineText text={item} />
           </li>
         ))}
       </ListTag>
@@ -342,13 +293,13 @@ function MarkdownBlock({ block, isDark }: { block: Block; isDark: boolean }) {
   // Paragraph
   return (
     <p className="my-1.5 whitespace-pre-wrap">
-      <InlineText text={block.text} isDark={isDark} />
+      <InlineText text={block.text} />
     </p>
   );
 }
 
 // ─── Inline renderer: bold, italic, code, links ──────────────────────────────
-function InlineText({ text, isDark }: { text: string; isDark: boolean }) {
+function InlineText({ text }: { text: string }) {
   // Tokenize: protect inline code spans first so ** inside them isn't touched
   // Pattern matches: `code`, **bold**, *italic*, [text](url)
   const parts: Array<{ kind: 'text' | 'code' | 'bold' | 'italic' | 'link'; value: string; href?: string }> = [];
@@ -388,7 +339,7 @@ function InlineText({ text, isDark }: { text: string; isDark: boolean }) {
         if (p.kind === 'text') return <span key={i}>{p.value}</span>;
         if (p.kind === 'bold')
           return (
-            <strong key={i} className={`font-semibold ${isDark ? 'text-zinc-100' : 'text-zinc-900'}`}>
+            <strong key={i} className="font-semibold text-text-primary">
               {p.value}
             </strong>
           );
@@ -402,11 +353,7 @@ function InlineText({ text, isDark }: { text: string; isDark: boolean }) {
           return (
             <code
               key={i}
-              className={`font-mono text-[0.85em] px-1 py-px rounded ${
-                isDark
-                  ? 'bg-zinc-800/70 text-amber-300 border border-zinc-700/40'
-                  : 'bg-zinc-100 text-amber-700 border border-zinc-200'
-              }`}
+              className="font-mono text-[0.85em] px-1 py-px rounded bg-bg-elevated text-accent-text border border-border-subtle"
             >
               {p.value}
             </code>
@@ -418,9 +365,7 @@ function InlineText({ text, isDark }: { text: string; isDark: boolean }) {
               href={p.href}
               target="_blank"
               rel="noopener noreferrer"
-              className={`underline underline-offset-2 ${
-                isDark ? 'text-violet-300 hover:text-violet-200' : 'text-violet-600 hover:text-violet-700'
-              }`}
+              className="underline underline-offset-2 text-accent hover:text-accent-text"
             >
               {p.value}
             </a>
@@ -432,7 +377,7 @@ function InlineText({ text, isDark }: { text: string; isDark: boolean }) {
 }
 
 // ─── Code block with copy button ─────────────────────────────────────────────
-function CodeBlock({ lang, content, isDark }: { lang: string; content: string; isDark: boolean }) {
+function CodeBlock({ lang, content }: { lang: string; content: string }) {
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
@@ -446,45 +391,29 @@ function CodeBlock({ lang, content, isDark }: { lang: string; content: string; i
   };
 
   return (
-    <div
-      className={`my-3 rounded-lg overflow-hidden border ${
-        isDark ? 'border-zinc-800 bg-zinc-950/60' : 'border-zinc-200 bg-zinc-50'
-      }`}
-    >
-      <div
-        className={`flex items-center justify-between px-3 py-1.5 border-b ${
-          isDark ? 'border-zinc-800 bg-zinc-900/60' : 'border-zinc-200 bg-zinc-100/80'
-        }`}
-      >
-        <span
-          className={`text-[10px] font-mono uppercase tracking-wider font-semibold ${
-            isDark ? 'text-zinc-500' : 'text-zinc-500'
-          }`}
-        >
+    <div className="my-3 rounded-lg overflow-hidden border border-border-default bg-bg-surface">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-subtle bg-bg-elevated">
+        <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-text-muted">
           {lang || 'code'}
         </span>
         <button
           onClick={copy}
-          className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
-            isDark
-              ? 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800'
-              : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200'
-          }`}
+          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors text-text-muted hover:text-text-primary hover:bg-bg-hover"
         >
           {copied ? (
             <>
               <Check className="w-3 h-3" />
-              Copié
+              Copied
             </>
           ) : (
             <>
               <Copy className="w-3 h-3" />
-              Copier
+              Copy
             </>
           )}
         </button>
       </div>
-      <pre className={`p-3 overflow-x-auto text-[12px] leading-relaxed ${isDark ? 'text-zinc-200' : 'text-zinc-800'}`}>
+      <pre className="p-3 overflow-x-auto text-[12px] leading-relaxed text-text-primary">
         <code className="font-mono">{content}</code>
       </pre>
     </div>
