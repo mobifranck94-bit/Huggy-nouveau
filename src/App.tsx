@@ -290,6 +290,60 @@ export default function App() {
   // Undo/Redo state
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
 
+  // Undo/Redo hook with Supabase data
+  const {
+    builds: undoRedoBuilds,
+    currentIndex: undoRedoCurrentIndex,
+    canUndo,
+    canRedo,
+    isLoading: isUndoRedoLoading,
+    isViewingHistory,
+    undo,
+    redo,
+    resetToLive,
+    jumpToVersion,
+    refresh: refreshUndoRedo,
+  } = useUndoRedo({
+    projectId: currentProject?.id,
+    getBuilds: async (projectId) => {
+      const { data, error } = await supabase
+        .from('builds')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    onRestore: (build) => {
+      const restoredFiles = Array.isArray(build.files) ? build.files : [];
+      if (restoredFiles.length > 0) {
+        setGeneratedFiles(restoredFiles);
+        setActiveFilePath(restoredFiles[0]?.path || null);
+        setIsPreviewOnly(true);
+      }
+    },
+    onResetToLive: () => {
+      if (currentProject?.id) {
+        // Reload latest build
+        getBuilds(currentProject.id).then(builds => {
+          const latest = builds[builds.length - 1];
+          if (latest?.files?.length > 0) {
+            setGeneratedFiles(latest.files);
+            setActiveFilePath(latest.files[0].path);
+          }
+          setIsPreviewOnly(false);
+        });
+      }
+    },
+  });
+
+  // Refresh undo/redo when project changes
+  useEffect(() => {
+    if (currentProject?.id) {
+      refreshUndoRedo();
+    }
+  }, [currentProject?.id]);
+
   // Theme state - synced with LandingPage via localStorage
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
@@ -1686,11 +1740,12 @@ export default function App() {
           {/* Undo/Redo Toolbar */}
           <div className="border-l border-zinc-800/50 pl-2 ml-1">
             <UndoRedoToolbar
-              canUndo={false} // Will be connected later
-              canRedo={false}
-              isViewingHistory={false}
-              onUndo={() => {}}
-              onRedo={() => {}}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              isViewingHistory={isViewingHistory}
+              onUndo={undo}
+              onRedo={redo}
+              onResetToLive={resetToLive}
               onOpenHistory={() => setIsHistoryDrawerOpen(true)}
             />
           </div>
@@ -2981,14 +3036,14 @@ export default function App() {
               {/* Build Timeline */}
               <div className="flex-1 overflow-y-auto p-3">
                 <BuildTimeline
-                  builds={[]}
-                  currentIndex={-1}
+                  builds={undoRedoBuilds}
+                  currentIndex={undoRedoCurrentIndex}
                   onSelect={(idx) => {
-                    // TODO: connect with useUndoRedo
+                    jumpToVersion(idx);
                     setIsHistoryDrawerOpen(false);
                   }}
                   onResetToLive={() => {
-                    // TODO: connect with useUndoRedo
+                    resetToLive();
                     setIsHistoryDrawerOpen(false);
                   }}
                 />
