@@ -12,3 +12,4 @@ export { ModeAnnounce, type AgentMode } from './ModeAnnounce';
 export { TodoList, type TodoStep, type TodoStatus } from './TodoList';
 export { ActionLog, type ActionEntry } from './ActionLog';
 export { QuestionBlock } from './QuestionBlock';
+export { ConversationMessage } from './ConversationMessage';

@@ -86,6 +86,7 @@ import {
   TodoList,
   ActionLog,
   QuestionBlock,
+  ConversationMessage,
   type AgentNode,
   type PipelinePhase,
   type AgentStepStatus,
@@ -1658,34 +1659,16 @@ export default function App() {
                       if (bm.chatOnly || bm.meta?.chatOnly) {
                         const text = stripCodeBlocks(bm.replyVisible || bm.reply || '');
                         return (
-                          <motion.div
+                          <ConversationMessage
                             key={bm.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="flex justify-start"
-                          >
-                            <div className={`group relative max-w-[85%] rounded-2xl rounded-tl-sm px-3.5 py-2.5 border ${theme === 'dark' ? 'bg-zinc-900/60 border-zinc-800/60 text-zinc-200' : 'bg-white border-zinc-200 text-zinc-800'}`}>
-                              <p className="text-xs leading-relaxed whitespace-pre-wrap select-text">
-                                {text}
-                                {bm.isStreaming && (
-                                  <span className="windsurf-cursor animate-windsurf-cursor inline-block ml-0.5" />
-                                )}
-                              </p>
-                              <span className="text-[9px] text-zinc-600 mt-1 block">
-                                {new Date(bm.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                              {!bm.isStreaming && (
-                                <button
-                                  onClick={() => copyMessage(bm.id, text)}
-                                  className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-zinc-200"
-                                  title="Copier"
-                                >
-                                  {copiedMsgId === bm.id ? <CheckCircle2 className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                                </button>
-                              )}
-                            </div>
-                          </motion.div>
+                            id={bm.id}
+                            text={text}
+                            isStreaming={!!bm.isStreaming}
+                            timestamp={bm.timestamp}
+                            theme={theme}
+                            copied={copiedMsgId === bm.id}
+                            onCopy={() => copyMessage(bm.id, text)}
+                          />
                         );
                       }
 
