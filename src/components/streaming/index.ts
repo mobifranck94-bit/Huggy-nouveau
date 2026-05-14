@@ -22,5 +22,6 @@ export { TodoList, type TodoStep, type TodoStatus } from './TodoList';
 export { ActionLog, type ActionEntry } from './ActionLog';
 export { QuestionBlock } from './QuestionBlock';
 export { ConversationMessage } from './ConversationMessage';
-export { UndoRedoToolbar } from './UndoRedoToolbar';
-export { BuildTimeline } from './BuildTimeline';
+// TODO: Re-enable after fixing import paths
+// export { UndoRedoToolbar } from '../UndoRedoToolbar';
+// export { BuildTimeline } from '../BuildTimeline';
