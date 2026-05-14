@@ -244,6 +244,7 @@ export default function App() {
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'preview' | 'code' | 'visual' | 'analytics'>('preview');
+  const [compactUi, setCompactUi] = useState(true); // Minimal UI - hide agents/timeline/plan
   const [isCustomDomainModalOpen, setIsCustomDomainModalOpen] = useState(false);
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
   const [deployStep, setDeployStep] = useState<'confirm' | 'deploying' | 'success' | 'error'>('confirm');
@@ -1782,16 +1783,17 @@ export default function App() {
                           key={bm.id}
                           phase={phase}
                           timestamp={bm.timestamp}
+                          compact={compactUi}
                         >
-                          {/* Phase D: Mode announce — ONLY for code/question modes (casual chat = no badge) */}
-                          {bm.narration?.mode && bm.narration.mode !== 'discussion' && (
+                          {/* Phase D: Mode announce — hidden in compact mode */}
+                          {!compactUi && bm.narration?.mode && bm.narration.mode !== 'discussion' && (
                             <ModeAnnounce
                               mode={bm.narration.mode}
                               reason={bm.narration.modeReason}
                             />
                           )}
 
-                          {/* Phase D: Question block with clickable options (only in Question mode) */}
+                          {/* Phase D: Question block with clickable options (always show when needed) */}
                           {bm.narration?.question && (
                             <QuestionBlock
                               question={bm.narration.question.question}
@@ -1801,16 +1803,18 @@ export default function App() {
                             />
                           )}
 
-                          {/* Phase D: Live todo list — ONLY when there's actual work to track (not for chat) */}
-                          {bm.narration?.todos && bm.narration.todos.length > 0 && !bm.chatOnly && (
+                          {/* Phase D: Live todo list — hidden in compact mode */}
+                          {!compactUi && bm.narration?.todos && bm.narration.todos.length > 0 && !bm.chatOnly && (
                             <TodoList steps={bm.narration.todos} />
                           )}
 
-                          {/* Agent timeline with nested tool blocks */}
-                          <AgentTimeline agents={timelineAgents} childrenByAgent={childrenByAgent} />
+                          {/* Agent timeline with nested tool blocks — hidden in compact mode */}
+                          {!compactUi && (
+                            <AgentTimeline agents={timelineAgents} childrenByAgent={childrenByAgent} />
+                          )}
 
-                          {/* Phase D: Significant action log (🛠️ / ✅ / ➡️) */}
-                          {bm.narration?.actions && bm.narration.actions.length > 0 && (
+                          {/* Phase D: Significant action log — hidden in compact mode */}
+                          {!compactUi && bm.narration?.actions && bm.narration.actions.length > 0 && (
                             <ActionLog entries={bm.narration.actions} />
                           )}
 
@@ -2070,6 +2074,15 @@ export default function App() {
                         </>
                       )}
                     </AnimatePresence>
+
+                    {/* Compact UI Toggle */}
+                    <button
+                      onClick={() => setCompactUi(!compactUi)}
+                      className={`p-1.5 rounded-lg transition-colors text-[10px] font-medium ${compactUi ? 'bg-accent-dim text-accent border border-accent-border' : (theme === 'dark' ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500')}`}
+                      title={compactUi ? 'Mode compact (détails cachés)' : 'Mode complet (tous les détails)'}
+                    >
+                      {compactUi ? 'Compact' : 'Complet'}
+                    </button>
 
                     <button 
                       onClick={toggleRecording}
