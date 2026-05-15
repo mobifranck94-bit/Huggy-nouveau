@@ -187,6 +187,11 @@ interface BuildMessage {
   isComplete: boolean;
   isStreaming: boolean;
   chatOnly?: boolean;
+  // Terminal status markers consumed by ClaudeCodeStream
+  error?: string;
+  cancelled?: boolean;
+  startedAt?: number;
+  completedAt?: number;
   // NEW: Advanced streaming state
   phase?: PipelinePhase;
   phaseProgress?: number;
@@ -758,6 +763,7 @@ export default function App() {
         agents: initialAgents, thinkingLines: [],
         reply: '', replyVisible: '', files: [], filesVisible: 0,
         isComplete: false, isStreaming: true,
+        startedAt: Date.now(),
       },
     ]);
 
@@ -1019,6 +1025,7 @@ export default function App() {
                   isComplete: true,
                   isStreaming: false,
                   chatOnly: isChatOnly || bm.chatOnly,
+                  completedAt: bm.completedAt || Date.now(),
                   meta: {
                     ...bm.meta,
                     securityScore: event.meta?.securityScore,
@@ -1037,6 +1044,7 @@ export default function App() {
                 ...bm,
                 files: finalFiles,
                 isComplete: true,
+                completedAt: Date.now(),
                 chatOnly: isChatOnly || bm.chatOnly,
                 meta: {
                   ...bm.meta,
@@ -1062,6 +1070,7 @@ export default function App() {
                 isComplete: true,
                 isStreaming: true,
                 chatOnly: isChatOnly || bm.chatOnly,
+                completedAt: Date.now(),
                 meta: {
                   ...bm.meta,
                   securityScore: event.meta?.securityScore,
@@ -1281,8 +1290,13 @@ export default function App() {
           setMessages(prev => prev.map(m => {
             if (m.id !== buildId || m.type !== 'build') return m;
             const bm = m as BuildMessage;
-            const errReply = `❌ Erreur pipeline: ${event.message}`;
-            return { ...bm, reply: errReply, replyVisible: errReply, isComplete: true, isStreaming: false };
+            return {
+              ...bm,
+              error: event.message || 'Pipeline failed',
+              isComplete: true,
+              isStreaming: false,
+              completedAt: Date.now(),
+            };
           }));
         }
 
@@ -1309,10 +1323,15 @@ export default function App() {
         return;
       }
       const errMsg = error instanceof Error ? error.message : String(error);
-      const errReply = `❌ Connexion échouée: ${errMsg}`;
       setMessages(prev => prev.map(m => {
         if (m.id !== buildId || m.type !== 'build') return m;
-        return { ...(m as BuildMessage), reply: errReply, replyVisible: errReply, isComplete: true, isStreaming: false };
+        return {
+          ...(m as BuildMessage),
+          error: `Connexion échouée: ${errMsg}`,
+          isComplete: true,
+          isStreaming: false,
+          completedAt: Date.now(),
+        };
       }));
     } finally {
       setIsBuilding(false);
@@ -1334,7 +1353,13 @@ export default function App() {
       if (m.type !== 'build') return m;
       const bm = m as BuildMessage;
       if (!bm.isComplete && bm.isStreaming) {
-        return { ...bm, isComplete: true, isStreaming: false, replyVisible: (bm.replyVisible || '') + '\n\n⏹ Génération interrompue.' };
+        return {
+          ...bm,
+          isComplete: true,
+          isStreaming: false,
+          cancelled: true,
+          completedAt: Date.now(),
+        };
       }
       return m;
     }));
