@@ -28,10 +28,8 @@ import {
   ChevronRight,
   FolderOpen,
   Search,
-  ClipboardList,
   Database,
   Code2,
-  ShieldCheck,
   Shield,
   Eye,
   Globe2,
@@ -60,10 +58,10 @@ import {
   X,
   Square
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Editor from '@monaco-editor/react';
 import axios from 'axios';
-import { startBuildPipeline, checkServerHealth, requestSummary, type ChatHistoryEntry, type PipelinePhase, type ToolKind, type ToolStatus, AGENTS_PIPELINE } from './lib/api';
+import { startBuildPipeline, checkServerHealth, requestSummary, type ChatHistoryEntry, type PipelinePhase, type ToolKind, type ToolStatus, type AgentMode, type TodoStatus, type TodoStepPayload, type ActionLogPayload, AGENTS_PIPELINE } from './lib/api';
 import { saveMessage, loadMessages, clearMessages, loadConversationSummary, countMessages } from './lib/messages';
 import { VisualBuilder } from './components/visual';
 import { HuggyLogo } from './components/HuggyLogo';
@@ -76,27 +74,13 @@ import FeedbackWidget from './components/FeedbackWidget';
 import { BuildFeedback } from './components/BuildFeedback';
 import { BuildHistoryDrawer } from './components/BuildHistoryDrawer';
 import { TemplateCarousel, type Template } from './components/TemplateCarousel';
-import {
-  AIBubble,
-  AgentTimeline,
-  ToolBlock,
-  PhaseIndicator,
-  LiveCodeStream,
-  TechnicalDetails,
-  ModeAnnounce,
-  TodoList,
-  ActionLog,
-  QuestionBlock,
-  ConversationMessage,
-  type AgentNode,
-  type PipelinePhase,
-  type AgentStepStatus,
-  type CapabilityPlan,
-  type AgentMode,
-  type TodoStep,
-  type TodoStatus,
-  type ActionEntry,
-} from './components/streaming';
+import { ClaudeCodeStream } from './components/ClaudeCodeStream';
+
+// Local type aliases for the streaming state (formerly re-exported from src/components/streaming).
+// Kept as part of BuildMessage so SSE handlers compile; new UI ignores most of these fields.
+type TodoStep = TodoStepPayload;
+type ActionEntry = ActionLogPayload;
+type CapabilityPlan = Record<string, unknown>;
 import { useAnalytics, usePageTracking, useSessionTracking } from './lib/useAnalytics';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -229,14 +213,6 @@ interface BuildMessage {
 }
 
 type ChatEntry = UserMessage | BuildMessage;
-
-// ─── Agent Definitions ────────────────────────────────────────────────────────
-const AGENTS_DEF = [
-  { name: 'Intent Parser',     Icon: ClipboardList, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/30' },
-  { name: 'Builder Agent',     Icon: Code2,         color: 'text-accent',   bg: 'bg-accent/10',   border: 'border-accent/30'   },
-  { name: 'Preview Compiler',  Icon: Eye,           color: 'text-cyan-400',   bg: 'bg-cyan-500/10',   border: 'border-cyan-500/30'   },
-  { name: 'Repair Agent',      Icon: ShieldCheck,   color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/30'  },
-];
 
 export default function App() {
   const { user, profile, loading: authLoading, signOut, refreshProfile } = useAuth();
@@ -1848,228 +1824,21 @@ export default function App() {
                         );
                       }
 
-                      // ── Build message ─────────────────────────────────────
+                      // ── Build / chat message → Claude Code CLI clone ─────
                       const bm = entry as BuildMessage;
-
-                      if (bm.chatOnly || bm.meta?.chatOnly) {
-                        const text = stripCodeBlocks(bm.replyVisible || bm.reply || '');
-                        return (
-                          <ConversationMessage
-                            key={bm.id}
-                            id={bm.id}
-                            text={text}
-                            isStreaming={!!bm.isStreaming}
-                            timestamp={bm.timestamp}
-                            theme={theme}
-                            copied={copiedMsgId === bm.id}
-                            onCopy={() => copyMessage(bm.id, text)}
-                          />
-                        );
-                      }
-
-                      const safeAgents = Array.isArray(bm.agents) ? bm.agents : [];
                       const safeFiles = Array.isArray(bm.files) ? bm.files : [];
-                      const safeFilesVisible = typeof bm.filesVisible === 'number' ? bm.filesVisible : 0;
-
-                      // ── Derive UI state from raw agent events ────────────
-                      const activeAgent = safeAgents.find(a => a.status === 'active');
-                      const allDone = safeAgents.length > 0 && safeAgents.every(a => a.status === 'completed' || a.status === 'skipped');
-
-                      // Check if this is the latest message and we're connecting
+                      const isChatOnly = !!(bm.chatOnly || bm.meta?.chatOnly);
                       const isLatestMessage = index === messages.length - 1;
-                      const showConnecting = isLatestMessage && isConnecting && !bm.isComplete;
-
-                      // Map agent name → pipeline phase for the StatusPill
-                      // NEW: Use bm.phase from streaming events if available
-                      let phase: PipelinePhase = bm.phase || 'thinking';
-                      if (bm.isComplete || allDone) phase = 'done';
-                      else if (showConnecting) phase = 'initializing';
-                      // Fallback to agent-based mapping if no phase from events
-                      else if (!bm.phase) {
-                        if (activeAgent?.name === 'Intent Parser') phase = 'understanding';
-                        else if (activeAgent?.name === 'Builder Agent') phase = 'coding';
-                        else if (activeAgent?.name === 'Preview Compiler') phase = 'building';
-                        else if (activeAgent?.name === 'Repair Agent') phase = 'repairing';
-                      }
-
-                      // Build the AgentNode[] for the timeline
-                      const timelineAgents: AgentNode[] = AGENTS_DEF.map((def, idx) => {
-                        const a = safeAgents[idx];
-                        return {
-                          name: def.name,
-                          status: (a?.status || 'idle') as AgentStepStatus,
-                          description: a?.description,
-                        };
-                      });
-
-                      // Tool blocks under each agent using activeToolsByAgent (NEW streaming)
-                      // or fall back to bm.toolEvents / files for backwards-compat.
-                      const visibleFiles = safeFiles.slice(0, Math.max(safeFilesVisible, safeFiles.length));
-                      const builderAgentIdx = AGENTS_DEF.findIndex(a => a.name === 'Builder Agent');
-                      const builderAgentState = safeAgents[builderAgentIdx];
-                      const isBuilderActive = builderAgentState?.status === 'active';
-
-                      // NEW: Use activeToolsByAgent from streaming events if available
-                      const activeToolsByAgent = bm.activeToolsByAgent || {};
-                      const liveToolEvents = bm.toolEvents || [];
-
-                      // Build childrenByAgent for all agents with tools
-                      const childrenByAgent: Record<string, React.ReactNode> = {};
-
-                      // If we have streaming tool events grouped by agent, use them
-                      if (Object.keys(activeToolsByAgent).length > 0) {
-                        Object.entries(activeToolsByAgent).forEach(([agentName, tools]) => {
-                          const activeTools = tools.filter(t => t.status === 'active');
-                          const completedTools = tools.filter(t => t.status === 'completed');
-                          const showTools = [...activeTools, ...completedTools.slice(-5)]; // Show active + last 5 completed
-
-                          if (showTools.length > 0) {
-                            childrenByAgent[agentName] = (
-                              <>
-                                {showTools.map((te) => (
-                                  <ToolBlock
-                                    key={`${bm.id}-${te.id}`}
-                                    kind={te.kind}
-                                    label={te.label || te.path}
-                                    detail={te.detail || (typeof te.lines === 'number' ? `${te.lines} lines` : undefined)}
-                                    status={te.status}
-                                  />
-                                ))}
-                              </>
-                            );
-                          }
-                        });
-                      }
-                      // Fall back to flat toolEvents (legacy)
-                      else if (liveToolEvents.length > 0) {
-                        childrenByAgent['Builder Agent'] = (
-                          <>
-                            {liveToolEvents.map((te) => (
-                              <ToolBlock
-                                key={`${bm.id}-${te.id}`}
-                                kind={te.kind || 'write'}
-                                label={te.label || te.path}
-                                detail={te.detail || (typeof te.lines === 'number' ? `${te.lines} lines` : undefined)}
-                                status={te.status}
-                              />
-                            ))}
-                          </>
-                        );
-                      }
-                      // Fall back to deriving from files (backwards-compat)
-                      else if (visibleFiles.length > 0) {
-                        childrenByAgent['Builder Agent'] = (
-                          <>
-                            {visibleFiles.map((file, fi) => {
-                              const lineCount = (file.content?.match(/\n/g)?.length || 0) + 1;
-                              const isLastWhileStreaming = isBuilderActive && fi === visibleFiles.length - 1 && bm.isStreaming;
-                              return (
-                                <ToolBlock
-                                  key={`${bm.id}-${file.path}-${fi}`}
-                                  kind="write"
-                                  label={file.path}
-                                  detail={`${lineCount} ${lineCount > 1 ? 'lines' : 'line'}`}
-                                  status={isLastWhileStreaming ? 'active' : 'completed'}
-                                />
-                              );
-                            })}
-                          </>
-                        );
-                      }
-                      // Show placeholder while building
-                      else if (isBuilderActive) {
-                        childrenByAgent['Builder Agent'] = <ToolBlock kind="write" label="Generating React app..." status="active" />;
-                      }
-
-                      // Detect a "currently writing" path from the live stream global state
-                      const isThisBuildStreaming = bm.isStreaming && !bm.isComplete && phase === 'building';
-                      const livePathMatch = isThisBuildStreaming ? liveStream.match(/```(?:[a-z]+\s+)?file:([^\n`]+)/i) : null;
-                      const showLiveCode = isThisBuildStreaming && liveStream.trim().length > 0;
-                      const livePath = livePathMatch?.[1]?.trim() || (visibleFiles[visibleFiles.length - 1]?.path) || 'generating...';
-                      // Strip file: markers from liveStream for cleaner inline display
-                      const liveCodeContent = liveStream
-                        .replace(/```(?:[a-z]+\s+)?file:[^\n]+\n?/gi, '')
-                        .replace(/```/g, '')
-                        .slice(-1200); // last ~1200 chars to keep the panel snappy
-
-                      const replyText = stripCodeBlocks(bm.replyVisible || '');
-                      const showReply = replyText.length > 0;
-                      const fullReplyText = stripCodeBlocks(bm.reply || '');
-                      const isStillTyping = bm.isStreaming && replyText.length < fullReplyText.length;
 
                       return (
-                        <AIBubble
-                          key={bm.id}
-                          phase={phase}
-                          timestamp={bm.timestamp}
-                          phaseProgress={bm.phaseProgress}
-                          showPhaseIndicator={bm.isStreaming && !bm.isComplete}
-                        >
-                          {/* Phase D: Mode announce — ONLY for code/question modes (casual chat = no badge) */}
-                          {bm.narration?.mode && bm.narration.mode !== 'discussion' && (
-                            <ModeAnnounce
-                              mode={bm.narration.mode}
-                              reason={bm.narration.modeReason}
-                            />
-                          )}
-
-                          {/* Phase D: Question block with clickable options (only in Question mode) */}
-                          {bm.narration?.question && (
-                            <QuestionBlock
-                              question={bm.narration.question.question}
-                              options={bm.narration.question.options}
-                              reason={bm.narration.question.reason}
-                              onAnswer={(answer) => setChatInput(answer)}
-                            />
-                          )}
-
-                          {/* Phase D: Live todo list — ONLY when there's actual work to track (not for chat) */}
-                          {bm.narration?.todos && bm.narration.todos.length > 0 && !bm.chatOnly && (
-                            <TodoList steps={bm.narration.todos} />
-                          )}
-
-                          {/* Agent timeline with nested tool blocks */}
-                          <AgentTimeline agents={timelineAgents} childrenByAgent={childrenByAgent} />
-
-                          {/* Phase D: Significant action log (🛠️ / ✅ / ➡️) */}
-                          {bm.narration?.actions && bm.narration.actions.length > 0 && (
-                            <ActionLog entries={bm.narration.actions} />
-                          )}
-
-                          {/* Live code stream (inline mini-editor) */}
-                          {showLiveCode && (
-                            <LiveCodeStream
-                              path={livePath}
-                              content={liveCodeContent}
-                              isStreaming={isThisBuildStreaming}
-                              maxHeight={180}
-                            />
-                          )}
-
-                          {/* Reply text (typewriter) */}
-                          {showReply && (
-                            <p className="text-xs leading-relaxed text-zinc-200 whitespace-pre-wrap select-text">
-                              {replyText}
-                              {isStillTyping && (
-                                <span className="windsurf-cursor animate-windsurf-cursor inline-block ml-0.5" />
-                              )}
-                            </p>
-                          )}
-
-                          {/* Phase A: Technical details (Metrics + Capability) hidden behind toggle */}
-                          {bm.isComplete && !bm.isStreaming && (
-                            <TechnicalDetails
-                              securityScore={bm.meta?.securityScore}
-                              qaScore={bm.meta?.qaScore}
-                              complexity={bm.meta?.complexity}
-                              filesCount={safeFiles.length}
-                              timestamp={bm.timestamp}
-                              capabilityPlan={bm.meta?.capabilityPlan}
-                            />
-                          )}
-
-                          {/* Inline 👍 / 👎 feedback */}
-                          {bm.isComplete && !bm.isStreaming && !bm.chatOnly && safeFiles.length > 0 && (
+                        <div key={bm.id} className="flex flex-col gap-1">
+                          <ClaudeCodeStream
+                            message={bm}
+                            isLatest={isLatestMessage}
+                            isConnecting={isConnecting}
+                            onAnswerQuestion={(answer) => setChatInput(answer)}
+                          />
+                          {bm.isComplete && !bm.isStreaming && !isChatOnly && safeFiles.length > 0 && (
                             <BuildFeedback
                               userId={user?.id}
                               buildId={bm.id}
@@ -2077,7 +1846,7 @@ export default function App() {
                               prompt={bm.userPrompt}
                             />
                           )}
-                        </AIBubble>
+                        </div>
                       );
                     })}
 
